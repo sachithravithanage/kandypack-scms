@@ -1,1 +1,72 @@
-# kandypack-scms
+# Kandypack Rail and Road-based Supply Chain Distribution System
+
+## Overview
+
+The Kandypack system is a centralized, database-driven logistics platform designed for Kandypack, a mid-sized FMCG manufacturer based in Kandy, Sri Lanka. It replaces legacy Excel-based tracking with a unified web application covering the complete distribution pipeline. The system coordinates primary long-haul transport via the national railway network and manages last-mile truck delivery from regional store facilities to final customer destinations.
+
+## Key Features
+
+- **Order Management:** Customers can place orders, validate the 7-day lead time, and track their order status from placement to delivery.
+- **Rail Cargo Scheduling:** Logistics Dispatchers can allocate bulk orders to scheduled train trips based on fixed cargo capacities and product space-consumption rates.
+- **Regional Store Operations:** Store Managers can reconcile arriving train manifests, report discrepancies, and oversee daily truck loading.
+- **Fleet & Crew Rostering:** Dispatchers can build weekly rosters for trucks, drivers, and assistants while the system automatically enforces working-hour limits and rest-break rules.
+- **Last-Mile Execution:** Drivers and Assistants utilize a mobile-optimized interface to confirm pickups, record delivery stop outcomes, and report issues.
+- **Analytics & Reporting:** System Administrators have access to exportable management reports covering sales, truck utilization, and staff working hours.
+
+## Technology Stack
+
+| Layer                | Technology                      |
+| :------------------- | :------------------------------ |
+| **Frontend**         | React (Vite / Create React App) |
+| **Backend API**      | Node.js with Express            |
+| **Database**         | MySQL Community Server          |
+| **Containerization** | Docker & Docker Compose         |
+
+## Project Structure
+
+The repository is organized into the following primary directories:
+
+- `client/` — Contains the frontend React application code and UI components.
+- `server/` — Contains the Node/Express backend logic, API routes, and database connection settings.
+- `db/` — Contains database schema definitions, initialization scripts (`init.sql`), and sample seed data.
+- `docs/` — Contains project documentation, including the Software Requirements Specification (SRS).
+
+## Getting Started (Local Development)
+
+### Prerequisites
+
+Ensure the following tools are installed on your local machine:
+
+- Git
+- Node.js (LTS version)
+- Docker Desktop
+- MySQL Community Server & MySQL Workbench
+
+### Installation & Setup
+
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/](https://github.com/)<your-org-or-username>/kandypack-scms.git
+    cd kandypack-scms
+    ```
+2.  **Environment Variables:**
+    - Locate the `.env.example` file in the project root and create a copy named `.env`.
+    - Populate the `.env` file with your specific database credentials (`DB_ROOT_PASSWORD`) and a secure `JWT_SECRET` for authentication.
+3.  **Run with Docker Compose:**
+    - The project uses a multi-container Docker setup that initializes the MySQL database, Node backend, and React frontend simultaneously. Run the following command in the project root:
+
+    ```bash
+    docker compose up --build
+    ```
+
+    - Once the containers are running, the application will be accessible via your web browser at `http://localhost:3000`.
+
+## Team Contributors
+
+This project was developed by Group 18:
+
+- Jayawardhana J.A.R.P. (240297E)
+- Kumarasinghe K.H.A.C.P. (240368A)
+- Nanayakkara N.S. (240449A)
+- Rajapaksha W.T.D. (240539B)
+- Vithanage V.B.S. (240690D)
