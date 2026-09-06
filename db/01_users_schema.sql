@@ -21,6 +21,14 @@ CREATE TABLE user (
   FOREIGN KEY (role_id) REFERENCES role(role_id)
 );
 
+CREATE TABLE city (
+  city_id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL UNIQUE
+);
+
+INSERT INTO city (name) VALUES
+  ('Colombo'), ('Negombo'), ('Galle'), ('Matara'), ('Jaffna'), ('Trincomalee');
+
 CREATE TABLE audit_log (
   log_id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT,
