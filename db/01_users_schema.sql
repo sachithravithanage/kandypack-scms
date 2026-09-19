@@ -10,7 +10,7 @@ INSERT INTO role (role_name) VALUES
   ('Administrator'), ('Dispatcher'), ('Regional Store Manager'),
   ('Driver'), ('Assistant'), ('Customer');
 
-CREATE TABLE user (
+CREATE TABLE `user` (
   user_id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(150) NOT NULL UNIQUE,
@@ -19,6 +19,11 @@ CREATE TABLE user (
   is_active BOOLEAN DEFAULT TRUE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (role_id) REFERENCES role(role_id)
+);
+
+CREATE TABLE employee (
+  user_id INT PRIMARY KEY,
+  FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE city (
@@ -37,5 +42,5 @@ CREATE TABLE audit_log (
   record_id INT,
   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
   details TEXT,
-  FOREIGN KEY (user_id) REFERENCES user(user_id)
+  FOREIGN KEY (user_id) REFERENCES `user`(user_id)
 );
