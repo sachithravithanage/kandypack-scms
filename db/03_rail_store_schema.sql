@@ -11,7 +11,7 @@ create table if not exists train_trip (
         destination_city_id int not null,
         departure_datetime datetime not null,
         arrival_datetime datetime not null,
-        total_capcity decimal(10, 2) not null,
+        total_capacity decimal(10, 2) not null,
         status varchar(30) not null default 'Scheduled',
         foreign key (train_id) references train(train_id),
         foreign key (destination_city_id) references city(city_id)
@@ -22,7 +22,7 @@ create table if not exists store (
         city_id int not null,
         name varchar(150) not null,
         address varchar(255),
-        foreign key city_id references city(city_id)
+        foreign key (city_id) references city(city_id)
 );
 
 create table if not exists cargo_allocation (
@@ -32,13 +32,13 @@ create table if not exists cargo_allocation (
         allocated_quantity int not null,
         status varchar(30) not null default 'Not Loaded',
         received_quantity int default null,
-        discrepency_flag boolean no null default false,
-        discrepency_note text default null,
+        discrepancy_flag boolean not null default false,
+        discrepancy_note text default null,
         foreign key (order_item_id) references order_item(order_item_id),
         foreign key (trip_id) references train_trip(trip_id)
 );
 
-create table it not exists store_inventory(
+create table if not exists store_inventory(
         store_inventory_id int auto_increment primary key,
         store_id int not null,
         product_id int not null,
