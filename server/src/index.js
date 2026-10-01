@@ -14,11 +14,11 @@ const { router: notificationRoutes } = require("./routes/notifications");
 const reportRoutes = require("./routes/reports");
 const userRoutes = require("./routes/users");
 const inventoryRoutes = require("./routes/inventory");
+const cityRoutes = require("./routes/cities");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 app.get("/", (req, res) => {
         res.send("Kandypack API is running.");
 });
