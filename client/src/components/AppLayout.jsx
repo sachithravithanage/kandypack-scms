@@ -6,6 +6,8 @@ import {
   IconBox,
   IconLogout,
   IconMenu2,
+  IconSearch,
+  IconBell,
 } from "@tabler/icons-react";
 
 const navItems = [
@@ -77,7 +79,14 @@ function AppLayout({ pageTitle, children }) {
             <IconMenu2 size={22} />
           </button>
           <h1>{pageTitle}</h1>
-          <div className="kp-avatar">{initials}</div>
+          <div className="kp-topbar-actions">
+            <div className="kp-search">
+              <IconSearch size={16} stroke={1.75} />
+              <input type="text" placeholder="Search anything" />
+            </div>
+            <IconBell size={19} stroke={1.75} color="var(--color-text-muted)" />
+            <div className="kp-avatar">{initials}</div>
+          </div>
         </header>
         <main className="kp-content">{children}</main>
       </div>

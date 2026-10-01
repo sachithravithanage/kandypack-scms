@@ -1,12 +1,8 @@
 /* ==========================================================================
-   Kandypack Design System — theme.css
-   Design tokens + base overrides + reusable components.
-   This file is imported AFTER bootstrap's CSS, so these rules win and
-   restyle the Bootstrap classes you're already using.
+   Kandypack Design System — theme.css (v2: floating-panel refresh)
    ========================================================================== */
 
 :root {
-  /* Brand */
   --color-navy-900: #0b1326;
   --color-navy-800: #101a33;
   --color-navy-700: #1c2b52;
@@ -16,16 +12,14 @@
   --color-amber-600: #c27c00;
   --color-amber-50: #fdf0d9;
 
-  /* Neutrals (warm, not cold gray) */
-  --color-bg: #fafaf9;
+  --color-bg: #f3f3f1;
   --color-surface: #ffffff;
-  --color-border: #e4e5e0;
+  --color-border: #ecede8;
   --color-border-strong: #d3d4cc;
   --color-text: #1c1d1b;
   --color-text-muted: #6b6d66;
   --color-text-faint: #9a9c94;
 
-  /* Semantic status colors — reuse these everywhere, don't invent new ones */
   --color-success-bg: #dcfce7;
   --color-success-text: #166534;
   --color-warning-bg: #faeeda;
@@ -35,17 +29,22 @@
   --color-info-bg: #dbeafe;
   --color-info-text: #1d4ed8;
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  --shadow-card:
+    0 1px 2px rgba(16, 26, 51, 0.04), 0 12px 28px -10px rgba(16, 26, 51, 0.12);
   --shadow-sm: 0 1px 2px rgba(16, 26, 51, 0.06);
-  --shadow-md: 0 8px 24px rgba(16, 26, 51, 0.1);
+
   --font-sans:
     "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
 
-  --sidebar-width: 240px;
-  --topbar-height: 60px;
+  --sidebar-width: 236px;
+  --shell-gap: 16px;
 }
 
 /* ---- Base ---- */
@@ -77,11 +76,11 @@ a:hover {
   color: var(--color-amber-600);
 }
 
-/* ---- Bootstrap overrides — your existing className="btn btn-primary" etc. just works ---- */
+/* ---- Bootstrap overrides ---- */
 .btn {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-weight: 500;
-  padding: 0.55rem 1.1rem;
+  padding: 0.55rem 1.3rem;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -99,6 +98,10 @@ a:hover {
   background: var(--color-navy-700);
   border-color: var(--color-navy-700);
 }
+.btn-success {
+  background: var(--color-success-text);
+  border-color: var(--color-success-text);
+}
 .btn-danger {
   background: var(--color-danger-text);
   border-color: var(--color-danger-text);
@@ -107,8 +110,21 @@ a:hover {
   background: #7f1d1d;
   border-color: #7f1d1d;
 }
+.btn-secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+.btn-outline-primary {
+  border-color: var(--color-navy-700);
+  color: var(--color-navy-700);
+}
+.btn-outline-primary:hover {
+  background: var(--color-navy-800);
+  border-color: var(--color-navy-800);
+}
 .btn-sm {
-  padding: 0.3rem 0.7rem;
+  padding: 0.32rem 0.9rem;
   font-size: 0.8rem;
 }
 
@@ -118,11 +134,11 @@ a:hover {
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.8rem;
   font-size: 0.925rem;
+  background: var(--color-surface);
 }
 .form-select {
-  padding-right: 2.25rem; /* leaves room for the dropdown arrow so text can't run under it */
+  padding-right: 2.25rem;
 }
-
 .form-control:focus,
 .form-select:focus {
   border-color: var(--color-amber-500);
@@ -137,22 +153,19 @@ label {
 }
 
 .table {
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  background: transparent;
 }
 .table thead th {
-  background: var(--color-bg);
   color: var(--color-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 600;
   border-bottom: 1px solid var(--color-border);
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1.1rem;
 }
 .table tbody td {
-  padding: 0.7rem 1rem;
+  padding: 0.75rem 1.1rem;
   border-bottom: 1px solid var(--color-border);
   font-size: 0.9rem;
   vertical-align: middle;
@@ -164,14 +177,24 @@ label {
   border-bottom: none;
 }
 
-/* ---- Status badges — use these for any status label in the whole app ---- */
+/* ---- Status badges — pill-shaped with a status dot ---- */
 .kp-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
   text-transform: capitalize;
+}
+.kp-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 .kp-badge-success {
   background: var(--color-success-bg);
@@ -194,34 +217,45 @@ label {
 .kp-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 1.4rem;
 }
 .kp-stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 .kp-stat-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 1.2rem 1.3rem;
+}
+.kp-stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.9rem;
 }
 .kp-stat-card p.kp-stat-label {
   font-size: 0.78rem;
   color: var(--color-text-muted);
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.25rem;
 }
 .kp-stat-card p.kp-stat-value {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   font-weight: 600;
   margin: 0;
   color: var(--color-text);
 }
 
-/* ---- Auth split-screen layout (Login / Register) ---- */
+/* ---- Auth split-screen layout ---- */
 .kp-auth-shell {
   display: flex;
   min-height: 100vh;
@@ -261,16 +295,16 @@ label {
   max-width: 400px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
   padding: 2rem;
 }
 .kp-logo-mark {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
-  background: var(--color-amber-500);
-  color: #1a1200;
+  border-radius: var(--radius-sm);
+  background: var(--color-navy-800);
+  color: #ffffff;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -284,47 +318,54 @@ label {
   }
 }
 
-/* ---- App shell (sidebar + topbar) — used by every logged-in screen ---- */
+/* ---- App shell: floating sidebar + floating topbar, like the reference boards ---- */
 .kp-shell {
   display: flex;
+  gap: var(--shell-gap);
   min-height: 100vh;
+  padding: var(--shell-gap);
+  background: var(--color-bg);
 }
 
 .kp-sidebar {
   width: var(--sidebar-width);
-  background: var(--color-navy-800);
-  color: #f5f6f8;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   padding: 1.25rem 0.9rem;
   flex-shrink: 0;
+  position: sticky;
+  top: var(--shell-gap);
+  height: calc(100vh - (var(--shell-gap) * 2));
 }
 .kp-sidebar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 0.4rem;
+  padding: 0 0.5rem;
   margin-bottom: 1.5rem;
 }
 .kp-sidebar-brand span {
   font-weight: 600;
   font-size: 0.95rem;
-  color: #f5f6f8;
+  color: var(--color-text);
 }
 
 .kp-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
 }
 .kp-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0.6rem 0.7rem;
-  border-radius: var(--radius-sm);
-  color: #c3c8d4;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   border: none;
   background: none;
@@ -333,14 +374,13 @@ label {
   cursor: pointer;
 }
 .kp-nav-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #f5f6f8;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 .kp-nav-item-active {
-  background: rgba(240, 162, 2, 0.14);
-  color: #f5f6f8;
-  border-left: 2px solid var(--color-amber-500);
-  padding-left: calc(0.7rem - 2px);
+  background: var(--color-amber-50);
+  color: var(--color-navy-800);
+  font-weight: 500;
 }
 .kp-logout {
   margin-top: auto;
@@ -353,25 +393,57 @@ label {
 .kp-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-gap);
 }
 
 .kp-topbar {
-  height: var(--topbar-height);
   background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 1.5rem;
+  gap: 1rem;
+  padding: 0.7rem 1.1rem;
+}
+.kp-topbar h1 {
+  flex: 1;
+} /* pushes everything after it to the right edge, as one group */
+.kp-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+.kp-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-bg);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 1rem;
+  color: var(--color-text-faint);
+  width: 230px;
+}
+.kp-search input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 0.85rem;
+  width: 100%;
+  color: var(--color-text);
+  font-family: var(--font-sans);
 }
 .kp-topbar h1 {
   font-size: 0.95rem;
   font-weight: 600;
   margin: 0;
+  white-space: nowrap;
 }
 .kp-avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--color-navy-800);
   color: #f5f6f8;
@@ -393,17 +465,23 @@ label {
 }
 
 .kp-content {
-  padding: 1.5rem;
+  flex: 1;
 }
 
-/* ---- Responsive: collapse the sidebar into a drawer below 860px ---- */
+/* ---- Responsive: sidebar becomes a sliding drawer below 860px ---- */
 @media (max-width: 860px) {
+  .kp-shell {
+    padding: 0;
+    gap: 0;
+  }
   .kp-sidebar {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
+    height: 100vh;
     z-index: 40;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
     transform: translateX(-100%);
     transition: transform 0.2s ease;
   }
@@ -417,10 +495,21 @@ label {
     background: rgba(11, 19, 38, 0.4);
     z-index: 30;
   }
+  .kp-main {
+    gap: 0;
+  }
+  .kp-topbar {
+    border-radius: 0;
+  }
   .kp-menu-btn {
     display: inline-flex;
   }
   .kp-content {
     padding: 1rem;
+  }
+}
+@media (min-width: 861px) {
+  .kp-content {
+    padding: 0 var(--shell-gap) var(--shell-gap);
   }
 }
