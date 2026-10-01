@@ -4,6 +4,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const inventoryRoutes = require("./routes/inventory");
+const cityRoutes = require("./routes/cities");
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/cities", cityRoutes);
 
 app.get("/", (req, res) => {
   res.send("Kandypack API is running.");
