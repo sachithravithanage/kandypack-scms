@@ -10,12 +10,29 @@ const roleNames = {
   5: "Assistant",
   6: "Customer",
 };
+// Customer (6) is deliberately left out here — customers self-register via the public
+// Register page (SRS 3.1.1 / REQ-USR-03). This dropdown is only for accounts an Admin creates.
+const creatableRoles = {
+  1: "Administrator",
+  2: "Dispatcher",
+  3: "Regional Store Manager",
+  4: "Driver",
+  5: "Assistant",
+};
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", roleId: "" });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    roleId: "2",
+    licenseNumber: "",
+  });
 
   const loadUsers = useCallback(() => {
     axios
@@ -31,6 +48,37 @@ function AdminUsers() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(
+        "http://localhost:5000/api/users",
+        {
+          name: addForm.name,
+          email: addForm.email,
+          password: addForm.password,
+          roleId: Number(addForm.roleId),
+          licenseNumber:
+            addForm.roleId === "4" ? addForm.licenseNumber : undefined,
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
+      );
+      setAddForm({
+        name: "",
+        email: "",
+        password: "",
+        roleId: "2",
+        licenseNumber: "",
+      });
+      setShowAddForm(false);
+      loadUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || "Could not create user");
+    }
+  };
 
   const startEdit = (user) => {
     setEditingUser(user.user_id);
@@ -81,6 +129,93 @@ function AdminUsers() {
   return (
     <AppLayout pageTitle="User management">
       {error && <p className="text-danger">{error}</p>}
+
+      <div className="mb-3">
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowAddForm(!showAddForm)}
+        >
+          {showAddForm ? "Cancel" : "+ Add User"}
+        </button>
+      </div>
+
+      {showAddForm && (
+        <div className="kp-card mb-3">
+          <h5 className="mb-3">Create a staff account</h5>
+          <form onSubmit={handleAddUser}>
+            <div className="row g-2">
+              <div className="col-md-3">
+                <label>Name</label>
+                <input
+                  className="form-control"
+                  value={addForm.name}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="col-md-3">
+                <label>Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={addForm.email}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, email: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="col-md-2">
+                <label>Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  value={addForm.password}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, password: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="col-md-2">
+                <label>Role</label>
+                <select
+                  className="form-select"
+                  value={addForm.roleId}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, roleId: e.target.value })
+                  }
+                >
+                  {Object.entries(creatableRoles).map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {addForm.roleId === "4" && (
+                <div className="col-md-2">
+                  <label>License number</label>
+                  <input
+                    className="form-control"
+                    value={addForm.licenseNumber}
+                    onChange={(e) =>
+                      setAddForm({ ...addForm, licenseNumber: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              )}
+            </div>
+            <button type="submit" className="btn btn-success mt-3">
+              Create account
+            </button>
+          </form>
+        </div>
+      )}
+
       <div className="kp-card" style={{ padding: 0 }}>
         <table className="table mb-0">
           <thead>
