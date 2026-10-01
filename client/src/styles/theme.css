@@ -119,6 +119,10 @@ a:hover {
   padding: 0.6rem 0.8rem;
   font-size: 0.925rem;
 }
+.form-select {
+  padding-right: 2.25rem; /* leaves room for the dropdown arrow so text can't run under it */
+}
+
 .form-control:focus,
 .form-select:focus {
   border-color: var(--color-amber-500);

@@ -179,7 +179,7 @@ function AdminUsers() {
                   required
                 />
               </div>
-              <div className="col-md-2">
+              <div className="col-md-3">
                 <label>Role</label>
                 <select
                   className="form-select"
