@@ -1,0 +1,422 @@
+/* ==========================================================================
+   Kandypack Design System — theme.css
+   Design tokens + base overrides + reusable components.
+   This file is imported AFTER bootstrap's CSS, so these rules win and
+   restyle the Bootstrap classes you're already using.
+   ========================================================================== */
+
+:root {
+  /* Brand */
+  --color-navy-900: #0b1326;
+  --color-navy-800: #101a33;
+  --color-navy-700: #1c2b52;
+  --color-navy-600: #2a3d6b;
+
+  --color-amber-500: #f0a202;
+  --color-amber-600: #c27c00;
+  --color-amber-50: #fdf0d9;
+
+  /* Neutrals (warm, not cold gray) */
+  --color-bg: #fafaf9;
+  --color-surface: #ffffff;
+  --color-border: #e4e5e0;
+  --color-border-strong: #d3d4cc;
+  --color-text: #1c1d1b;
+  --color-text-muted: #6b6d66;
+  --color-text-faint: #9a9c94;
+
+  /* Semantic status colors — reuse these everywhere, don't invent new ones */
+  --color-success-bg: #dcfce7;
+  --color-success-text: #166534;
+  --color-warning-bg: #faeeda;
+  --color-warning-text: #854f0b;
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #991b1b;
+  --color-info-bg: #dbeafe;
+  --color-info-text: #1d4ed8;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(16, 26, 51, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 26, 51, 0.1);
+  --font-sans:
+    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
+}
+
+/* ---- Base ---- */
+* {
+  box-sizing: border-box;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+a {
+  color: var(--color-navy-700);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-amber-600);
+}
+
+/* ---- Bootstrap overrides — your existing className="btn btn-primary" etc. just works ---- */
+.btn {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  padding: 0.55rem 1.1rem;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.05s ease;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn-primary {
+  background: var(--color-navy-800);
+  border-color: var(--color-navy-800);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background: var(--color-navy-700);
+  border-color: var(--color-navy-700);
+}
+.btn-danger {
+  background: var(--color-danger-text);
+  border-color: var(--color-danger-text);
+}
+.btn-danger:hover {
+  background: #7f1d1d;
+  border-color: #7f1d1d;
+}
+.btn-sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.form-control,
+.form-select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.925rem;
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--color-amber-500);
+  box-shadow: 0 0 0 3px var(--color-amber-50);
+}
+label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: 0.3rem;
+  display: inline-block;
+}
+
+.table {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.table thead th {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.75rem 1rem;
+}
+.table tbody td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+.table tbody tr:hover {
+  background: var(--color-bg);
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---- Status badges — use these for any status label in the whole app ---- */
+.kp-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+}
+.kp-badge-success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+.kp-badge-warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+.kp-badge-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+.kp-badge-info {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+/* ---- Cards ---- */
+.kp-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+}
+.kp-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.kp-stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+}
+.kp-stat-card p.kp-stat-label {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin: 0 0 0.3rem;
+}
+.kp-stat-card p.kp-stat-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+/* ---- Auth split-screen layout (Login / Register) ---- */
+.kp-auth-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.kp-auth-brand {
+  flex: 1;
+  background: var(--color-navy-800);
+  color: #f5f6f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+.kp-auth-brand-inner {
+  max-width: 360px;
+}
+.kp-auth-brand-inner h1 {
+  color: #ffffff;
+  font-size: 1.8rem;
+  margin: 1rem 0 0.75rem;
+}
+.kp-auth-brand-inner p {
+  color: #b7bccc;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.kp-auth-form {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--color-bg);
+}
+.kp-auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 2rem;
+}
+.kp-logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--color-amber-500);
+  color: #1a1200;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+@media (max-width: 860px) {
+  .kp-auth-brand {
+    display: none;
+  }
+}
+
+/* ---- App shell (sidebar + topbar) — used by every logged-in screen ---- */
+.kp-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.kp-sidebar {
+  width: var(--sidebar-width);
+  background: var(--color-navy-800);
+  color: #f5f6f8;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0.9rem;
+  flex-shrink: 0;
+}
+.kp-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0.4rem;
+  margin-bottom: 1.5rem;
+}
+.kp-sidebar-brand span {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #f5f6f8;
+}
+
+.kp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.kp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  color: #c3c8d4;
+  font-size: 0.875rem;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.kp-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f6f8;
+}
+.kp-nav-item-active {
+  background: rgba(240, 162, 2, 0.14);
+  color: #f5f6f8;
+  border-left: 2px solid var(--color-amber-500);
+  padding-left: calc(0.7rem - 2px);
+}
+.kp-logout {
+  margin-top: auto;
+}
+
+.kp-sidebar-backdrop {
+  display: none;
+}
+
+.kp-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.kp-topbar {
+  height: var(--topbar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+}
+.kp-topbar h1 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+.kp-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-navy-800);
+  color: #f5f6f8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kp-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  font-size: 1.3rem;
+  padding: 0.25rem;
+  align-items: center;
+}
+
+.kp-content {
+  padding: 1.5rem;
+}
+
+/* ---- Responsive: collapse the sidebar into a drawer below 860px ---- */
+@media (max-width: 860px) {
+  .kp-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+  .kp-sidebar-open {
+    transform: translateX(0);
+  }
+  .kp-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 19, 38, 0.4);
+    z-index: 30;
+  }
+  .kp-menu-btn {
+    display: inline-flex;
+  }
+  .kp-content {
+    padding: 1rem;
+  }
+}
