@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import AdminUsers from "./pages/AdminUsers";
+import AdminInventory from "./pages/AdminInventory";
 
-// Temporary placeholder so you can see that login worked.
-// It gets replaced by real role-based dashboards later.
 function Dashboard() {
   return <h2 className="container mt-5">Logged in successfully!</h2>;
 }
@@ -15,6 +15,8 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/inventory" element={<AdminInventory />} />
       </Routes>
     </BrowserRouter>
   );
