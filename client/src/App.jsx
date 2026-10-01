@@ -1,12 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminInventory from "./pages/AdminInventory";
-
-function Dashboard() {
-  return <h2 className="container mt-5">Logged in successfully!</h2>;
-}
 
 function App() {
   return (

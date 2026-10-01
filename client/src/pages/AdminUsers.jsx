@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import AppLayout from "../components/AppLayout";
 
 const roleNames = {
   1: "Administrator",
@@ -13,16 +14,14 @@ const roleNames = {
 function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
-  const [editingUser, setEditingUser] = useState(null); // user_id currently being edited, or null
+  const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", email: "", roleId: "" });
 
   const loadUsers = useCallback(() => {
-    const authHeader = {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    };
-
     axios
-      .get("http://localhost:5000/api/users", authHeader)
+      .get("http://localhost:5000/api/users", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      })
       .then((res) => setUsers(res.data))
       .catch((err) =>
         setError(err.response?.data?.error || "Could not load users"),
@@ -32,10 +31,6 @@ function AdminUsers() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
-
-  const authHeader = {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  };
 
   const startEdit = (user) => {
     setEditingUser(user.user_id);
@@ -56,10 +51,12 @@ function AdminUsers() {
           email: editForm.email,
           roleId: Number(editForm.roleId),
         },
-        authHeader,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
       );
       setEditingUser(null);
-      loadUsers(); // refresh the table so the saved change shows immediately
+      loadUsers();
     } catch (err) {
       setError(err.response?.data?.error || "Could not update user");
     }
@@ -71,7 +68,9 @@ function AdminUsers() {
       await axios.put(
         `http://localhost:5000/api/users/${userId}/deactivate`,
         {},
-        authHeader,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        },
       );
       loadUsers();
     } catch (err) {
@@ -80,102 +79,115 @@ function AdminUsers() {
   };
 
   return (
-    <div className="container mt-5">
-      <h2>User Management</h2>
+    <AppLayout pageTitle="User management">
       {error && <p className="text-danger">{error}</p>}
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.user_id}>
-              {editingUser === u.user_id ? (
-                <>
-                  <td>
-                    <input
-                      className="form-control form-control-sm"
-                      value={editForm.name}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, name: e.target.value })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="form-control form-control-sm"
-                      value={editForm.email}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, email: e.target.value })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <select
-                      className="form-select form-select-sm"
-                      value={editForm.roleId}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, roleId: e.target.value })
-                      }
-                    >
-                      {Object.entries(roleNames).map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>{u.is_active ? "Active" : "Deactivated"}</td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-success me-1"
-                      onClick={() => saveEdit(u.user_id)}
-                    >
-                      Save
-                    </button>
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={cancelEdit}
-                    >
-                      Cancel
-                    </button>
-                  </td>
-                </>
-              ) : (
-                <>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  <td>{roleNames[u.role_id]}</td>
-                  <td>{u.is_active ? "Active" : "Deactivated"}</td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-outline-primary me-1"
-                      onClick={() => startEdit(u)}
-                    >
-                      Edit
-                    </button>
-                    {u.is_active && (
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDeactivate(u.user_id)}
-                      >
-                        Deactivate
-                      </button>
-                    )}
-                  </td>
-                </>
-              )}
+      <div className="kp-card" style={{ padding: 0 }}>
+        <table className="table mb-0">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.user_id}>
+                {editingUser === u.user_id ? (
+                  <>
+                    <td>
+                      <input
+                        className="form-control form-control-sm"
+                        value={editForm.name}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, name: e.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="form-control form-control-sm"
+                        value={editForm.email}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, email: e.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <select
+                        className="form-select form-select-sm"
+                        value={editForm.roleId}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, roleId: e.target.value })
+                        }
+                      >
+                        {Object.entries(roleNames).map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <span
+                        className={`kp-badge ${u.is_active ? "kp-badge-success" : "kp-badge-danger"}`}
+                      >
+                        {u.is_active ? "Active" : "Deactivated"}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-sm btn-success me-1"
+                        onClick={() => saveEdit(u.user_id)}
+                      >
+                        Save
+                      </button>
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={cancelEdit}
+                      >
+                        Cancel
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{u.name}</td>
+                    <td>{u.email}</td>
+                    <td>{roleNames[u.role_id]}</td>
+                    <td>
+                      <span
+                        className={`kp-badge ${u.is_active ? "kp-badge-success" : "kp-badge-danger"}`}
+                      >
+                        {u.is_active ? "Active" : "Deactivated"}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-sm btn-outline-primary me-1"
+                        onClick={() => startEdit(u)}
+                      >
+                        Edit
+                      </button>
+                      {u.is_active && (
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDeactivate(u.user_id)}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </AppLayout>
   );
 }
 
