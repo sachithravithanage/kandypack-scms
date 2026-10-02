@@ -23,3 +23,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+const { router: notificationRoutes } = require('./routes/notifications');
+app.use('/api/notifications', notificationRoutes);

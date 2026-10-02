@@ -7,5 +7,5 @@ CREATE TABLE notification (
   message TEXT NOT NULL,
   is_read BOOLEAN DEFAULT FALSE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES user(user_id)
 );
