@@ -6,6 +6,8 @@ const userRoutes = require("./routes/users");
 const inventoryRoutes = require("./routes/inventory");
 const cityRoutes = require("./routes/cities");
 
+const rosterRoutes = require("./routes/roster");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -14,6 +16,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/cities", cityRoutes);
+app.use("/api/roster", rosterRoutes);
 
 app.get("/", (req, res) => {
   res.send("Kandypack API is running.");
