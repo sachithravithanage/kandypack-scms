@@ -16,9 +16,14 @@ const userRoutes = require("./routes/users");
 const inventoryRoutes = require("./routes/inventory");
 const cityRoutes = require("./routes/cities");
 
+const rosterRoutes = require("./routes/roster");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+
+
 app.get("/", (req, res) => {
         res.send("Kandypack API is running.");
 });
