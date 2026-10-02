@@ -26,3 +26,5 @@ app.listen(PORT, () => {
 
 const { router: notificationRoutes } = require('./routes/notifications');
 app.use('/api/notifications', notificationRoutes);
+
+app.use('/api/reports', require('./routes/reports'));
