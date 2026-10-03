@@ -35,3 +35,4 @@ function requireRole(allowedRoleIds) {
 }
 
 module.exports = { requireAuth, requireRole };
+

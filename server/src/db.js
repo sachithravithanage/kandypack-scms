@@ -297,6 +297,9 @@ module.exports = {
       throw err;
     }
   },
+  execute: async (sql, params) => {
+    return module.exports.query(sql, params);
+  },
   getConnection: async () => {
     if (useFallback) {
       return {
@@ -304,7 +307,8 @@ module.exports = {
         commit: async () => {},
         rollback: async () => {},
         release: () => {},
-        query: async (sql, params) => executeMockQuery(sql, params)
+        query: async (sql, params) => executeMockQuery(sql, params),
+        execute: async (sql, params) => executeMockQuery(sql, params)
       };
     }
     try {
@@ -316,7 +320,8 @@ module.exports = {
         commit: async () => {},
         rollback: async () => {},
         release: () => {},
-        query: async (sql, params) => executeMockQuery(sql, params)
+        query: async (sql, params) => executeMockQuery(sql, params),
+        execute: async (sql, params) => executeMockQuery(sql, params)
       };
     }
   }
