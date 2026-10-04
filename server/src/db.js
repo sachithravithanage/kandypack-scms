@@ -25,16 +25,18 @@ try {
 }
 
 // In-Memory Seed Store (Dual-Mode Fallback when Cloud DB is unreachable)
+const defaultPasswordHash = '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVEdHurSIa2O'; // password123
+
 const mockDb = {
   users: [
-    { user_id: 1, name: 'Kasun Perera', email: 'admin@kandypack.lk', phone: '0711111111', role_id: 1, role: 'Administrator' },
-    { user_id: 2, name: 'Nimal Fernando', email: 'dispatcher@kandypack.lk', phone: '0712222222', role_id: 2, role: 'Dispatcher' },
-    { user_id: 3, name: 'Suneth Silva', email: 'suneth.cmb@kandypack.lk', phone: '0713333333', role_id: 3, role: 'Regional Store Manager' },
-    { user_id: 5, name: 'Kamal Gunaratne', email: 'kamal.driver@kandypack.lk', phone: '0715555555', role_id: 4, role: 'Driver' },
-    { user_id: 6, name: 'Ajith Kumara', email: 'ajith.driver@kandypack.lk', phone: '0716666666', role_id: 4, role: 'Driver' },
-    { user_id: 7, name: 'Bandara Weerakoon', email: 'bandara.asst@kandypack.lk', phone: '0717777777', role_id: 5, role: 'Assistant' },
-    { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant' },
-    { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni@gmail.com', phone: '0771234567', role_id: 6, role: 'Customer' }
+    { user_id: 1, name: 'Kasun Perera', email: 'admin@kandypack.lk', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 2, name: 'Nimal Fernando', email: 'dispatcher@kandypack.lk', phone: '0712222222', role_id: 2, role: 'Dispatcher', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 3, name: 'Suneth Silva', email: 'suneth.cmb@kandypack.lk', phone: '0713333333', role_id: 3, role: 'Regional Store Manager', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 5, name: 'Kamal Gunaratne', email: 'kamal.driver@kandypack.lk', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 6, name: 'Ajith Kumara', email: 'ajith.driver@kandypack.lk', phone: '0716666666', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 7, name: 'Bandara Weerakoon', email: 'bandara.asst@kandypack.lk', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni@gmail.com', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
   ],
   drivers: [
     { user_id: 5, license_number: 'DL-78234' },
@@ -110,6 +112,13 @@ const mockDb = {
 // Helper: In-memory fallback query executor
 function executeMockQuery(sql, params = []) {
   const s = sql.trim().toUpperCase();
+
+  // 0. User login lookup: SELECT * FROM user WHERE email = ?
+  if (s.includes('FROM USER WHERE EMAIL = ?')) {
+    const email = params[0];
+    const match = mockDb.users.filter(u => u.email.toLowerCase() === String(email).toLowerCase());
+    return [match];
+  }
 
   // 1. SELECT max_delivery_time_minutes FROM route WHERE route_id = ?
   if (s.includes('FROM ROUTE') && s.includes('ROUTE_ID =')) {
