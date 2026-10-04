@@ -2,6 +2,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -137,9 +138,10 @@ router.put('/allocations/:allocationId', async (req, res) => {
 
     // 1. Fetch allocation and verify store pickup confirmation
     const [allocRows] = await db.query(
-      `SELECT ta.*, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status
+      `SELECT ta.*, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status, o.customer_id
        FROM truck_allocation ta
        JOIN truck_schedule ts ON ta.truck_schedule_id = ts.truck_schedule_id
+       JOIN \`order\` o ON ta.order_id = o.order_id
        WHERE ta.truck_allocation_id = ?`,
       [allocationId]
     );
@@ -169,6 +171,9 @@ router.put('/allocations/:allocationId', async (req, res) => {
     if (deliveryStatus === 'Delivered') {
       await db.query('UPDATE `order` SET status = "Delivered" WHERE order_id = ?', [alloc.order_id]);
       await db.query('UPDATE order_item SET status = "Delivered" WHERE order_id = ?', [alloc.order_id]);
+      
+      // Notify customer
+      await createNotification(alloc.customer_id, 'Delivery', `Your order #${alloc.order_id} has been delivered successfully!`);
     }
 
     // 4. REQ-DEL-04: If Failed, automatically re-queue onto next available scheduled run on the same route
@@ -188,8 +193,12 @@ router.put('/allocations/:allocationId', async (req, res) => {
           [reallocatedScheduleId, alloc.order_id, alloc.route_stop_id]
         );
         console.log(`[Re-queue REQ-DEL-04] Order #${alloc.order_id} failed and re-queued to schedule #${reallocatedScheduleId} on ${nextRuns[0].scheduled_date}`);
+        
+        await createNotification(alloc.customer_id, 'Delivery Alert', `Delivery for order #${alloc.order_id} failed. It has been rescheduled to ${nextRuns[0].scheduled_date}.`);
       } else {
         console.warn(`[Re-queue REQ-DEL-04] Order #${alloc.order_id} failed, but no future Scheduled runs found on route #${alloc.route_id}. Flagged for Dispatcher review.`);
+        
+        await createNotification(alloc.customer_id, 'Delivery Alert', `Delivery for order #${alloc.order_id} failed. Our dispatcher will contact you soon.`);
       }
     }
 
