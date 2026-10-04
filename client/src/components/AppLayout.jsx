@@ -9,15 +9,20 @@ import {
   IconSearch,
   IconBell,
   IconChartBar,
+  IconCalendarEvent,
+  IconTruck,
 } from "@tabler/icons-react";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard },
+  { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent },
+  { to: "/delivery", label: "Delivery Runs", Icon: IconTruck },
   { to: "/admin/users", label: "Users", Icon: IconUsers },
   { to: "/admin/inventory", label: "Inventory", Icon: IconBox },
   { to: "/reports", label: "Reports", Icon: IconChartBar },
   { to: "/notifications", label: "Notifications", Icon: IconBell },
 ];
+
 
 function AppLayout({ pageTitle, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
