@@ -8,24 +8,76 @@ import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public authentication routes */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/roster" element={<RosterSchedule />} />
-        <Route path="/delivery" element={<DriverDelivery />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/inventory" element={<AdminInventory />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/notifications" element={<Notifications />} />
+
+        {/* Protected portals with role-based restrictions */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/roster"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <RosterSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/delivery"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
+              <DriverDelivery />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute allowedRoles={[1]}>
+              <AdminUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/inventory"
+          element={
+            <ProtectedRoute allowedRoles={[1, 3]}>
+              <AdminInventory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
 }
-
 
 export default App;

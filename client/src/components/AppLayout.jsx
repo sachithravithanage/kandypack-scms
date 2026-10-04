@@ -13,28 +13,47 @@ import {
   IconTruck,
 } from "@tabler/icons-react";
 
-const navItems = [
-  { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard },
-  { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent },
-  { to: "/delivery", label: "Delivery Runs", Icon: IconTruck },
-  { to: "/admin/users", label: "Users", Icon: IconUsers },
-  { to: "/admin/inventory", label: "Inventory", Icon: IconBox },
-  { to: "/reports", label: "Reports", Icon: IconChartBar },
-  { to: "/notifications", label: "Notifications", Icon: IconBell },
-];
+export const roleNames = {
+  1: "Administrator",
+  2: "Dispatcher",
+  3: "Regional Store Manager",
+  4: "Driver",
+  5: "Assistant",
+  6: "Customer",
+};
 
+// Defined navigation links with strict role permissions
+const navItems = [
+  { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard, allowedRoles: [1, 2, 3] },
+  { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
+  { to: "/delivery", label: "Delivery Runs", Icon: IconTruck, allowedRoles: [1, 2, 3, 4, 5] },
+  { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },
+  { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
+  { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
+  { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
+];
 
 function AppLayout({ pageTitle, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
+  const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
+  const storedRoleName = localStorage.getItem("roleName") || roleNames[storedRoleId] || "Staff";
+  const storedName = localStorage.getItem("name") || "User";
+
+  // Filter navigation items strictly by role permissions
+  const visibleNavItems = navItems.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(storedRoleId)
+  );
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("name");
+    localStorage.removeItem("roleId");
+    localStorage.removeItem("roleName");
     navigate("/");
   };
 
-  const storedName = localStorage.getItem("name") || "User";
   const initials = storedName
     .split(" ")
     .map((w) => w[0])
@@ -50,7 +69,7 @@ function AppLayout({ pageTitle, children }) {
           <span>Kandypack</span>
         </div>
         <nav className="kp-nav">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -93,7 +112,20 @@ function AppLayout({ pageTitle, children }) {
               <input type="text" placeholder="Search anything" />
             </div>
             <IconBell size={19} stroke={1.75} color="var(--color-text-muted)" />
-            <div className="kp-avatar">{initials}</div>
+            <div className="d-flex align-items-center gap-2">
+              <div className="text-end d-none d-md-block">
+                <div style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.2 }}>
+                  {storedName}
+                </div>
+                <div
+                  className="badge bg-secondary-subtle text-secondary"
+                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                >
+                  {storedRoleName}
+                </div>
+              </div>
+              <div className="kp-avatar">{initials}</div>
+            </div>
           </div>
         </header>
         <main className="kp-content">{children}</main>

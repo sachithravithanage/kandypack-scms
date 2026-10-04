@@ -16,9 +16,32 @@ function Login() {
         email,
         password,
       });
+      const user = res.data.user;
       localStorage.setItem("token", res.data.token);
-      localStorage.setItem("name", res.data.user.name);
-      navigate("/dashboard");
+      localStorage.setItem("name", user.name);
+      localStorage.setItem("roleId", user.roleId);
+
+      const roleMap = {
+        1: "Administrator",
+        2: "Dispatcher",
+        3: "Regional Store Manager",
+        4: "Driver",
+        5: "Assistant",
+        6: "Customer",
+      };
+      localStorage.setItem("roleName", user.role || roleMap[user.roleId] || "Staff");
+
+      // Smart role-based landing redirection
+      if (user.roleId === 4 || user.roleId === 5) {
+        // Driver or Assistant -> Land directly in Delivery Runs portal
+        navigate("/delivery");
+      } else if (user.roleId === 2) {
+        // Dispatcher -> Land directly in Roster Schedule portal
+        navigate("/roster");
+      } else {
+        // Admin or Store Manager -> Dashboard
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
     }
