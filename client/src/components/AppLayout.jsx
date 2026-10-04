@@ -8,12 +8,15 @@ import {
   IconMenu2,
   IconSearch,
   IconBell,
+  IconChartBar,
 } from "@tabler/icons-react";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard },
   { to: "/admin/users", label: "Users", Icon: IconUsers },
   { to: "/admin/inventory", label: "Inventory", Icon: IconBox },
+  { to: "/reports", label: "Reports", Icon: IconChartBar },
+  { to: "/notifications", label: "Notifications", Icon: IconBell },
 ];
 
 function AppLayout({ pageTitle, children }) {
