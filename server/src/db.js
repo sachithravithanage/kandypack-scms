@@ -75,12 +75,29 @@ const mockDb = {
       pickup_confirmed_at: null
     }
   ],
+  orders: [
+    { order_id: 101, customer_id: 9, delivery_address: '42 Flower Road, Colombo 07', total_volume: 4.50, status: 'In Transit' },
+    { order_id: 102, customer_id: 9, delivery_address: '15 Galle Road, Mount Lavinia', total_volume: 6.20, status: 'In Transit' }
+  ],
+  route_stops: [
+    { route_stop_id: 1, route_id: 1, stop_name: 'Colombo 07 - Cinnamon Gardens', stop_order: 1 },
+    { route_stop_id: 2, route_id: 1, stop_name: 'Colombo 03 - Kollupitiya Junction', stop_order: 2 }
+  ],
   allocations: [
     {
       truck_allocation_id: 1,
       truck_schedule_id: 1,
       order_id: 101,
       route_stop_id: 1,
+      delivery_status: 'Pending',
+      delivered_at: null,
+      delivery_note: null
+    },
+    {
+      truck_allocation_id: 2,
+      truck_schedule_id: 1,
+      order_id: 102,
+      route_stop_id: 2,
       delivery_status: 'Pending',
       delivered_at: null,
       delivery_note: null
@@ -261,14 +278,200 @@ function executeMockQuery(sql, params = []) {
     return [list];
   }
 
-  // 15. SELECT status, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?
+  // 15. SELECT truck_schedule_id, status, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?
   if (s.includes('FROM TRUCK_SCHEDULE WHERE TRUCK_SCHEDULE_ID = ?')) {
     const id = params[0];
     const match = mockDb.schedules.filter(ts => String(ts.truck_schedule_id) === String(id));
     return [match];
   }
 
-  // 16. DELETE FROM truck_schedule / truck_allocation
+  // 16. Single schedule detail for delivery execution
+  if (s.includes('FROM TRUCK_SCHEDULE TS') && s.includes('WHERE TS.TRUCK_SCHEDULE_ID = ?')) {
+    const id = params[0];
+    const ts = mockDb.schedules.find(x => String(x.truck_schedule_id) === String(id));
+    if (!ts) return [[]];
+    const r = mockDb.routes.find(x => String(x.route_id) === String(ts.route_id)) || {};
+    const tk = mockDb.trucks.find(x => String(x.truck_id) === String(ts.truck_id)) || {};
+    const ud = mockDb.users.find(x => String(x.user_id) === String(ts.driver_id)) || {};
+    const ua = mockDb.users.find(x => String(x.user_id) === String(ts.assistant_id)) || {};
+    return [[{
+      truck_schedule_id: ts.truck_schedule_id,
+      route_id: ts.route_id,
+      route_name: r.name || 'Route',
+      max_delivery_time_minutes: r.max_delivery_time_minutes || 240,
+      truck_id: ts.truck_id,
+      plate_number: tk.plate_number || 'WP-CAB-1234',
+      truck_capacity: tk.capacity || 50,
+      driver_id: ts.driver_id,
+      driver_name: ud.name || 'Kamal Gunaratne',
+      assistant_id: ts.assistant_id,
+      assistant_name: ua.name || 'Bandara Weerakoon',
+      scheduled_date: ts.scheduled_date,
+      start_time: ts.start_time,
+      end_time: ts.end_time,
+      status: ts.status,
+      pickup_confirmed_at: ts.pickup_confirmed_at
+    }]];
+  }
+
+  // 17. Delivery stops / allocations for a schedule (REQ-DEL-01)
+  if (s.includes('FROM TRUCK_ALLOCATION TA') && s.includes('TA.TRUCK_SCHEDULE_ID = ?')) {
+    const scheduleId = params[0];
+    const allocs = mockDb.allocations.filter(a => String(a.truck_schedule_id) === String(scheduleId));
+    const list = allocs.map(a => {
+      const o = mockDb.orders.find(x => String(x.order_id) === String(a.order_id)) || {};
+      const u = mockDb.users.find(x => String(x.user_id) === String(o.customer_id)) || {};
+      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(a.route_stop_id)) || {};
+      return {
+        truck_allocation_id: a.truck_allocation_id,
+        truck_schedule_id: a.truck_schedule_id,
+        order_id: a.order_id,
+        route_stop_id: a.route_stop_id,
+        stop_name: rs.stop_name || 'Delivery Stop',
+        stop_order: rs.stop_order || 1,
+        delivery_address: o.delivery_address || 'Address',
+        total_volume: o.total_volume || 5.0,
+        order_status: o.status || 'In Transit',
+        customer_name: u.name || 'Valued Customer',
+        customer_phone: u.phone || '0771234567',
+        delivery_status: a.delivery_status || 'Pending',
+        delivered_at: a.delivered_at,
+        delivery_note: a.delivery_note
+      };
+    });
+    return [list];
+  }
+
+  // 18. Store pickup confirmation (REQ-DEL-02)
+  if (s.includes('UPDATE TRUCK_SCHEDULE SET PICKUP_CONFIRMED_AT = NOW()')) {
+    const scheduleId = params[params.length - 1];
+    const sch = mockDb.schedules.find(x => String(x.truck_schedule_id) === String(scheduleId));
+    if (sch) {
+      sch.pickup_confirmed_at = new Date().toISOString();
+      sch.status = 'In Progress';
+    }
+    return [{ affectedRows: 1 }];
+  }
+
+  // 19. Get single allocation with schedule info (REQ-DEL-03 guard check)
+  if (s.includes('FROM TRUCK_ALLOCATION TA') && s.includes('TA.TRUCK_ALLOCATION_ID = ?')) {
+    const allocId = params[0];
+    const alloc = mockDb.allocations.find(x => String(x.truck_allocation_id) === String(allocId));
+    if (!alloc) return [[]];
+    const sch = mockDb.schedules.find(x => String(x.truck_schedule_id) === String(alloc.truck_schedule_id)) || {};
+    return [[{
+      ...alloc,
+      pickup_confirmed_at: sch.pickup_confirmed_at,
+      route_id: sch.route_id,
+      scheduled_date: sch.scheduled_date,
+      schedule_status: sch.status
+    }]];
+  }
+
+  // 20. Record delivery outcome (REQ-DEL-03)
+  if (s.startsWith('UPDATE TRUCK_ALLOCATION SET DELIVERY_STATUS')) {
+    const [status, note, allocId] = params;
+    const alloc = mockDb.allocations.find(x => String(x.truck_allocation_id) === String(allocId));
+    if (alloc) {
+      alloc.delivery_status = status;
+      alloc.delivery_note = note;
+      alloc.delivered_at = new Date().toISOString();
+    }
+    return [{ affectedRows: 1 }];
+  }
+
+  // 21. Update order status upon delivery (REQ-DEL-05)
+  if (s.includes('UPDATE `ORDER` SET STATUS = "DELIVERED"') || s.includes('UPDATE ORDER SET STATUS = "DELIVERED"')) {
+    const orderId = params[0];
+    const ord = mockDb.orders.find(x => String(x.order_id) === String(orderId));
+    if (ord) ord.status = 'Delivered';
+    return [{ affectedRows: 1 }];
+  }
+  if (s.includes('UPDATE ORDER_ITEM SET STATUS = "DELIVERED"')) {
+    return [{ affectedRows: 1 }];
+  }
+
+  // 22. Find next available run on route for failed re-queue (REQ-DEL-04)
+  if (s.includes('FROM TRUCK_SCHEDULE') && s.includes('ROUTE_ID = ? AND SCHEDULED_DATE > ?')) {
+    const [routeId, curDate] = params;
+    const match = mockDb.schedules.filter(ts =>
+      String(ts.route_id) === String(routeId) &&
+      ts.scheduled_date > curDate &&
+      ts.status === 'Scheduled'
+    ).sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+    return [match.slice(0, 1)];
+  }
+
+  // 23. Insert into truck_allocation (re-queue)
+  if (s.startsWith('INSERT INTO TRUCK_ALLOCATION')) {
+    const [truck_schedule_id, order_id, route_stop_id, delivery_status] = params;
+    const newId = mockDb.allocations.length + 1;
+    mockDb.allocations.push({
+      truck_allocation_id: newId,
+      truck_schedule_id,
+      order_id,
+      route_stop_id,
+      delivery_status: delivery_status || 'Pending',
+      delivered_at: null,
+      delivery_note: null
+    });
+    return [{ insertId: newId, affectedRows: 1 }];
+  }
+
+  // 24. Complete truck schedule run & record roster_log
+  if (s.includes('UPDATE TRUCK_SCHEDULE SET STATUS = "COMPLETED"')) {
+    const scheduleId = params[0];
+    const sch = mockDb.schedules.find(x => String(x.truck_schedule_id) === String(scheduleId));
+    if (sch) sch.status = 'Completed';
+    return [{ affectedRows: 1 }];
+  }
+  if (s.startsWith('INSERT INTO ROSTER_LOG')) {
+    const [truck_schedule_id, actual_start_time, actual_end_time] = params;
+    const newLogId = mockDb.roster_logs.length + 1;
+    const diffHours = (new Date(actual_end_time) - new Date(actual_start_time)) / 3600000;
+    mockDb.roster_logs.push({
+      roster_log_id: newLogId,
+      truck_schedule_id,
+      actual_start_time,
+      actual_end_time,
+      actual_hours_worked: Math.max(1, isNaN(diffHours) ? 4.0 : diffHours)
+    });
+    return [{ insertId: newLogId, affectedRows: 1 }];
+  }
+
+  // 25. Driver runs list (GET /api/delivery/driver-runs)
+  if (s.includes('LEFT JOIN TRUCK_ALLOCATION TA') && s.includes('FROM TRUCK_SCHEDULE TS')) {
+    const list = mockDb.schedules.map(ts => {
+      const r = mockDb.routes.find(x => String(x.route_id) === String(ts.route_id)) || {};
+      const tk = mockDb.trucks.find(x => String(x.truck_id) === String(ts.truck_id)) || {};
+      const ud = mockDb.users.find(x => String(x.user_id) === String(ts.driver_id)) || {};
+      const ua = mockDb.users.find(x => String(x.user_id) === String(ts.assistant_id)) || {};
+      const allocs = mockDb.allocations.filter(a => String(a.truck_schedule_id) === String(ts.truck_schedule_id));
+      return {
+        truck_schedule_id: ts.truck_schedule_id,
+        route_id: ts.route_id,
+        route_name: r.name || 'Route',
+        truck_id: ts.truck_id,
+        plate_number: tk.plate_number || 'WP-CAB-1234',
+        driver_id: ts.driver_id,
+        driver_name: ud.name || 'Kamal Gunaratne',
+        assistant_id: ts.assistant_id,
+        assistant_name: ua.name || 'Bandara Weerakoon',
+        scheduled_date: ts.scheduled_date,
+        start_time: ts.start_time,
+        end_time: ts.end_time,
+        status: ts.status,
+        pickup_confirmed_at: ts.pickup_confirmed_at,
+        total_stops: allocs.length,
+        delivered_stops: allocs.filter(a => a.delivery_status === 'Delivered').length,
+        failed_stops: allocs.filter(a => a.delivery_status === 'Failed').length,
+        pending_stops: allocs.filter(a => a.delivery_status === 'Pending').length
+      };
+    });
+    return [list];
+  }
+
+  // 26. DELETE FROM truck_schedule / truck_allocation
   if (s.startsWith('DELETE FROM TRUCK_SCHEDULE')) {
     const id = params[0];
     mockDb.schedules = mockDb.schedules.filter(ts => String(ts.truck_schedule_id) !== String(id));
@@ -277,6 +480,7 @@ function executeMockQuery(sql, params = []) {
   if (s.startsWith('DELETE FROM TRUCK_ALLOCATION')) {
     return [{ affectedRows: 1 }];
   }
+
 
   return [[]];
 }
