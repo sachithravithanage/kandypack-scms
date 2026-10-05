@@ -9,7 +9,7 @@ INSERT IGNORE INTO product (product_id, name, unit_price, space_consumption_rate
 
 -- 2. Insert a Fake Customer User (Password is 'password123')
 INSERT IGNORE INTO user (user_id, name, email, password_hash, role_id) VALUES
-(999, 'Test Shop', 'shop@test.com', '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 6);
+(999, 'Test Shop', 'shop@test.com', '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVEdHurSIa2O', 6);
 
 INSERT IGNORE INTO customer (user_id, phone, address, city_id) VALUES
 (999, '0771234567', '45 Galle Road, Colombo', 1);
