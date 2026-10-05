@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   IconLayoutDashboard,
   IconUsers,
@@ -34,7 +35,8 @@ const navItems = [
 ];
 
 function AppLayout({ pageTitle, children }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen]       = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
 
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
@@ -45,6 +47,23 @@ function AppLayout({ pageTitle, children }) {
   const visibleNavItems = navItems.filter(
     (item) => !item.allowedRoles || item.allowedRoles.includes(storedRoleId)
   );
+  // Poll unread notification count every 60 s
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+    const fetchUnread = () => {
+      axios
+        .get(`http://localhost:5000/api/notifications/${userId}`)
+        .then((res) => {
+          const count = res.data.filter((n) => !n.is_read).length;
+          setUnreadCount(count);
+        })
+        .catch(() => {});
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -126,6 +145,44 @@ function AppLayout({ pageTitle, children }) {
               </div>
               <div className="kp-avatar">{initials}</div>
             </div>
+            <button
+              onClick={() => navigate("/notifications")}
+              style={{
+                position: "relative",
+                background: "none",
+                border: "none",
+                padding: "2px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+              }}
+              aria-label="Notifications"
+            >
+              <IconBell size={19} stroke={1.75} color="var(--color-text-muted)" />
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "-4px",
+                    right: "-4px",
+                    background: "var(--color-danger-text)",
+                    color: "#fff",
+                    fontSize: "0.6rem",
+                    fontWeight: 700,
+                    borderRadius: "999px",
+                    minWidth: "15px",
+                    height: "15px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 3px",
+                  }}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+            <div className="kp-avatar">{initials}</div>
           </div>
         </header>
         <main className="kp-content">{children}</main>

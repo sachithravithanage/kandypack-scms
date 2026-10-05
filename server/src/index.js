@@ -12,6 +12,8 @@ const railRoutes = require("./routes/rail");
 const storeRoutes = require("./routes/store");
 const { router: notificationRoutes } = require("./routes/notifications");
 const reportRoutes = require("./routes/reports");
+const orderRoutes = require("./routes/orders");
+
 
 const app = express();
 app.use(cors());
@@ -33,6 +35,8 @@ app.use("/api/rail", railRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/orders", orderRoutes);
+
 
 // Centralized Error Handling Middleware
 app.use((err, req, res, next) => {
