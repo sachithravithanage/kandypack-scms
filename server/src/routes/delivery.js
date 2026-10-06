@@ -159,7 +159,27 @@ router.put('/allocations/:allocationId', async (req, res) => {
       });
     }
 
-    // 2. Update truck allocation record
+    // Stop Sequence Check: Check if there is an earlier stop still Pending
+    const [priorPendingStops] = await db.query(
+      `SELECT ta.truck_allocation_id, rs.stop_name, rs.stop_order
+       FROM truck_allocation ta
+       JOIN route_stop rs ON ta.route_stop_id = rs.route_stop_id
+       JOIN route_stop current_rs ON current_rs.route_stop_id = ?
+       WHERE ta.truck_schedule_id = ?
+         AND ta.truck_allocation_id != ?
+         AND rs.stop_order < current_rs.stop_order
+         AND ta.delivery_status = 'Pending'
+       ORDER BY rs.stop_order ASC LIMIT 1`,
+      [alloc.route_stop_id, alloc.truck_schedule_id, allocationId]
+    );
+
+    if (priorPendingStops && priorPendingStops.length > 0) {
+      return res.status(400).json({
+        error: `Please complete earlier stop #${priorPendingStops[0].stop_order} (${priorPendingStops[0].stop_name}) first to maintain the delivery sequence.`
+      });
+    }
+
+    // 2. Update truck allocation record with delivery note / proof
     await db.query(
       'UPDATE truck_allocation SET delivery_status = ?, delivery_note = ?, delivered_at = NOW() WHERE truck_allocation_id = ?',
       [deliveryStatus, note || null, allocationId]
@@ -194,20 +214,29 @@ router.put('/allocations/:allocationId', async (req, res) => {
         );
         console.log(`[Re-queue REQ-DEL-04] Order #${alloc.order_id} failed and re-queued to schedule #${reallocatedScheduleId} on ${nextRuns[0].scheduled_date}`);
         
-        await createNotification(alloc.customer_id, 'Delivery Alert', `Delivery for order #${alloc.order_id} failed. It has been rescheduled to ${nextRuns[0].scheduled_date}.`);
+        await createNotification(alloc.customer_id, 'Delivery Alert', `Delivery for order #${alloc.order_id} failed: ${note || 'Reason logged'}. It has been rescheduled to ${nextRuns[0].scheduled_date}.`);
       } else {
         console.warn(`[Re-queue REQ-DEL-04] Order #${alloc.order_id} failed, but no future Scheduled runs found on route #${alloc.route_id}. Flagged for Dispatcher review.`);
         
-        await createNotification(alloc.customer_id, 'Delivery Alert', `Delivery for order #${alloc.order_id} failed. Our dispatcher will contact you soon.`);
+        await createNotification(alloc.customer_id, 'Delivery Alert', `Delivery for order #${alloc.order_id} failed: ${note || 'Reason logged'}. Our dispatcher will contact you soon.`);
       }
     }
+
+    // Check remaining stops to notify if run is ready to complete
+    const [remainingPending] = await db.query(
+      'SELECT COUNT(*) as count FROM truck_allocation WHERE truck_schedule_id = ? AND delivery_status = "Pending"',
+      [alloc.truck_schedule_id]
+    );
+    const pendingCount = remainingPending[0]?.count || 0;
 
     res.json({
       message: 'Delivery outcome recorded successfully.',
       allocationId,
       deliveryStatus,
       deliveredAt: new Date(),
-      reallocatedScheduleId
+      reallocatedScheduleId,
+      remainingStops: pendingCount,
+      allStopsFinished: pendingCount === 0
     });
   } catch (err) {
     console.error('Error updating delivery outcome:', err);
@@ -256,6 +285,22 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
        ON DUPLICATE KEY UPDATE actual_start_time = VALUES(actual_start_time), actual_end_time = VALUES(actual_end_time)`,
       [scheduleId, actualStartTime, actualEndTime]
     );
+
+    // 3. Notify dispatchers (role_id = 2) that this run has successfully concluded
+    try {
+      const [dispatchers] = await db.query('SELECT user_id FROM `user` WHERE role_id = 2');
+      if (dispatchers && dispatchers.length > 0) {
+        for (const disp of dispatchers) {
+          await createNotification(
+            disp.user_id,
+            'Delivery',
+            `Truck Run #${scheduleId} has completed all stops. Actual hours logged to roster log.`
+          );
+        }
+      }
+    } catch (notifErr) {
+      console.warn('[Notification] Could not alert dispatchers of run completion:', notifErr.message);
+    }
 
     res.json({
       message: 'Delivery run completed and hours logged into roster_log.',

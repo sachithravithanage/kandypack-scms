@@ -13,7 +13,7 @@ const poolConfig = {
   password: process.env.DB_PASSWORD || 'AVNS_Bdu7v9tujxO-7vsMDbh',
   database: process.env.DB_NAME || 'defaultdb',
   ssl: { rejectUnauthorized: false },
-  connectTimeout: 2000,
+  connectTimeout: 10000,
   waitForConnections: true,
   connectionLimit: 10
 };
@@ -375,6 +375,37 @@ function executeMockQuery(sql, params = []) {
       scheduled_date: sch.scheduled_date,
       schedule_status: sch.status
     }]];
+  }
+
+  // 19b. Stop sequence check query in mockDb
+  if (s.includes('FROM TRUCK_ALLOCATION TA') && s.includes('RS.STOP_ORDER < CURRENT_RS.STOP_ORDER')) {
+    const [currentRouteStopId, scheduleId, allocationId] = params;
+    const currentStop = mockDb.route_stops.find(x => String(x.route_stop_id) === String(currentRouteStopId));
+    if (!currentStop) return [[]];
+    
+    const prior = mockDb.allocations.filter(a => {
+      if (String(a.truck_schedule_id) !== String(scheduleId)) return false;
+      if (String(a.truck_allocation_id) === String(allocationId)) return false;
+      if (a.delivery_status !== 'Pending') return false;
+      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(a.route_stop_id));
+      return rs && rs.stop_order < currentStop.stop_order;
+    });
+
+    if (prior.length === 0) return [[]];
+    const firstPrior = prior[0];
+    const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(firstPrior.route_stop_id)) || {};
+    return [[{
+      truck_allocation_id: firstPrior.truck_allocation_id,
+      stop_name: rs.stop_name || 'Prior Stop',
+      stop_order: rs.stop_order || 1
+    }]];
+  }
+
+  // 19c. Count remaining pending stops in mockDb
+  if (s.includes('COUNT(*) AS COUNT FROM TRUCK_ALLOCATION WHERE TRUCK_SCHEDULE_ID = ? AND DELIVERY_STATUS = "PENDING"')) {
+    const scheduleId = params[0];
+    const count = mockDb.allocations.filter(a => String(a.truck_schedule_id) === String(scheduleId) && a.delivery_status === 'Pending').length;
+    return [[{ count }]];
   }
 
   // 20. Record delivery outcome (REQ-DEL-03)
