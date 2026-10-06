@@ -33,4 +33,31 @@ router.put('/:id/acknowledge', async (req, res) => {
   }
 });
 
+// POST /api/notifications/report-incident - Driver logs in-route incident (notifies Dispatchers & Admins)
+router.post('/report-incident', async (req, res) => {
+  try {
+    const { userId, truckScheduleId, type, message } = req.body;
+    
+    // Find all dispatchers (role_id = 2) and admins (role_id = 1)
+    const [recipients] = await db.query(
+      'SELECT user_id FROM `user` WHERE role_id IN (1, 2) AND is_active = 1'
+    );
+
+    if (recipients && recipients.length > 0) {
+      for (const rec of recipients) {
+        await createNotification(
+          rec.user_id,
+          type || 'Incident',
+          message || `Incident reported on Schedule #${truckScheduleId}`
+        );
+      }
+    }
+
+    res.json({ message: 'Incident reported successfully to dispatchers and admins.' });
+  } catch (err) {
+    console.error('Error reporting incident:', err);
+    res.status(500).json({ error: err.message || 'Failed to report incident.' });
+  }
+});
+
 module.exports = { router, createNotification };
