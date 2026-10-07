@@ -8,6 +8,7 @@ import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -72,6 +73,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
               <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
+              <Profile />
             </ProtectedRoute>
           }
         />

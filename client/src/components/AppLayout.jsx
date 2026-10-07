@@ -12,6 +12,7 @@ import {
   IconChartBar,
   IconCalendarEvent,
   IconTruck,
+  IconUser,
 } from "@tabler/icons-react";
 
 export const roleNames = {
@@ -32,6 +33,7 @@ const navItems = [
   { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
   { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
   { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
+  { to: "/profile", label: "Profile", Icon: IconUser, allowedRoles: [1, 2, 3, 4, 5, 6] },
 ];
 
 function AppLayout({ pageTitle, children }) {
