@@ -132,8 +132,8 @@ router.put('/allocations/:allocationId', async (req, res) => {
     const allocationId = Number(req.params.allocationId);
     const { deliveryStatus, note } = req.body;
 
-    if (!deliveryStatus || !['Delivered', 'Failed'].includes(deliveryStatus)) {
-      return res.status(400).json({ error: 'deliveryStatus must be either "Delivered" or "Failed".' });
+    if (!deliveryStatus || !['Delivered', 'Failed', 'Attempted'].includes(deliveryStatus)) {
+      return res.status(400).json({ error: 'deliveryStatus must be "Delivered", "Failed", or "Attempted".' });
     }
 
     // 1. Fetch allocation and verify store pickup confirmation
@@ -223,6 +223,15 @@ router.put('/allocations/:allocationId', async (req, res) => {
       }
     }
 
+    // 5. REQ-DEL-03: If Attempted, record attempt without re-queuing immediately (retained on current manifest with note)
+    if (deliveryStatus === 'Attempted') {
+      await createNotification(
+        alloc.customer_id,
+        'Delivery Attempted',
+        `A delivery attempt was made for order #${alloc.order_id}: ${note || 'Delivery attempted but could not be completed'}.`
+      );
+    }
+
     // Check remaining stops to notify if run is ready to complete
     const [remainingPending] = await db.query(
       'SELECT COUNT(*) as count FROM truck_allocation WHERE truck_schedule_id = ? AND delivery_status = "Pending"',
@@ -265,9 +274,25 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
 
     const schedule = scheduleRows[0];
 
+    // Cannot complete a run that never confirmed pickup
+    if (!schedule.pickup_confirmed_at) {
+      return res.status(400).json({ error: 'Cannot complete a run that never confirmed pickup from the store.' });
+    }
+
+    // All stops must be resolved before completing the run (Guide line 1853-1859)
+    const [pendingRows] = await db.query(
+      'SELECT COUNT(*) AS cnt FROM truck_allocation WHERE truck_schedule_id = ? AND delivery_status = "Pending"',
+      [scheduleId]
+    );
+    if (pendingRows && pendingRows[0]?.cnt > 0) {
+      return res.status(400).json({
+        error: `All stops must be resolved (Delivered, Failed, or Attempted) before completing the run. ${pendingRows[0].cnt} stop(s) still pending.`
+      });
+    }
+
     // Fallbacks if timestamps not provided in payload
     if (!actualStartTime) {
-      actualStartTime = `${schedule.scheduled_date} ${schedule.start_time}`;
+      actualStartTime = schedule.pickup_confirmed_at || `${schedule.scheduled_date} ${schedule.start_time}`;
     }
     if (!actualEndTime) {
       actualEndTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -318,51 +343,26 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
 
 /**
  * Active / Today's Run Finder for Drivers & Assistants
- * Returns runs assigned to a user or all runs for a date.
+ * Queries Database VIEW `v_driver_assigned_runs` (CS3043 Intermediate SQL: Views)
+ * Returns role-restricted runs assigned to a user or all runs for a date.
  */
 router.get('/driver-runs', async (req, res) => {
   try {
     const { driverId, date } = req.query;
-    let sql = `
-      SELECT ts.truck_schedule_id,
-             ts.route_id,
-             r.name AS route_name,
-             ts.truck_id,
-             tk.plate_number,
-             ts.driver_id,
-             ud.name AS driver_name,
-             ts.assistant_id,
-             ua.name AS assistant_name,
-             ts.scheduled_date,
-             ts.start_time,
-             ts.end_time,
-             ts.status,
-             ts.pickup_confirmed_at,
-             COUNT(ta.truck_allocation_id) AS total_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Delivered' THEN 1 ELSE 0 END) AS delivered_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Failed' THEN 1 ELSE 0 END) AS failed_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Pending' THEN 1 ELSE 0 END) AS pending_stops
-      FROM truck_schedule ts
-      JOIN route r ON ts.route_id = r.route_id
-      JOIN truck tk ON ts.truck_id = tk.truck_id
-      JOIN user ud ON ts.driver_id = ud.user_id
-      JOIN user ua ON ts.assistant_id = ua.user_id
-      LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
-      WHERE 1=1
-    `;
+    let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
     const params = [];
 
     if (driverId) {
-      sql += ' AND (ts.driver_id = ? OR ts.assistant_id = ?)';
+      sql += ' AND (driver_id = ? OR assistant_id = ?)';
       params.push(driverId, driverId);
     }
 
     if (date) {
-      sql += ' AND ts.scheduled_date = ?';
+      sql += ' AND scheduled_date = ?';
       params.push(date);
     }
 
-    sql += ' GROUP BY ts.truck_schedule_id ORDER BY ts.scheduled_date DESC, ts.start_time ASC';
+    sql += ' ORDER BY scheduled_date DESC, start_time ASC';
 
     const [rows] = await db.query(sql, params);
     res.json(rows || []);
