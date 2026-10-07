@@ -3,6 +3,27 @@ const db = require('../db');
 
 const router = express.Router();
 
+// Maps errors to HTTP responses: trigger (SIGNAL) errors -> 400, everything else -> 500.
+// Avoids leaking raw SQL error text to the client.
+function sendError(res, err) {
+    if (err.sqlState === '45000') {
+        return res.status(400).json({ error: err.sqlMessage });
+    }
+    if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+        return res.status(400).json({ error: 'Invalid reference: product, customer or stop does not exist.' });
+    }
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+}
+
+// REQ-ORD-02 — the 7-day rule is defined once, in MySQL (fn_days_until_delivery)
+async function leadTimeDays(connection, deliveryDate) {
+    const [[row]] = await connection.query(
+        'SELECT fn_days_until_delivery(CURDATE(), ?) AS days', [deliveryDate]
+    );
+    return row.days;
+}
+
 // Place a new order
 router.post('/', async (req, res) => {
     const connection = await db.getConnection();
@@ -15,11 +36,29 @@ router.post('/', async (req, res) => {
     // route geometry/address-matching is out of scope for V1.0 — see Part 4).
     const { customerId, routeStopId, deliveryAddress, deliveryDate, items } = req.body;
 
-    // Check 7-day lead time — REQ-ORD-02
-    const today = new Date();
-    const requested = new Date(deliveryDate);
-    const diffDays = (requested - today) / (1000 * 60 * 60 * 24);
-    if (diffDays < 7) {
+    // Input validation — REQ-ORD-01. Rejects empty orders and zero/negative quantities
+    // (a negative quantity would otherwise ADD stock to main_inventory).
+    if (!customerId || !routeStopId || !deliveryAddress || !deliveryDate || !Array.isArray(items) || items.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'customerId, routeStopId, deliveryAddress, deliveryDate and at least one item are required.' });
+    }
+    // Merge duplicate products and sort by productId, so every transaction locks stock
+    // rows in the same order (prevents deadlocks) and duplicates can't bypass the stock check.
+    const merged = new Map();
+    for (const item of items) {
+        const pid = Number(item.productId);
+        const qty = Number(item.quantity);
+        if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(qty) || qty <= 0) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Each item needs a valid productId and a positive whole-number quantity.' });
+        }
+        merged.set(pid, (merged.get(pid) || 0) + qty);
+    }
+    const lines = [...merged.entries()].sort((a, b) => a[0] - b[0]);
+
+    // Check 7-day lead time — REQ-ORD-02 (rule lives in MySQL: fn_days_until_delivery)
+    const days = await leadTimeDays(connection, deliveryDate);
+    if (days === null || days < 7) {
         await connection.rollback();
         return res.status(400).json({ error: 'Delivery date must be at least 7 days from today.' });
     }
@@ -40,49 +79,43 @@ router.post('/', async (req, res) => {
     }
     const routeId = stopRows[0].route_id;
 
-    // Check and reserve HQ stock for each item — team-added inventory feature (see Part 4)
-    let totalValue = 0;
-    let totalVolume = 0;
-    for (const item of items) {
-        const [stockRows] = await connection.query(
-        'SELECT quantity_in_stock FROM main_inventory WHERE product_id = ? FOR UPDATE',
-        [item.productId]
-        );
-        if (stockRows.length === 0 || stockRows[0].quantity_in_stock < item.quantity) {
-        await connection.rollback();
-        return res.status(400).json({ error: `Insufficient stock for product ${item.productId}` });
-        }
+    // HQ stock is checked and reserved atomically inside the item loop below
+    // (team-added inventory feature — see Part 4).
 
-        const [productRows] = await connection.query('SELECT * FROM product WHERE product_id = ?', [item.productId]);
-        const product = productRows[0];
-        totalValue += product.unit_price * item.quantity;
-        totalVolume += product.space_consumption_rate * item.quantity;
-    }
-
-    // Create the order — REQ-ORD-01, REQ-ORD-04
+    // Create the order — REQ-ORD-01 (totals start at 0; filled by sp_recalc_order_totals below)
     const [orderResult] = await connection.query(
         `INSERT INTO \`order\` (customer_id, route_id, route_stop_id, delivery_address, order_date, requested_delivery_date, total_value, total_volume, status)
-        VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, 'Placed')`,
-        [customerId, routeId, routeStopId, deliveryAddress, deliveryDate, totalValue, totalVolume]
+        VALUES (?, ?, ?, ?, CURDATE(), ?, 0, 0, 'Placed')`,
+        [customerId, routeId, routeStopId, deliveryAddress, deliveryDate]
     );
     const orderId = orderResult.insertId;
 
-    for (const item of items) {
+    // Insert items and reserve stock. The guarded UPDATE (quantity_in_stock >= ?) checks AND
+    // decrements in ONE atomic statement, so concurrent orders can never oversell stock.
+    for (const [productId, quantity] of lines) {
         await connection.query(
         'INSERT INTO order_item (order_id, product_id, quantity, status) VALUES (?, ?, ?, ?)',
-        [orderId, item.productId, item.quantity, 'Pending']
+        [orderId, productId, quantity, 'Pending']
         );
-        await connection.query(
-        'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock - ? WHERE product_id = ?',
-        [item.quantity, item.productId]
+        const [stockUpdate] = await connection.query(
+        'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock - ? WHERE product_id = ? AND quantity_in_stock >= ?',
+        [quantity, productId, quantity]
         );
+        if (stockUpdate.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(400).json({ error: `Insufficient stock for product ${productId}` });
+        }
     }
+
+    // REQ-ORD-04 — totals computed by MySQL (fn_order_total_value / fn_order_total_volume),
+    // inside the same transaction as the order, items and stock change.
+    await connection.query('CALL sp_recalc_order_totals(?)', [orderId]);
 
     await connection.commit();
     res.status(201).json({ message: 'Order placed', orderId });
     } catch (err) {
     await connection.rollback();
-    res.status(400).json({ error: err.message });
+    sendError(res, err);
     } finally {
     connection.release();
     }
@@ -90,8 +123,12 @@ router.post('/', async (req, res) => {
 
 // Get order history for a customer — REQ-ORD-05
 router.get('/customer/:customerId', async (req, res) => {
-    const [rows] = await db.query('SELECT * FROM `order` WHERE customer_id = ?', [req.params.customerId]);
-    res.json(rows);
+    try {
+        const [rows] = await db.query('SELECT * FROM `order` WHERE customer_id = ?', [req.params.customerId]);
+        res.json(rows);
+    } catch (err) {
+        sendError(res, err);
+    }
 });
 
 // Cancel an order — only while status is 'Placed' — REQ-ORD-06
@@ -106,7 +143,7 @@ router.delete('/:id', async (req, res) => {
         return res.status(400).json({ error: 'Order can only be cancelled while status is Placed.' });
     }
 
-    const [items] = await connection.query('SELECT product_id, quantity FROM order_item WHERE order_id = ?', [req.params.id]);
+    const [items] = await connection.query('SELECT product_id, quantity FROM order_item WHERE order_id = ? ORDER BY product_id', [req.params.id]);
     for (const item of items) {
         await connection.query(
         'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock + ? WHERE product_id = ?',
@@ -115,11 +152,17 @@ router.delete('/:id', async (req, res) => {
     }
 
     await connection.query("UPDATE `order` SET status = 'Cancelled' WHERE order_id = ?", [req.params.id]);
+
+    // REQ-ORD-06 — cancellation is audit-logged inside the same transaction
+    await connection.query(
+    "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order cancelled', 'order', ?, 'Status Placed -> Cancelled, stock restored')",
+    [req.params.id]
+    );
     await connection.commit();
     res.json({ message: 'Order cancelled and stock restored' });
     } catch (err) {
     await connection.rollback();
-    res.status(400).json({ error: err.message });
+    sendError(res, err);
     } finally {
     connection.release();
     }
@@ -148,36 +191,55 @@ router.put('/:id', async (req, res) => {
 
         const { deliveryAddress, deliveryDate } = req.body;
 
+        if (!deliveryAddress || !deliveryDate) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'deliveryAddress and deliveryDate are required.' });
+        }
+
+        // REQ-ORD-02 — an edit must also respect the 7-day lead time
+        const days = await leadTimeDays(connection, deliveryDate);
+        if (days === null || days < 7) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Delivery date must be at least 7 days from today.' });
+        }
+
         await connection.query(
             'UPDATE `order` SET delivery_address = ?, requested_delivery_date = ? WHERE order_id = ?',
             [deliveryAddress, deliveryDate, req.params.id]
+        );
+
+        // REQ-ORD-06 — modification is audit-logged inside the same transaction
+        await connection.query(
+            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order modified', 'order', ?, ?)",
+            [req.params.id, `new address=[${deliveryAddress}], new delivery date=${deliveryDate}`]
         );
 
         await connection.commit();
         res.json({ message: 'Order updated successfully' });
     } catch (err) {
         await connection.rollback();
-        res.status(400).json({ error: err.message });
+        sendError(res, err);
     } finally {
         connection.release();
     }
 });
 
-// Confirm receipt of an order — REQ-ORD-07
+// Customer confirms receipt: Delivered -> Closed — REQ-ORD-07
+// ('Delivered' is set by the driver flow; the 48 h auto-close is the MySQL event ev_auto_close_delivered_orders)
 router.put('/:id/confirm-receipt', async (req, res) => {
     try {
         const [result] = await db.query(
-            "UPDATE `order` SET status = 'Delivered' WHERE order_id = ?",
+            "UPDATE `order` SET status = 'Closed' WHERE order_id = ? AND status = 'Delivered'",
             [req.params.id]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'Order not found.' });
+            return res.status(400).json({ error: 'Order not found or not awaiting confirmation (status must be Delivered).' });
         }
 
         res.json({ message: 'Order receipt confirmed' });
     } catch (err) {
-        res.status(400).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
