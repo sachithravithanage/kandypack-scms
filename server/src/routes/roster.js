@@ -66,6 +66,25 @@ router.get('/metadata', async (req, res) => {
   }
 });
 
+// GET /api/roster/driver-hours - Query driver weekly hours using UDF fn_get_driver_weekly_hours (CS3043 Advanced SQL: Slides 19–20)
+router.get('/driver-hours', async (req, res) => {
+  try {
+    const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+    const [rows] = await db.query(
+      `SELECT d.user_id AS driver_id, u.name AS driver_name, d.license_number,
+              fn_get_driver_weekly_hours(d.user_id, ?) AS hours_worked_this_week
+       FROM driver d
+       JOIN \`user\` u ON d.user_id = u.user_id
+       ORDER BY u.name ASC`,
+      [targetDate]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error('Error in GET /api/roster/driver-hours:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/roster - List schedules with route, crew, truck, order count and capacity load
 router.get('/', async (req, res) => {
   try {

@@ -137,6 +137,25 @@ function executeMockQuery(sql, params = []) {
     return [mockDb.trucks];
   }
 
+  // 4b. Query with UDF fn_get_driver_weekly_hours (CS3043 Advanced SQL)
+  if (s.includes('FN_GET_DRIVER_WEEKLY_HOURS')) {
+    const list = mockDb.drivers.map(d => {
+      const u = mockDb.users.find(x => x.user_id === d.user_id) || {};
+      const driverHours = (mockDb.roster_logs || []).filter(rl => {
+        const sch = mockDb.schedules.find(s => s.truck_schedule_id === rl.truck_schedule_id);
+        return sch && sch.driver_id === d.user_id;
+      }).reduce((sum, rl) => sum + (Number(rl.actual_hours_worked) || 0), 0);
+
+      return {
+        driver_id: d.user_id,
+        driver_name: u.name || 'Kamal Gunaratne',
+        license_number: d.license_number,
+        hours_worked_this_week: parseFloat(driverHours.toFixed(2))
+      };
+    });
+    return [list];
+  }
+
   // 4. SELECT d.user_id, u.name, d.license_number ... FROM driver
   if (s.includes('FROM DRIVER')) {
     const list = mockDb.drivers.map(d => {

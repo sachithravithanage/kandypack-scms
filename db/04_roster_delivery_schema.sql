@@ -159,3 +159,37 @@ GROUP BY
     ts.end_time,
     ts.status,
     ts.pickup_confirmed_at;
+
+-- =========================================================================
+-- USER-DEFINED FUNCTION (UDF): fn_get_driver_weekly_hours
+-- (CS3043 Advanced Database Systems: Slides 19–20)
+-- Reusable database function to compute actual driver weekly hours directly
+-- within MySQL. Determines the Monday start of the ISO week for the specified
+-- date and aggregates actual_hours_worked from roster_log.
+-- =========================================================================
+DELIMITER $$
+DROP FUNCTION IF EXISTS fn_get_driver_weekly_hours$$
+CREATE FUNCTION fn_get_driver_weekly_hours(
+  p_driver_id INT,
+  p_scheduled_date DATE
+)
+RETURNS DECIMAL(5,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+  DECLARE v_week_start DATE;
+  DECLARE v_total_hours DECIMAL(5,2);
+  
+  -- Calculate Monday of the given date's week (WEEKDAY: Monday = 0)
+  SET v_week_start = DATE_SUB(p_scheduled_date, INTERVAL WEEKDAY(p_scheduled_date) DAY);
+  
+  SELECT COALESCE(SUM(rl.actual_hours_worked), 0.00) INTO v_total_hours
+  FROM roster_log rl
+  JOIN truck_schedule ts ON rl.truck_schedule_id = ts.truck_schedule_id
+  WHERE ts.driver_id = p_driver_id
+    AND ts.scheduled_date >= v_week_start
+    AND ts.scheduled_date <= p_scheduled_date;
+    
+  RETURN v_total_hours;
+END$$
+DELIMITER ;
