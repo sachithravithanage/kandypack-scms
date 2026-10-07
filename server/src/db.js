@@ -505,6 +505,7 @@ function executeMockQuery(sql, params = []) {
         total_stops: allocs.length,
         delivered_stops: allocs.filter(a => a.delivery_status === 'Delivered').length,
         failed_stops: allocs.filter(a => a.delivery_status === 'Failed').length,
+        attempted_stops: allocs.filter(a => a.delivery_status === 'Attempted').length,
         pending_stops: allocs.filter(a => a.delivery_status === 'Pending').length
       };
     });

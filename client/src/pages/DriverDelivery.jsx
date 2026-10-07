@@ -40,6 +40,11 @@ function DriverDelivery() {
   const [failureReason, setFailureReason] = useState("Customer unavailable / uncontactable");
   const [failureDetail, setFailureDetail] = useState("");
 
+  // Attempted modal state (REQ-DEL-03)
+  const [attemptedModalStop, setAttemptedModalStop] = useState(null);
+  const [attemptedReason, setAttemptedReason] = useState("Customer phone unanswered / Gate closed");
+  const [attemptedDetail, setAttemptedDetail] = useState("");
+
   // Report issue / incident modal state
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [issueType, setIssueType] = useState("Traffic Delay");
@@ -185,6 +190,38 @@ function DriverDelivery() {
     }
   };
 
+  // REQ-DEL-03: Record Delivery Attempted (Customer contacted / Door knocked, order stays on truck)
+  const handleMarkAttempted = async () => {
+    if (!attemptedModalStop) return;
+    try {
+      setActionLoading(true);
+      setError("");
+      const fullNote = attemptedDetail
+        ? `${attemptedReason} - ${attemptedDetail}`
+        : attemptedReason;
+
+      await axios.put(
+        `${API_BASE}/delivery/allocations/${attemptedModalStop.truck_allocation_id}`,
+        {
+          deliveryStatus: "Attempted",
+          note: fullNote,
+        },
+        authHeader
+      );
+
+      setSuccessMsg(`Stop #${attemptedModalStop.stop_order} marked as Attempted (Customer notified).`);
+      setAttemptedModalStop(null);
+      setAttemptedReason("Customer phone unanswered / Gate closed");
+      setAttemptedDetail("");
+      await loadScheduleDetails(selectedScheduleId);
+      await loadRuns();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to record delivery attempt.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Driver In-Route Incident / Issue Reporting to Dispatcher
   const handleReportIssue = async () => {
     if (!issueDescription.trim()) {
@@ -249,6 +286,7 @@ function DriverDelivery() {
   const pendingCount = stops.filter((s) => s.delivery_status === "Pending").length;
   const deliveredCount = stops.filter((s) => s.delivery_status === "Delivered").length;
   const failedCount = stops.filter((s) => s.delivery_status === "Failed").length;
+  const attemptedCount = stops.filter((s) => s.delivery_status === "Attempted").length;
 
   return (
     <AppLayout pageTitle="Delivery Execution Portal">
@@ -371,21 +409,27 @@ function DriverDelivery() {
 
                 {/* Progress Bar & Stat summary */}
                 <div className="row text-center g-2 my-3">
-                  <div className="col-4">
+                  <div className="col-3">
                     <div className="p-2 border rounded bg-light">
-                      <div className="small text-muted">Pending Stops</div>
+                      <div className="small text-muted">Pending</div>
                       <div className="h5 mb-0 text-warning">{pendingCount}</div>
                     </div>
                   </div>
-                  <div className="col-4">
+                  <div className="col-3">
                     <div className="p-2 border rounded bg-light">
                       <div className="small text-muted">Delivered</div>
                       <div className="h5 mb-0 text-success">{deliveredCount}</div>
                     </div>
                   </div>
-                  <div className="col-4">
+                  <div className="col-3">
                     <div className="p-2 border rounded bg-light">
-                      <div className="small text-muted">Failed / Re-queued</div>
+                      <div className="small text-muted">Attempted</div>
+                      <div className="h5 mb-0 text-info">{attemptedCount}</div>
+                    </div>
+                  </div>
+                  <div className="col-3">
+                    <div className="p-2 border rounded bg-light">
+                      <div className="small text-muted">Failed</div>
                       <div className="h5 mb-0 text-danger">{failedCount}</div>
                     </div>
                   </div>
@@ -480,6 +524,7 @@ function DriverDelivery() {
               {stops.map((stop) => {
                 const isDelivered = stop.delivery_status === "Delivered";
                 const isFailed = stop.delivery_status === "Failed";
+                const isAttempted = stop.delivery_status === "Attempted";
                 const isPending = stop.delivery_status === "Pending";
 
                 return (
@@ -491,11 +536,15 @@ function DriverDelivery() {
                         ? "#f0fdf4"
                         : isFailed
                         ? "#fef2f2"
+                        : isAttempted
+                        ? "#f0f9ff"
                         : "#ffffff",
                       borderColor: isDelivered
                         ? "#bbf7d0"
                         : isFailed
                         ? "#fecaca"
+                        : isAttempted
+                        ? "#bae6fd"
                         : "var(--color-border)",
                     }}
                   >
@@ -510,6 +559,8 @@ function DriverDelivery() {
                               ? "var(--color-success-text)"
                               : isFailed
                               ? "var(--color-danger-text)"
+                              : isAttempted
+                              ? "#0284c7"
                               : "var(--color-navy-700)",
                             fontSize: "0.85rem",
                           }}
@@ -554,6 +605,12 @@ function DriverDelivery() {
                             Delivered
                           </span>
                         )}
+                        {isAttempted && (
+                          <span className="badge bg-info text-dark d-flex align-items-center px-3 py-2">
+                            <IconClock size={14} className="me-1" />
+                            Attempted (Undelivered)
+                          </span>
+                        )}
                         {isFailed && (
                           <span className="badge bg-danger d-flex align-items-center px-3 py-2">
                             <IconX size={14} className="me-1" />
@@ -577,6 +634,22 @@ function DriverDelivery() {
                             >
                               <IconCheck size={14} className="me-1" />
                               Delivered
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-info d-flex align-items-center text-dark"
+                              onClick={() => {
+                                setAttemptedModalStop(stop);
+                                setAttemptedDetail("");
+                              }}
+                              disabled={!isPickupConfirmed || actionLoading}
+                              title={
+                                !isPickupConfirmed
+                                  ? "Confirm store pickup before recording deliveries"
+                                  : "Record delivery attempt (e.g., premises locked / customer away, keeps item on truck)"
+                              }
+                            >
+                              <IconClock size={14} className="me-1" />
+                              Attempted
                             </button>
                             <button
                               className="btn btn-sm btn-outline-danger d-flex align-items-center"
@@ -749,6 +822,87 @@ function DriverDelivery() {
                   disabled={actionLoading}
                 >
                   {actionLoading ? "Processing..." : "Confirm Failure & Re-queue"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attempted Reason Modal (REQ-DEL-03) */}
+      {attemptedModalStop && (
+        <div
+          className="modal d-block"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          tabIndex="-1"
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title d-flex align-items-center text-primary">
+                  <IconClock size={20} className="me-2" />
+                  Record Delivery Attempt - Stop #{attemptedModalStop.stop_order}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setAttemptedModalStop(null)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p className="small text-muted mb-3">
+                  Under <strong>REQ-DEL-03</strong>, marking a stop as <strong>Attempted</strong> logs that delivery was attempted but not completed (e.g., premises closed). The order is <strong>kept on the vehicle manifest</strong> for re-attempt or dispatcher advice without immediately failing the consignment.
+                </p>
+
+                <div className="mb-3">
+                  <label className="form-label small fw-bold">Select Attempt Reason:</label>
+                  <select
+                    className="form-select form-select-sm mb-2"
+                    value={attemptedReason}
+                    onChange={(e) => setAttemptedReason(e.target.value)}
+                  >
+                    <option value="Customer phone unanswered / Gate closed">
+                      Customer phone unanswered / Gate closed
+                    </option>
+                    <option value="Premises temporarily locked / Security absent">
+                      Premises temporarily locked / Security absent
+                    </option>
+                    <option value="Road temporarily obstructed / Delivery vehicle parked nearby">
+                      Road temporarily obstructed / Delivery vehicle parked nearby
+                    </option>
+                    <option value="Customer requested re-attempt in 1 hour">
+                      Customer requested re-attempt in 1 hour
+                    </option>
+                    <option value="Payment / authorization pending at site">
+                      Payment / authorization pending at site
+                    </option>
+                  </select>
+
+                  <label className="form-label small fw-bold mt-2">Driver Field Notes:</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="e.g., Waited 10 mins outside gate, security advised return at 3 PM"
+                    value={attemptedDetail}
+                    onChange={(e) => setAttemptedDetail(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setAttemptedModalStop(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary fw-bold"
+                  onClick={handleMarkAttempted}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? "Processing..." : "Confirm Attempt & Save Note"}
                 </button>
               </div>
             </div>

@@ -132,8 +132,8 @@ router.put('/allocations/:allocationId', async (req, res) => {
     const allocationId = Number(req.params.allocationId);
     const { deliveryStatus, note } = req.body;
 
-    if (!deliveryStatus || !['Delivered', 'Failed'].includes(deliveryStatus)) {
-      return res.status(400).json({ error: 'deliveryStatus must be either "Delivered" or "Failed".' });
+    if (!deliveryStatus || !['Delivered', 'Failed', 'Attempted'].includes(deliveryStatus)) {
+      return res.status(400).json({ error: 'deliveryStatus must be "Delivered", "Failed", or "Attempted".' });
     }
 
     // 1. Fetch allocation and verify store pickup confirmation
@@ -222,6 +222,15 @@ router.put('/allocations/:allocationId', async (req, res) => {
       }
     }
 
+    // 5. REQ-DEL-03: If Attempted, record attempt without re-queuing immediately (retained on current manifest with note)
+    if (deliveryStatus === 'Attempted') {
+      await createNotification(
+        alloc.customer_id,
+        'Delivery Attempted',
+        `A delivery attempt was made for order #${alloc.order_id}: ${note || 'Delivery attempted but could not be completed'}.`
+      );
+    }
+
     // Check remaining stops to notify if run is ready to complete
     const [remainingPending] = await db.query(
       'SELECT COUNT(*) as count FROM truck_allocation WHERE truck_schedule_id = ? AND delivery_status = "Pending"',
@@ -264,9 +273,25 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
 
     const schedule = scheduleRows[0];
 
+    // Cannot complete a run that never confirmed pickup
+    if (!schedule.pickup_confirmed_at) {
+      return res.status(400).json({ error: 'Cannot complete a run that never confirmed pickup from the store.' });
+    }
+
+    // All stops must be resolved before completing the run (Guide line 1853-1859)
+    const [pendingRows] = await db.query(
+      'SELECT COUNT(*) AS cnt FROM truck_allocation WHERE truck_schedule_id = ? AND delivery_status = "Pending"',
+      [scheduleId]
+    );
+    if (pendingRows && pendingRows[0]?.cnt > 0) {
+      return res.status(400).json({
+        error: `All stops must be resolved (Delivered, Failed, or Attempted) before completing the run. ${pendingRows[0].cnt} stop(s) still pending.`
+      });
+    }
+
     // Fallbacks if timestamps not provided in payload
     if (!actualStartTime) {
-      actualStartTime = `${schedule.scheduled_date} ${schedule.start_time}`;
+      actualStartTime = schedule.pickup_confirmed_at || `${schedule.scheduled_date} ${schedule.start_time}`;
     }
     if (!actualEndTime) {
       actualEndTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -340,6 +365,7 @@ router.get('/driver-runs', async (req, res) => {
              COUNT(ta.truck_allocation_id) AS total_stops,
              SUM(CASE WHEN ta.delivery_status = 'Delivered' THEN 1 ELSE 0 END) AS delivered_stops,
              SUM(CASE WHEN ta.delivery_status = 'Failed' THEN 1 ELSE 0 END) AS failed_stops,
+             SUM(CASE WHEN ta.delivery_status = 'Attempted' THEN 1 ELSE 0 END) AS attempted_stops,
              SUM(CASE WHEN ta.delivery_status = 'Pending' THEN 1 ELSE 0 END) AS pending_stops
       FROM truck_schedule ts
       JOIN route r ON ts.route_id = r.route_id
