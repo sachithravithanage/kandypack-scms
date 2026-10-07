@@ -38,6 +38,9 @@ const mockDb = {
     { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni@gmail.com', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
   ],
+  customers: [
+    { user_id: 9, phone: '0771234567', address: '42 Flower Road, Colombo 07', city_id: 1 }
+  ],
   drivers: [
     { user_id: 5, license_number: 'DL-78234' },
     { user_id: 6, license_number: 'DL-90112' }
@@ -118,6 +121,55 @@ function executeMockQuery(sql, params = []) {
     const email = params[0];
     const match = mockDb.users.filter(u => u.email.toLowerCase() === String(email).toLowerCase());
     return [match];
+  }
+
+  // Profile lookup: SELECT u.user_id, u.name ... FROM user u LEFT JOIN customer c ON u.user_id = c.user_id WHERE u.user_id = ?
+  if (s.includes('FROM USER U') && s.includes('LEFT JOIN CUSTOMER C') && s.includes('WHERE U.USER_ID = ?')) {
+    const userId = params[0];
+    const user = mockDb.users.find(u => String(u.user_id) === String(userId));
+    if (!user) return [[]];
+    
+    let result = {
+      user_id: user.user_id,
+      name: user.name,
+      email: user.email,
+      role_id: user.role_id,
+      phone: null,
+      address: null,
+      city_id: null
+    };
+
+    if (user.role_id === 6) {
+      const cust = mockDb.customers.find(c => String(c.user_id) === String(userId));
+      if (cust) {
+        result.phone = cust.phone;
+        result.address = cust.address;
+        result.city_id = cust.city_id;
+      }
+    }
+    return [[result]];
+  }
+
+  // Update Profile - User base record
+  if (s.startsWith('UPDATE USER SET NAME = COALESCE')) {
+    const [name, userId] = params;
+    const user = mockDb.users.find(u => String(u.user_id) === String(userId));
+    if (user && name) user.name = name;
+    return [{ affectedRows: 1 }];
+  }
+
+  // Update Profile - Customer details
+  if (s.startsWith('UPDATE CUSTOMER SET PHONE = COALESCE')) {
+    const [phone, address, cityId, userId] = params;
+    let cust = mockDb.customers.find(c => String(c.user_id) === String(userId));
+    if (!cust) {
+      cust = { user_id: Number(userId), phone: null, address: null, city_id: null };
+      mockDb.customers.push(cust);
+    }
+    if (phone) cust.phone = phone;
+    if (address) cust.address = address;
+    if (cityId) cust.city_id = Number(cityId);
+    return [{ affectedRows: 1 }];
   }
 
   // 1. SELECT max_delivery_time_minutes FROM route WHERE route_id = ?
