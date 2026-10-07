@@ -169,7 +169,8 @@ router.put('/allocations/:allocationId', async (req, res) => {
 
     // 3. REQ-DEL-05: If Delivered, update order and order items to 'Delivered'
     if (deliveryStatus === 'Delivered') {
-      await db.query('UPDATE `order` SET status = "Delivered" WHERE order_id = ?', [alloc.order_id]);
+      //await db.query('UPDATE `order` SET status = "Delivered" WHERE order_id = ?', [alloc.order_id]);
+      await db.query('UPDATE `order` SET status = "Delivered", delivered_at = NOW() WHERE order_id = ?', [alloc.order_id]);
       await db.query('UPDATE order_item SET status = "Delivered" WHERE order_id = ?', [alloc.order_id]);
       
       // Notify customer
