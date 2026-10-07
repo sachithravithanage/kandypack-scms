@@ -256,31 +256,73 @@ label {
 }
 
 /* ---- Auth split-screen layout ---- */
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 .kp-auth-shell {
   display: flex;
   min-height: 100vh;
+  background: var(--color-bg);
 }
 .kp-auth-brand {
-  flex: 1;
-  background: var(--color-navy-800);
+  flex: 1.2;
+  background: linear-gradient(-45deg, var(--color-navy-900), var(--color-navy-700), var(--color-navy-800), #0f172a);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
   color: #f5f6f8;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+.kp-auth-brand::before {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: radial-gradient(circle at top left, rgba(240, 162, 2, 0.15), transparent 40%),
+              radial-gradient(circle at bottom right, rgba(240, 162, 2, 0.1), transparent 40%);
+  pointer-events: none;
 }
 .kp-auth-brand-inner {
-  max-width: 360px;
+  max-width: 400px;
+  position: relative;
+  z-index: 1;
+  animation: fadeInSlideUp 0.8s ease-out forwards;
 }
 .kp-auth-brand-inner h1 {
   color: #ffffff;
-  font-size: 1.8rem;
-  margin: 1rem 0 0.75rem;
+  font-size: 2.5rem;
+  margin: 1.2rem 0 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 .kp-auth-brand-inner p {
-  color: #b7bccc;
-  font-size: 0.95rem;
-  line-height: 1.6;
+  color: #cbd5e1;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  font-weight: 300;
 }
 .kp-auth-form {
   flex: 1;
@@ -292,29 +334,44 @@ label {
 }
 .kp-auth-card {
   width: 100%;
-  max-width: 400px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-card);
-  padding: 2rem;
+  box-shadow: 0 20px 40px -15px rgba(16, 26, 51, 0.1), 0 0 0 1px rgba(16, 26, 51, 0.02);
+  padding: 2.5rem 2rem;
+  animation: fadeInSlideUp 0.6s ease-out 0.2s forwards;
+  opacity: 0;
+}
+.kp-auth-card h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-navy-900);
 }
 .kp-logo-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background: var(--color-navy-800);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-amber-500), var(--color-amber-600));
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 1.5rem;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(240, 162, 2, 0.3);
 }
 @media (max-width: 860px) {
   .kp-auth-brand {
     display: none;
+  }
+  .kp-auth-form {
+    background: linear-gradient(-45deg, var(--color-navy-900), var(--color-navy-700), #0f172a);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
   }
 }
 
