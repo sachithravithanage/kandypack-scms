@@ -478,18 +478,30 @@ function DriverDelivery() {
                     <IconAlertTriangle size={16} className="me-1 text-warning" />
                     Report Delay / Issue
                   </button>
-                  <button
-                    className={`btn btn-sm d-flex align-items-center ${
-                      pendingCount === 0 ? "btn-success fw-bold px-3" : "btn-outline-success"
-                    }`}
-                    onClick={handleCompleteRun}
-                    disabled={actionLoading}
-                  >
-                    <IconChecklist size={16} className="me-1" />
-                    {pendingCount === 0
-                      ? "All Stops Done: Complete Run & Log Hours"
-                      : "Complete Run & Log Hours"}
-                  </button>
+                  <div className="d-flex align-items-center gap-2">
+                    {pendingCount > 0 && (
+                      <span className="small text-muted fst-italic">
+                        ({pendingCount} stop{pendingCount > 1 ? "s" : ""} pending resolution)
+                      </span>
+                    )}
+                    <button
+                      className={`btn btn-sm d-flex align-items-center ${
+                        pendingCount === 0 ? "btn-success fw-bold px-3" : "btn-secondary text-white opacity-75"
+                      }`}
+                      onClick={handleCompleteRun}
+                      disabled={actionLoading || pendingCount > 0}
+                      title={
+                        pendingCount > 0
+                          ? `All stops must be resolved (Delivered, Failed, or Attempted) before completing the run (${pendingCount} pending).`
+                          : "Complete run and record actual working hours into Roster Log"
+                      }
+                    >
+                      <IconChecklist size={16} className="me-1" />
+                      {pendingCount === 0
+                        ? "All Stops Resolved: Complete Run & Log Hours"
+                        : `Complete Run (${pendingCount} Pending)`}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

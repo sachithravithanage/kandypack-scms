@@ -458,6 +458,15 @@ function executeMockQuery(sql, params = []) {
     return [{ insertId: newId, affectedRows: 1 }];
   }
 
+  // 23b. Check pending allocations before completing run (Guide line 1853-1859)
+  if (s.includes('COUNT(*) AS CNT FROM TRUCK_ALLOCATION WHERE TRUCK_SCHEDULE_ID = ? AND DELIVERY_STATUS = "PENDING"')) {
+    const scheduleId = params[0];
+    const pendingCount = mockDb.allocations.filter(
+      a => String(a.truck_schedule_id) === String(scheduleId) && a.delivery_status === 'Pending'
+    ).length;
+    return [[{ cnt: pendingCount }]];
+  }
+
   // 24. Complete truck schedule run & record roster_log
   if (s.includes('UPDATE TRUCK_SCHEDULE SET STATUS = "COMPLETED"')) {
     const scheduleId = params[0];
