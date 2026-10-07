@@ -323,6 +323,30 @@ function executeMockQuery(sql, params = []) {
     }]];
   }
 
+  // 17b. Stop sequence check query in mockDb
+  if (s.includes('FROM TRUCK_ALLOCATION TA') && (s.includes('RS.STOP_ORDER <') || s.includes('STOP_ORDER <'))) {
+    const [currentRouteStopId, scheduleId, allocationId] = params;
+    const currentStop = mockDb.route_stops.find(x => String(x.route_stop_id) === String(currentRouteStopId));
+    if (!currentStop) return [[]];
+    
+    const prior = mockDb.allocations.filter(a => {
+      if (String(a.truck_schedule_id) !== String(scheduleId)) return false;
+      if (String(a.truck_allocation_id) === String(allocationId)) return false;
+      if (a.delivery_status !== 'Pending') return false;
+      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(a.route_stop_id));
+      return rs && rs.stop_order < currentStop.stop_order;
+    });
+
+    if (prior.length === 0) return [[]];
+    const firstPrior = prior[0];
+    const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(firstPrior.route_stop_id)) || {};
+    return [[{
+      truck_allocation_id: firstPrior.truck_allocation_id,
+      stop_name: rs.stop_name || 'Prior Stop',
+      stop_order: rs.stop_order || 1
+    }]];
+  }
+
   // 17. Delivery stops / allocations for a schedule (REQ-DEL-01)
   if (s.includes('FROM TRUCK_ALLOCATION TA') && s.includes('TA.TRUCK_SCHEDULE_ID = ?')) {
     const scheduleId = params[0];
@@ -377,35 +401,11 @@ function executeMockQuery(sql, params = []) {
     }]];
   }
 
-  // 19b. Stop sequence check query in mockDb
-  if (s.includes('FROM TRUCK_ALLOCATION TA') && s.includes('RS.STOP_ORDER < CURRENT_RS.STOP_ORDER')) {
-    const [currentRouteStopId, scheduleId, allocationId] = params;
-    const currentStop = mockDb.route_stops.find(x => String(x.route_stop_id) === String(currentRouteStopId));
-    if (!currentStop) return [[]];
-    
-    const prior = mockDb.allocations.filter(a => {
-      if (String(a.truck_schedule_id) !== String(scheduleId)) return false;
-      if (String(a.truck_allocation_id) === String(allocationId)) return false;
-      if (a.delivery_status !== 'Pending') return false;
-      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(a.route_stop_id));
-      return rs && rs.stop_order < currentStop.stop_order;
-    });
-
-    if (prior.length === 0) return [[]];
-    const firstPrior = prior[0];
-    const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(firstPrior.route_stop_id)) || {};
-    return [[{
-      truck_allocation_id: firstPrior.truck_allocation_id,
-      stop_name: rs.stop_name || 'Prior Stop',
-      stop_order: rs.stop_order || 1
-    }]];
-  }
-
   // 19c. Count remaining pending stops in mockDb
-  if (s.includes('COUNT(*) AS COUNT FROM TRUCK_ALLOCATION WHERE TRUCK_SCHEDULE_ID = ? AND DELIVERY_STATUS = "PENDING"')) {
+  if (s.includes('COUNT(*)') && s.includes('FROM TRUCK_ALLOCATION') && s.includes('DELIVERY_STATUS =')) {
     const scheduleId = params[0];
     const count = mockDb.allocations.filter(a => String(a.truck_schedule_id) === String(scheduleId) && a.delivery_status === 'Pending').length;
-    return [[{ count }]];
+    return [[{ count, cnt: count }]];
   }
 
   // 20. Record delivery outcome (REQ-DEL-03)
@@ -488,8 +488,8 @@ function executeMockQuery(sql, params = []) {
     return [{ insertId: newLogId, affectedRows: 1 }];
   }
 
-  // 25. Driver runs list (GET /api/delivery/driver-runs)
-  if (s.includes('LEFT JOIN TRUCK_ALLOCATION TA') && s.includes('FROM TRUCK_SCHEDULE TS')) {
+  // 25. Driver runs list (GET /api/delivery/driver-runs via View v_driver_assigned_runs)
+  if (s.includes('FROM V_DRIVER_ASSIGNED_RUNS') || (s.includes('LEFT JOIN TRUCK_ALLOCATION TA') && s.includes('FROM TRUCK_SCHEDULE TS'))) {
     const list = mockDb.schedules.map(ts => {
       const r = mockDb.routes.find(x => String(x.route_id) === String(ts.route_id)) || {};
       const tk = mockDb.trucks.find(x => String(x.truck_id) === String(ts.truck_id)) || {};

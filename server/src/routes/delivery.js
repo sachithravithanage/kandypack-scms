@@ -342,52 +342,26 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
 
 /**
  * Active / Today's Run Finder for Drivers & Assistants
- * Returns runs assigned to a user or all runs for a date.
+ * Queries Database VIEW `v_driver_assigned_runs` (CS3043 Intermediate SQL: Views)
+ * Returns role-restricted runs assigned to a user or all runs for a date.
  */
 router.get('/driver-runs', async (req, res) => {
   try {
     const { driverId, date } = req.query;
-    let sql = `
-      SELECT ts.truck_schedule_id,
-             ts.route_id,
-             r.name AS route_name,
-             ts.truck_id,
-             tk.plate_number,
-             ts.driver_id,
-             ud.name AS driver_name,
-             ts.assistant_id,
-             ua.name AS assistant_name,
-             ts.scheduled_date,
-             ts.start_time,
-             ts.end_time,
-             ts.status,
-             ts.pickup_confirmed_at,
-             COUNT(ta.truck_allocation_id) AS total_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Delivered' THEN 1 ELSE 0 END) AS delivered_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Failed' THEN 1 ELSE 0 END) AS failed_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Attempted' THEN 1 ELSE 0 END) AS attempted_stops,
-             SUM(CASE WHEN ta.delivery_status = 'Pending' THEN 1 ELSE 0 END) AS pending_stops
-      FROM truck_schedule ts
-      JOIN route r ON ts.route_id = r.route_id
-      JOIN truck tk ON ts.truck_id = tk.truck_id
-      JOIN user ud ON ts.driver_id = ud.user_id
-      JOIN user ua ON ts.assistant_id = ua.user_id
-      LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
-      WHERE 1=1
-    `;
+    let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
     const params = [];
 
     if (driverId) {
-      sql += ' AND (ts.driver_id = ? OR ts.assistant_id = ?)';
+      sql += ' AND (driver_id = ? OR assistant_id = ?)';
       params.push(driverId, driverId);
     }
 
     if (date) {
-      sql += ' AND ts.scheduled_date = ?';
+      sql += ' AND scheduled_date = ?';
       params.push(date);
     }
 
-    sql += ' GROUP BY ts.truck_schedule_id ORDER BY ts.scheduled_date DESC, ts.start_time ASC';
+    sql += ' ORDER BY scheduled_date DESC, start_time ASC';
 
     const [rows] = await db.query(sql, params);
     res.json(rows || []);
