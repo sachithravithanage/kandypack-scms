@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 
 const roleNames = {
   1: "Administrator",
@@ -36,7 +37,7 @@ function AdminUsers() {
 
   const loadUsers = useCallback(() => {
     axios
-      .get("http://localhost:5000/api/users", {
+      .get(apiUrl("/api/users"), {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       })
       .then((res) => setUsers(res.data))
@@ -53,7 +54,7 @@ function AdminUsers() {
     e.preventDefault();
     try {
       await axios.post(
-        "http://localhost:5000/api/users",
+        apiUrl("/api/users"),
         {
           name: addForm.name,
           email: addForm.email,
@@ -93,7 +94,7 @@ function AdminUsers() {
   const saveEdit = async (userId) => {
     try {
       await axios.put(
-        `http://localhost:5000/api/users/${userId}`,
+        apiUrl(`/api/users/${userId}`),
         {
           name: editForm.name,
           email: editForm.email,
@@ -114,7 +115,7 @@ function AdminUsers() {
     if (!window.confirm("Deactivate this user?")) return;
     try {
       await axios.put(
-        `http://localhost:5000/api/users/${userId}/deactivate`,
+        apiUrl(`/api/users/${userId}/deactivate`),
         {},
         {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
