@@ -16,20 +16,22 @@ import {
   IconPackage,
   IconBuildingWarehouse,
   IconClipboardCheck,
+  IconUser,
 } from "@tabler/icons-react";
 
 const navItems = [
-  { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard },
-  { to: "/rail/schedules", label: "Train Schedules", Icon: IconTrain },
-  { to: "/rail/loading", label: "Train Loading", Icon: IconPackage },
-  { to: "/store/receipt", label: "Store Receipt", Icon: IconBuildingWarehouse },
-  { to: "/store/dispatch", label: "Daily Dispatch", Icon: IconClipboardCheck },
-  { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent },
-  { to: "/delivery", label: "Delivery Runs", Icon: IconTruck },
-  { to: "/admin/users", label: "Users", Icon: IconUsers },
-  { to: "/admin/inventory", label: "Inventory", Icon: IconBox },
-  { to: "/reports", label: "Reports", Icon: IconChartBar },
-  { to: "/notifications", label: "Notifications", Icon: IconBell },
+  { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard, allowedRoles: [1, 2, 3] },
+  { to: "/rail/schedules", label: "Train Schedules", Icon: IconTrain, allowedRoles: [1, 2, 3] },
+  { to: "/rail/loading", label: "Train Loading", Icon: IconPackage, allowedRoles: [1, 2] },
+  { to: "/store/receipt", label: "Store Receipt", Icon: IconBuildingWarehouse, allowedRoles: [1, 3] },
+  { to: "/store/dispatch", label: "Daily Dispatch", Icon: IconClipboardCheck, allowedRoles: [1, 3] },
+  { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
+  { to: "/delivery", label: "Delivery Runs", Icon: IconTruck, allowedRoles: [1, 2, 3, 4, 5] },
+  { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },
+  { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
+  { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
+  { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
+  { to: "/profile", label: "Profile", Icon: IconUser, allowedRoles: [1, 2, 3, 4, 5, 6] },
 ];
 
 
@@ -59,8 +61,29 @@ function AppLayout({ pageTitle, children }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("name");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("roleId");
+    localStorage.removeItem("role");
     navigate("/");
   };
+
+  // Determine user role from localStorage or fallback decode from token
+  let userRoleId = Number(localStorage.getItem("roleId"));
+  if (!userRoleId) {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        userRoleId = Number(payload.roleId || payload.role_id);
+      }
+    } catch {
+      // Fallback: leave undefined to show all items
+    }
+  }
+
+  const visibleNavItems = navItems.filter(
+    (item) => !userRoleId || !item.allowedRoles || item.allowedRoles.includes(userRoleId)
+  );
 
   const storedName = localStorage.getItem("name") || "User";
   const initials = storedName
@@ -78,7 +101,7 @@ function AppLayout({ pageTitle, children }) {
           <span>Kandypack</span>
         </div>
         <nav className="kp-nav">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

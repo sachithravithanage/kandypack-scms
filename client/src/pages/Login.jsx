@@ -18,6 +18,9 @@ function Login() {
       });
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("name", res.data.user.name);
+      if (res.data.user.id) localStorage.setItem("userId", res.data.user.id);
+      if (res.data.user.roleId) localStorage.setItem("roleId", res.data.user.roleId);
+      if (res.data.user.role) localStorage.setItem("role", res.data.user.role);
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
