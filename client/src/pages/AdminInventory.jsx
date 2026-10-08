@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { IconPackage, IconPlus } from "@tabler/icons-react";
+import { apiUrl } from "../api";
 
 function AdminInventory() {
   const [stock, setStock] = useState([]);
