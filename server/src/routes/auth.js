@@ -129,14 +129,15 @@ router.post("/login", async (req, res) => {
         });
     }
 
+    const jwtSecret = process.env.JWT_SECRET || "kandypack_scms_super_secret_jwt_key_2026";
     const token = jwt.sign(
       { userId: user.user_id, roleId: user.role_id },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: "8h" },
     );
     res.json({
       token,
-      user: { id: user.user_id, name: user.name, roleId: user.role_id },
+      user: { id: user.user_id, name: user.name, roleId: user.role_id, role: user.role },
     });
   } catch (err) {
     res.status(400).json({ error: err.message });

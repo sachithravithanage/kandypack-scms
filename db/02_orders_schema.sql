@@ -45,6 +45,7 @@ CREATE TABLE `order` (
   status VARCHAR(30) NOT NULL DEFAULT 'Placed',
   total_value DECIMAL(11,2) NOT NULL,
   total_volume DECIMAL(10,2) NOT NULL,
+  delivered_at DATETIME NULL,
   FOREIGN KEY (customer_id) REFERENCES customer(user_id),
   FOREIGN KEY (route_id) REFERENCES route(route_id),
   FOREIGN KEY (route_stop_id) REFERENCES route_stop(route_stop_id)

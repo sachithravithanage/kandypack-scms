@@ -4,6 +4,12 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminInventory from "./pages/AdminInventory";
+import Reports from "./pages/Reports";
+import Notifications from "./pages/Notifications";
+import RosterSchedule from "./pages/RosterSchedule";
+import DriverDelivery from "./pages/DriverDelivery";
+import Profile from "./pages/Profile";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const token = localStorage.getItem("token");
@@ -24,20 +30,39 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public authentication routes */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* Protected portals with role-based restrictions */}
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/roster"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <RosterSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/delivery"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
+              <DriverDelivery />
             </ProtectedRoute>
           }
         />
         <Route
           path="/admin/users"
           element={
-            <ProtectedRoute adminOnly>
+            <ProtectedRoute allowedRoles={[1]}>
               <AdminUsers />
             </ProtectedRoute>
           }
@@ -45,8 +70,32 @@ function App() {
         <Route
           path="/admin/inventory"
           element={
-            <ProtectedRoute adminOnly>
+            <ProtectedRoute allowedRoles={[1, 3]}>
               <AdminInventory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
+              <Profile />
             </ProtectedRoute>
           }
         />

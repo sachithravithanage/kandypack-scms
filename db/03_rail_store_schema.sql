@@ -31,7 +31,6 @@ CREATE TABLE cargo_allocation (
   trip_id INT NOT NULL,
   allocated_quantity INT NOT NULL,
   status VARCHAR(30) DEFAULT 'Not Loaded',
-  received_quantity INT,
   discrepancy_flag BOOLEAN DEFAULT FALSE,
   discrepancy_note TEXT,
   FOREIGN KEY (order_item_id) REFERENCES order_item(order_item_id),

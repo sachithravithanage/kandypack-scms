@@ -42,6 +42,57 @@ router.get("/", requireAuth, requireRole([1]), async (req, res) => {
   res.json(rows);
 });
 
+// GET current user's profile — Accessible by any logged-in user
+router.get("/profile", requireAuth, async (req, res) => {
+  try {
+    // For customers, join with the customer table to get phone, address, city
+    const [rows] = await db.query(
+      `SELECT u.user_id, u.name, u.email, u.role_id, c.phone, c.address, c.city_id 
+       FROM user u 
+       LEFT JOIN customer c ON u.user_id = c.user_id 
+       WHERE u.user_id = ?`,
+      [req.user.userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT current user's profile — Accessible by any logged-in user
+router.put("/profile", requireAuth, async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { name, phone, address, city_id } = req.body;
+
+    // Update the base user record (name)
+    await connection.query(
+      "UPDATE user SET name = COALESCE(?, name) WHERE user_id = ?",
+      [name, req.user.userId]
+    );
+
+    // If they are a customer (role_id = 6), update their customer details
+    if (req.user.roleId === 6) {
+      await connection.query(
+        "UPDATE customer SET phone = COALESCE(?, phone), address = COALESCE(?, address), city_id = COALESCE(?, city_id) WHERE user_id = ?",
+        [phone, address, city_id, req.user.userId]
+      );
+    }
+
+    await connection.commit();
+    res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
 // Admin creates a Dispatcher/Store Manager/Driver/Assistant account — REQ-USR-03
 // IMPORTANT: role_id 4 (Driver) and 5 (Assistant) need extra rows created in the same
 // transaction — Member D's `truck_schedule` table has foreign keys into `driver` and
