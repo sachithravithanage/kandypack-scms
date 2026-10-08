@@ -9,13 +9,37 @@ router.put(
   requireAuth,
   requireRole([1]),
   async (req, res) => {
-    const { quantityAdded } = req.body;
-    await db.query(
-      `INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES (?, ?)
-     ON DUPLICATE KEY UPDATE quantity_in_stock = quantity_in_stock + ?`,
-      [req.params.productId, quantityAdded, quantityAdded],
-    );
-    res.json({ message: "Stock updated" });
+    try {
+      const productId = Number(req.params.productId);
+      const { quantityAdded } = req.body;
+      if (!Number.isInteger(productId) || productId <= 0) {
+        return res
+          .status(400)
+          .json({ error: "Product ID must be a positive integer." });
+      }
+      if (!Number.isInteger(quantityAdded) || quantityAdded <= 0) {
+        return res
+          .status(400)
+          .json({ error: "Quantity added must be a positive integer." });
+      }
+
+      const [products] = await db.query(
+        "SELECT product_id FROM product WHERE product_id = ?",
+        [productId],
+      );
+      if (products.length === 0) {
+        return res.status(404).json({ error: "Product not found." });
+      }
+
+      await db.query(
+        `INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE quantity_in_stock = quantity_in_stock + ?`,
+        [productId, quantityAdded, quantityAdded],
+      );
+      res.json({ message: "Stock updated" });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
   },
 );
 
