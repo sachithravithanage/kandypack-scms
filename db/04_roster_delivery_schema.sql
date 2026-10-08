@@ -39,7 +39,7 @@ CREATE TABLE truck_allocation (
   truck_schedule_id INT NOT NULL,
   order_id INT NOT NULL,
   route_stop_id INT NOT NULL,
-  delivery_status ENUM('Pending', 'Delivered', 'Failed') NOT NULL DEFAULT 'Pending',
+  delivery_status ENUM('Pending', 'Delivered', 'Failed', 'Attempted') NOT NULL DEFAULT 'Pending',
   delivered_at DATETIME NULL,
   delivery_note TEXT NULL,
   FOREIGN KEY (truck_schedule_id) REFERENCES truck_schedule(truck_schedule_id) ON DELETE CASCADE,
