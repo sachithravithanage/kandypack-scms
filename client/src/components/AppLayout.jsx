@@ -23,9 +23,14 @@ function AppLayout({ pageTitle, children }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("name");
+    localStorage.removeItem("roleId");
     navigate("/");
   };
 
+  const isAdmin = Number(localStorage.getItem("roleId")) === 1;
+  const visibleNavItems = navItems.filter(
+    (item) => !item.to.startsWith("/admin") || isAdmin,
+  );
   const storedName = localStorage.getItem("name") || "User";
   const initials = storedName
     .split(" ")
@@ -42,7 +47,7 @@ function AppLayout({ pageTitle, children }) {
           <span>Kandypack</span>
         </div>
         <nav className="kp-nav">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
