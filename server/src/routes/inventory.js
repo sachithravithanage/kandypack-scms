@@ -31,25 +31,49 @@ router.put(
         return res.status(404).json({ error: "Product not found." });
       }
 
-      await db.query(
-        `INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES (?, ?)
-       ON DUPLICATE KEY UPDATE quantity_in_stock = quantity_in_stock + ?`,
-        [productId, quantityAdded, quantityAdded],
-      );
-      res.json({ message: "Stock updated" });
+      const connection = await db.getConnection();
+      try {
+        await connection.beginTransaction();
+        await connection.query(
+          `INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE quantity_in_stock = quantity_in_stock + ?`,
+          [productId, quantityAdded, quantityAdded],
+        );
+        await connection.query(
+          "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+          [
+            req.user.userId,
+            "Restocked product",
+            "main_inventory",
+            productId,
+            `quantity_added ${quantityAdded}`,
+          ],
+        );
+        await connection.commit();
+        res.json({ message: "Stock updated" });
+      } catch (err) {
+        await connection.rollback();
+        throw err;
+      } finally {
+        connection.release();
+      }
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
   },
 );
 
-// View current stock levels (used by Admin dashboard and by Member B's order-placement check)
-router.get("/", async (req, res) => {
-  const [rows] = await db.query(
-    `SELECT mi.product_id, p.name, mi.quantity_in_stock
-     FROM main_inventory mi JOIN product p ON mi.product_id = p.product_id`,
-  );
-  res.json(rows);
+// View current stock levels for authorized administrators.
+router.get("/", requireAuth, requireRole([1]), async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT mi.product_id, p.name, mi.quantity_in_stock
+       FROM main_inventory mi JOIN product p ON mi.product_id = p.product_id`,
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Could not load inventory." });
+  }
 });
 
 module.exports = router;
