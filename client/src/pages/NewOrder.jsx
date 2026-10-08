@@ -18,7 +18,7 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "") + "/api";
 
 function NewOrder() {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ function NewOrder() {
 
   const token = localStorage.getItem("token");
   const customerId = (() => {
-    const stored = localStorage.getItem("userId");
+    const stored = localStorage.getItem("userId") || localStorage.getItem("customerId");
     if (stored) return Number(stored);
     if (token) {
       try {
@@ -54,11 +54,11 @@ function NewOrder() {
         if (payload && payload.userId) return Number(payload.userId);
       } catch {}
     }
-    return 999;
+    return 9;
   })();
-  const authHeader = {
+  const authHeader = token ? {
     headers: { Authorization: `Bearer ${token}` },
-  };
+  } : {};
 
   // Calculate default minimum valid date (today + 7 days)
   const earliestAllowedDate = useMemo(() => {

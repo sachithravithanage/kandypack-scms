@@ -3,172 +3,258 @@ const db = require('../db');
 
 const router = express.Router();
 
-// Maps errors to HTTP responses: trigger (SIGNAL) errors -> 400, everything else -> 500.
-// Avoids leaking raw SQL error text to the client.
+// Maps errors to HTTP responses: trigger (SIGNAL) errors -> 400, reference errors -> 400, others -> 500.
 function sendError(res, err) {
     if (err.sqlState === '45000') {
-        return res.status(400).json({ error: err.sqlMessage });
+        return res.status(400).json({ error: err.sqlMessage || err.message });
     }
     if (err.code === 'ER_NO_REFERENCED_ROW_2') {
         return res.status(400).json({ error: 'Invalid reference: product, customer or stop does not exist.' });
     }
-    console.error(err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Order route error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
 }
 
-// REQ-ORD-02 — the 7-day rule is defined once, in MySQL (fn_days_until_delivery)
+// REQ-ORD-02 — 7-day rule calculated using standard SQL DATEDIFF or JS date diff fallback
 async function leadTimeDays(connection, deliveryDate) {
-    const [[row]] = await connection.query(
-        'SELECT fn_days_until_delivery(CURDATE(), ?) AS days', [deliveryDate]
-    );
-    return row.days;
+    try {
+        const [[row]] = await connection.query(
+            'SELECT DATEDIFF(?, CURDATE()) AS days', [deliveryDate]
+        );
+        if (row && row.days !== null && row.days !== undefined) {
+            return Number(row.days);
+        }
+    } catch (e) {
+        // Fallback to JS calculation if DATEDIFF is unavailable
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const requested = new Date(deliveryDate);
+    requested.setHours(0, 0, 0, 0);
+    return Math.round((requested - today) / (1000 * 60 * 60 * 24));
 }
 
-// Place a new order
+// Place a new order — REQ-ORD-01 to REQ-ORD-04
 router.post('/', async (req, res) => {
     const connection = await db.getConnection();
     try {
-    await connection.beginTransaction();
+        await connection.beginTransaction();
 
-    // routeStopId is chosen by the customer from a dropdown of stops (see B4's
-    // GET /api/routes/stops endpoint below) — the schema requires a specific route AND
-    // stop up front, so there's no automatic address-matching step here (the SRS notes
-    // route geometry/address-matching is out of scope for V1.0 — see Part 4).
-    const { customerId, routeStopId, deliveryAddress, deliveryDate, items } = req.body;
+        const { customerId, routeStopId, deliveryAddress, deliveryDate, items } = req.body;
 
-    // Input validation — REQ-ORD-01. Rejects empty orders and zero/negative quantities
-    // (a negative quantity would otherwise ADD stock to main_inventory).
-    if (!customerId || !routeStopId || !deliveryAddress || !deliveryDate || !Array.isArray(items) || items.length === 0) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'customerId, routeStopId, deliveryAddress, deliveryDate and at least one item are required.' });
-    }
-    // Merge duplicate products and sort by productId, so every transaction locks stock
-    // rows in the same order (prevents deadlocks) and duplicates can't bypass the stock check.
-    const merged = new Map();
-    for (const item of items) {
-        const pid = Number(item.productId);
-        const qty = Number(item.quantity);
-        if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(qty) || qty <= 0) {
+        // Input validation — REQ-ORD-01
+        if (!customerId || !routeStopId || !deliveryAddress || !deliveryDate || !Array.isArray(items) || items.length === 0) {
             await connection.rollback();
-            return res.status(400).json({ error: 'Each item needs a valid productId and a positive whole-number quantity.' });
+            return res.status(400).json({ error: 'customerId, routeStopId, deliveryAddress, deliveryDate and at least one item are required.' });
         }
-        merged.set(pid, (merged.get(pid) || 0) + qty);
-    }
-    const lines = [...merged.entries()].sort((a, b) => a[0] - b[0]);
 
-    // Check 7-day lead time — REQ-ORD-02 (rule lives in MySQL: fn_days_until_delivery)
-    const days = await leadTimeDays(connection, deliveryDate);
-    if (days === null || days < 7) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Delivery date must be at least 7 days from today.' });
-    }
+        // Deduplicate and validate quantities
+        const merged = new Map();
+        for (const item of items) {
+            const pid = Number(item.productId);
+            const qty = Number(item.quantity);
+            if (!Number.isInteger(pid) || pid <= 0 || !Number.isInteger(qty) || qty <= 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: 'Each item needs a valid productId and a positive whole-number quantity.' });
+            }
+            merged.set(pid, (merged.get(pid) || 0) + qty);
+        }
+        const lines = [...merged.entries()].sort((a, b) => a[0] - b[0]);
 
-    const [customerRows] = await connection.query('SELECT user_id FROM customer WHERE user_id = ?', [customerId]);
-    if (customerRows.length === 0) {
-        await connection.rollback();
-        return res.status(404).json({ error: 'Customer not found' });
-    }
+        // Check 7-day lead time — REQ-ORD-02
+        const days = await leadTimeDays(connection, deliveryDate);
+        if (days === null || days < 7) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Delivery date must be at least 7 days from today.' });
+        }
 
-    // Look up the route via the chosen stop — route_id and route_stop_id are both
-    // NOT NULL on `order`, so a valid stop selection is required to place an order at
-    // all (see the note on this in B1 — this order can't be saved as "Unroutable").
-    const [stopRows] = await connection.query('SELECT route_id FROM route_stop WHERE route_stop_id = ?', [routeStopId]);
-    if (stopRows.length === 0) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Please select a valid delivery stop.' });
-    }
-    const routeId = stopRows[0].route_id;
+        // Verify customer exists, or auto-provision if user exists in `user` table
+        let [customerRows] = await connection.query('SELECT user_id FROM customer WHERE user_id = ?', [customerId]);
+        if (customerRows.length === 0) {
+            const [userRows] = await connection.query('SELECT user_id FROM user WHERE user_id = ?', [customerId]);
+            if (userRows.length > 0) {
+                await connection.query(
+                    'INSERT IGNORE INTO customer (user_id, phone, address, city_id) VALUES (?, ?, ?, ?)',
+                    [customerId, '0771234567', deliveryAddress, 1]
+                );
+                [customerRows] = await connection.query('SELECT user_id FROM customer WHERE user_id = ?', [customerId]);
+            }
+            if (customerRows.length === 0) {
+                await connection.rollback();
+                return res.status(404).json({ error: 'Customer not found. Please log in or register first.' });
+            }
+        }
 
-    // HQ stock is checked and reserved atomically inside the item loop below
-    // (team-added inventory feature — see Part 4).
+        // Look up the route via the chosen stop — REQ-ORD-03
+        const [stopRows] = await connection.query('SELECT route_id FROM route_stop WHERE route_stop_id = ?', [routeStopId]);
+        if (stopRows.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Please select a valid delivery stop.' });
+        }
+        const routeId = stopRows[0].route_id;
 
-    // Create the order — REQ-ORD-01 (totals start at 0; filled by sp_recalc_order_totals below)
-    const [orderResult] = await connection.query(
-        `INSERT INTO \`order\` (customer_id, route_id, route_stop_id, delivery_address, order_date, requested_delivery_date, total_value, total_volume, status)
-        VALUES (?, ?, ?, ?, CURDATE(), ?, 0, 0, 'Placed')`,
-        [customerId, routeId, routeStopId, deliveryAddress, deliveryDate]
-    );
-    const orderId = orderResult.insertId;
+        // Check stock in main_inventory and calculate totals — REQ-ORD-01, REQ-ORD-04
+        let totalValue = 0;
+        let totalVolume = 0;
+        for (const [productId, quantity] of lines) {
+            const [stockRows] = await connection.query(
+                'SELECT quantity_in_stock FROM main_inventory WHERE product_id = ? FOR UPDATE',
+                [productId]
+            );
+            const currentStock = stockRows.length > 0 ? stockRows[0].quantity_in_stock : 0;
+            if (currentStock < quantity) {
+                await connection.rollback();
+                return res.status(400).json({
+                    error: `Insufficient stock for product #${productId} (Available: ${currentStock}, Requested: ${quantity}).`
+                });
+            }
 
-    // Insert items and reserve stock. The guarded UPDATE (quantity_in_stock >= ?) checks AND
-    // decrements in ONE atomic statement, so concurrent orders can never oversell stock.
-    for (const [productId, quantity] of lines) {
+            const [productRows] = await connection.query(
+                'SELECT unit_price, space_consumption_rate FROM product WHERE product_id = ?',
+                [productId]
+            );
+            if (productRows.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: `Product #${productId} not found.` });
+            }
+            const product = productRows[0];
+            totalValue += Number(product.unit_price) * quantity;
+            totalVolume += Number(product.space_consumption_rate) * quantity;
+        }
+
+        // Create the order — REQ-ORD-01, REQ-ORD-04
+        const [orderResult] = await connection.query(
+            `INSERT INTO \`order\` (customer_id, route_id, route_stop_id, delivery_address, order_date, requested_delivery_date, total_value, total_volume, status)
+             VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, 'Placed')`,
+            [customerId, routeId, routeStopId, deliveryAddress, deliveryDate, totalValue, totalVolume]
+        );
+        const orderId = orderResult.insertId;
+
+        // Insert items and decrement stock atomically
+        for (const [productId, quantity] of lines) {
+            await connection.query(
+                'INSERT INTO order_item (order_id, product_id, quantity, status) VALUES (?, ?, ?, ?)',
+                [orderId, productId, quantity, 'Pending']
+            );
+            await connection.query(
+                'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock - ? WHERE product_id = ?',
+                [quantity, productId]
+            );
+        }
+
+        // REQ-ORD-04: Recalculate totals directly in SQL to ensure consistency
         await connection.query(
-        'INSERT INTO order_item (order_id, product_id, quantity, status) VALUES (?, ?, ?, ?)',
-        [orderId, productId, quantity, 'Pending']
+            `UPDATE \`order\` o
+             SET total_value = (
+               SELECT COALESCE(SUM(oi.quantity * p.unit_price), 0)
+               FROM order_item oi
+               JOIN product p ON oi.product_id = p.product_id
+               WHERE oi.order_id = o.order_id
+             ),
+             total_volume = (
+               SELECT COALESCE(SUM(oi.quantity * p.space_consumption_rate), 0)
+               FROM order_item oi
+               JOIN product p ON oi.product_id = p.product_id
+               WHERE oi.order_id = o.order_id
+             )
+             WHERE o.order_id = ?`,
+            [orderId]
         );
-        const [stockUpdate] = await connection.query(
-        'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock - ? WHERE product_id = ? AND quantity_in_stock >= ?',
-        [quantity, productId, quantity]
+
+        // Audit log entry
+        await connection.query(
+            'INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)',
+            [customerId, 'Placed order', 'order', orderId, `Total value: ${totalValue.toFixed(2)}, total items: ${lines.length}`]
         );
-        if (stockUpdate.affectedRows === 0) {
-            await connection.rollback();
-            return res.status(400).json({ error: `Insufficient stock for product ${productId}` });
-        }
-    }
 
-    // REQ-ORD-04 — totals computed by MySQL (fn_order_total_value / fn_order_total_volume),
-    // inside the same transaction as the order, items and stock change.
-    await connection.query('CALL sp_recalc_order_totals(?)', [orderId]);
-
-    await connection.commit();
-    res.status(201).json({ message: 'Order placed', orderId });
+        await connection.commit();
+        res.status(201).json({ message: 'Order placed successfully', orderId });
     } catch (err) {
-    await connection.rollback();
-    sendError(res, err);
+        await connection.rollback();
+        sendError(res, err);
     } finally {
-    connection.release();
+        connection.release();
     }
 });
 
 // Get order history for a customer — REQ-ORD-05
 router.get('/customer/:customerId', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM `order` WHERE customer_id = ?', [req.params.customerId]);
+        const [rows] = await db.query(
+            `SELECT o.*, r.name AS route_name, rs.stop_name
+             FROM \`order\` o
+             LEFT JOIN route r ON o.route_id = r.route_id
+             LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id
+             WHERE o.customer_id = ?
+             ORDER BY o.order_id DESC`,
+            [req.params.customerId]
+        );
         res.json(rows);
     } catch (err) {
         sendError(res, err);
     }
 });
 
-// Cancel an order — only while status is 'Placed' — REQ-ORD-06
-// Must return reserved stock to main_inventory, otherwise stock leaks every time an order is cancelled.
-router.delete('/:id', async (req, res) => {
-    const connection = await db.getConnection();
+// Get single order with items
+router.get('/:id', async (req, res) => {
     try {
-    await connection.beginTransaction();
-    const [orderRows] = await connection.query('SELECT status FROM `order` WHERE order_id = ? FOR UPDATE', [req.params.id]);
-    if (orderRows.length === 0 || orderRows[0].status !== 'Placed') {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Order can only be cancelled while status is Placed.' });
-    }
-
-    const [items] = await connection.query('SELECT product_id, quantity FROM order_item WHERE order_id = ? ORDER BY product_id', [req.params.id]);
-    for (const item of items) {
-        await connection.query(
-        'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock + ? WHERE product_id = ?',
-        [item.quantity, item.product_id]
+        const [orders] = await db.query('SELECT * FROM `order` WHERE order_id = ?', [req.params.id]);
+        if (orders.length === 0) return res.status(404).json({ error: 'Order not found' });
+        const [items] = await db.query(
+            `SELECT oi.*, p.name AS product_name, p.unit_price
+             FROM order_item oi
+             JOIN product p ON oi.product_id = p.product_id
+             WHERE oi.order_id = ?`,
+            [req.params.id]
         );
-    }
-
-    await connection.query("UPDATE `order` SET status = 'Cancelled' WHERE order_id = ?", [req.params.id]);
-
-    // REQ-ORD-06 — cancellation is audit-logged inside the same transaction
-    await connection.query(
-    "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order cancelled', 'order', ?, 'Status Placed -> Cancelled, stock restored')",
-    [req.params.id]
-    );
-    await connection.commit();
-    res.json({ message: 'Order cancelled and stock restored' });
+        res.json({ ...orders[0], items });
     } catch (err) {
-    await connection.rollback();
-    sendError(res, err);
-    } finally {
-    connection.release();
+        sendError(res, err);
     }
 });
 
-// Edit an order — allowed only while status is 'Placed'
+// Cancel an order — only while status is 'Placed' — REQ-ORD-06
+// Must return reserved stock to main_inventory
+router.delete('/:id', async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const [orderRows] = await connection.query('SELECT status FROM `order` WHERE order_id = ? FOR UPDATE', [req.params.id]);
+        if (orderRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'Order not found.' });
+        }
+        if (orderRows[0].status !== 'Placed') {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Order can only be cancelled while status is Placed.' });
+        }
+
+        const [items] = await connection.query('SELECT product_id, quantity FROM order_item WHERE order_id = ? ORDER BY product_id', [req.params.id]);
+        for (const item of items) {
+            await connection.query(
+                'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock + ? WHERE product_id = ?',
+                [item.quantity, item.product_id]
+            );
+        }
+
+        await connection.query("UPDATE `order` SET status = 'Cancelled' WHERE order_id = ?", [req.params.id]);
+
+        // REQ-ORD-06 — cancellation is audit-logged
+        await connection.query(
+            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order cancelled', 'order', ?, 'Status Placed -> Cancelled, stock restored')",
+            [req.params.id]
+        );
+        await connection.commit();
+        res.json({ message: 'Order cancelled and stock restored' });
+    } catch (err) {
+        await connection.rollback();
+        sendError(res, err);
+    } finally {
+        connection.release();
+    }
+});
+
+// Edit an order — allowed only while status is 'Placed' — REQ-ORD-06 & REQ-ORD-02
 router.put('/:id', async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -208,7 +294,7 @@ router.put('/:id', async (req, res) => {
             [deliveryAddress, deliveryDate, req.params.id]
         );
 
-        // REQ-ORD-06 — modification is audit-logged inside the same transaction
+        // REQ-ORD-06 — modification is audit-logged
         await connection.query(
             "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order modified', 'order', ?, ?)",
             [req.params.id, `new address=[${deliveryAddress}], new delivery date=${deliveryDate}`]
@@ -225,7 +311,6 @@ router.put('/:id', async (req, res) => {
 });
 
 // Customer confirms receipt: Delivered -> Closed — REQ-ORD-07
-// ('Delivered' is set by the driver flow; the 48 h auto-close is the MySQL event ev_auto_close_delivered_orders)
 router.put('/:id/confirm-receipt', async (req, res) => {
     try {
         const [result] = await db.query(

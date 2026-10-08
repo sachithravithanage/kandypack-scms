@@ -2,6 +2,19 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { IconPackage, IconTruck, IconAlertTriangle } from "@tabler/icons-react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+} from "chart.js";
+import { Bar, Pie } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 function Dashboard() {
   const [totalOrders, setTotalOrders]   = useState("—");
@@ -9,6 +22,10 @@ function Dashboard() {
   const [openAlerts, setOpenAlerts]     = useState("—");
   const [recentNotifs, setRecentNotifs] = useState([]);
   const [loading, setLoading]           = useState(true);
+  
+  // Chart Data State
+  const [salesData, setSalesData]       = useState(null);
+  const [truckData, setTruckData]       = useState(null);
 
   const token  = localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
@@ -28,6 +45,19 @@ function Dashboard() {
       .then((res) => {
         const total = res.data.reduce((sum, r) => sum + (r.total_orders || 0), 0);
         setTotalOrders(total);
+        
+        // Setup Sales Bar Chart
+        if (res.data.length > 0) {
+           setSalesData({
+             labels: res.data.map(d => d.period || "Period"),
+             datasets: [{
+               label: "Total Orders",
+               data: res.data.map(d => d.total_orders),
+               backgroundColor: "rgba(245, 158, 11, 0.8)", // Amber 500
+               borderRadius: 4
+             }]
+           });
+        }
       })
       .catch(() => {});
 
@@ -39,6 +69,21 @@ function Dashboard() {
           (sum, t) => sum + (t.total_trips_assigned || 0), 0
         );
         setInTransit(trips);
+        
+        // Setup Truck Utilization Pie Chart
+        if (res.data.length > 0) {
+           setTruckData({
+             labels: res.data.map(d => d.plate_number),
+             datasets: [{
+               label: "Trips Assigned",
+               data: res.data.map(d => d.total_trips_assigned),
+               backgroundColor: [
+                 "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"
+               ],
+               borderWidth: 1
+             }]
+           });
+        }
       })
       .catch(() => {});
 
@@ -84,6 +129,28 @@ function Dashboard() {
           </div>
           <p className="kp-stat-label">Unread alerts</p>
           <p className="kp-stat-value">{loading ? "…" : openAlerts}</p>
+        </div>
+      </div>
+
+      {/* ── Charts Section ───────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: "1.5rem", marginBottom: "1.5rem" }}>
+        <div className="kp-card" style={{ padding: "1.5rem" }}>
+          <p style={{ fontWeight: 600, marginBottom: "1rem", marginTop: 0 }}>Sales Trends</p>
+          {salesData ? (
+             <Bar data={salesData} options={{ responsive: true, plugins: { legend: { position: 'top' } } }} />
+          ) : (
+             <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No sales data available.</p>
+          )}
+        </div>
+        <div className="kp-card" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <p style={{ fontWeight: 600, marginBottom: "1rem", marginTop: 0, alignSelf: "flex-start" }}>Truck Utilization</p>
+          <div style={{ width: "300px", height: "300px" }}>
+            {truckData ? (
+               <Pie data={truckData} options={{ responsive: true, maintainAspectRatio: false }} />
+            ) : (
+               <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No utilization data available.</p>
+            )}
+          </div>
         </div>
       </div>
 
