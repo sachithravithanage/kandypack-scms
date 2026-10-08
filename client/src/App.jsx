@@ -100,6 +100,10 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 6]}>
               <NewOrder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/profile"
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
