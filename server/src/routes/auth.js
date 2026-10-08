@@ -20,7 +20,7 @@ router.post("/register", async (req, res) => {
 
     // role_id 6 = Customer, based on the INSERT order in A1
     const [userResult] = await connection.query(
-      "INSERT INTO user (name, email, password_hash, role_id) VALUES (?, ?, ?, 6)",
+      "INSERT INTO `user` (name, email, password_hash, role_id) VALUES (?, ?, ?, 6)",
       [name, email, password_hash],
     );
     const newUserId = userResult.insertId;
@@ -46,7 +46,7 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const [rows] = await db.query("SELECT * FROM user WHERE email = ?", [
+    const [rows] = await db.query("SELECT * FROM `user` WHERE email = ?", [
       email,
     ]);
     if (rows.length === 0)

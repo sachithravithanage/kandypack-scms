@@ -7,7 +7,7 @@ const router = express.Router();
 // GET all users — Admin only (role_id 1)
 router.get("/", requireAuth, requireRole([1]), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT user_id, name, email, role_id, is_active FROM user",
+    "SELECT user_id, name, email, role_id, is_active FROM `user`",
   );
   res.json(rows);
 });
@@ -27,7 +27,7 @@ router.post("/", requireAuth, requireRole([1]), async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     const [userResult] = await connection.query(
-      "INSERT INTO user (name, email, password_hash, role_id) VALUES (?, ?, ?, ?)",
+      "INSERT INTO `user` (name, email, password_hash, role_id) VALUES (?, ?, ?, ?)",
       [name, email, password_hash, roleId],
     );
     const newUserId = userResult.insertId;
@@ -83,7 +83,7 @@ router.put("/:id", requireAuth, requireRole([1]), async (req, res) => {
     const { name, email, roleId } = req.body;
 
     const [rows] = await connection.query(
-      "SELECT role_id FROM user WHERE user_id = ?",
+      "SELECT role_id FROM `user` WHERE user_id = ?",
       [userId],
     );
     if (rows.length === 0) {
@@ -108,7 +108,7 @@ router.put("/:id", requireAuth, requireRole([1]), async (req, res) => {
     }
 
     await connection.query(
-      "UPDATE user SET name = COALESCE(?, name), email = COALESCE(?, email), role_id = ? WHERE user_id = ?",
+      "UPDATE `user` SET name = COALESCE(?, name), email = COALESCE(?, email), role_id = ? WHERE user_id = ?",
       [name ?? null, email ?? null, newRoleId, userId],
     );
 
@@ -153,7 +153,7 @@ router.put(
       }
 
       const [result] = await db.query(
-        "UPDATE user SET is_active = FALSE WHERE user_id = ?",
+        "UPDATE `user` SET is_active = FALSE WHERE user_id = ?",
         [userId],
       );
       if (result.affectedRows === 0) {
