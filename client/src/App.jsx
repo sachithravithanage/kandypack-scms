@@ -11,20 +11,6 @@ import DriverDelivery from "./pages/DriverDelivery";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-function ProtectedRoute({ children, adminOnly = false }) {
-  const token = localStorage.getItem("token");
-  const roleId = Number(localStorage.getItem("roleId"));
-
-  if (!token) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (adminOnly && roleId !== 1) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return children;
-}
 
 function App() {
   return (

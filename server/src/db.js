@@ -234,6 +234,27 @@ function executeMockQuery(sql, params = []) {
     return [{ affectedRows: 1 }];
   }
 
+  // Dashboard: Total orders (reports/sales)
+  if (s.includes('AS TOTAL_ORDERS') && s.includes('FROM `ORDER`')) {
+    return [[{ period: '2026-10', total_orders: 1450, total_revenue: 2500000, total_volume: 120 }]];
+  }
+
+  // Dashboard: In-transit trips (reports/truck-utilization)
+  if (s.includes('TOTAL_TRIPS_ASSIGNED') && s.includes('FROM TRUCK')) {
+    return [[
+      { truck_id: 1, plate_number: 'WP-CAB-1234', capacity: 50.00, total_trips_assigned: 12, total_stops_serviced: 45 },
+      { truck_id: 2, plate_number: 'WP-CAD-5678', capacity: 40.00, total_trips_assigned: 8, total_stops_serviced: 22 }
+    ]];
+  }
+
+  // Dashboard / AppLayout: Notifications
+  if (s.includes('FROM NOTIFICATION WHERE USER_ID = ?')) {
+    return [[
+      { notification_id: 1, user_id: params[0], message: 'System maintenance scheduled for tonight.', is_read: 0, created_at: new Date() },
+      { notification_id: 2, user_id: params[0], message: 'New order #1042 assigned to your region.', is_read: 1, created_at: new Date() }
+    ]];
+  }
+
   // 1. SELECT max_delivery_time_minutes FROM route WHERE route_id = ?
   if (s.includes('FROM ROUTE') && s.includes('ROUTE_ID =')) {
     const routeId = params[0];
