@@ -38,6 +38,9 @@ function Login() {
       } else if (user.roleId === 2) {
         // Dispatcher -> Land directly in Roster Schedule portal
         navigate("/roster");
+      } else if (user.roleId === 6) {
+        // Customer -> Land directly in Profile
+        navigate("/profile");
       } else {
         // Admin or Store Manager -> Dashboard
         navigate("/dashboard");

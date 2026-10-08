@@ -49,6 +49,18 @@ const mockDb = {
     { user_id: 7 },
     { user_id: 8 }
   ],
+  products: [
+    { product_id: 1, name: 'Premium Rice 5kg', price: 950.00, volume: 0.05 },
+    { product_id: 2, name: 'Sugar 1kg', price: 280.00, volume: 0.01 },
+    { product_id: 3, name: 'Dhal 1kg', price: 320.00, volume: 0.01 },
+    { product_id: 4, name: 'Tea Powder 500g', price: 850.00, volume: 0.005 }
+  ],
+  inventory: [
+    { product_id: 1, quantity_in_stock: 450 },
+    { product_id: 2, quantity_in_stock: 80 },
+    { product_id: 3, quantity_in_stock: 0 },
+    { product_id: 4, quantity_in_stock: 1200 }
+  ],
   trucks: [
     { truck_id: 1, plate_number: 'WP-CAB-1234', capacity: 50.00 },
     { truck_id: 2, plate_number: 'WP-CAD-5678', capacity: 40.00 },
@@ -169,6 +181,56 @@ function executeMockQuery(sql, params = []) {
     if (phone) cust.phone = phone;
     if (address) cust.address = address;
     if (cityId) cust.city_id = Number(cityId);
+    return [{ affectedRows: 1 }];
+  }
+
+  // Inventory: GET /api/inventory
+  if (s.includes('FROM MAIN_INVENTORY MI JOIN PRODUCT P')) {
+    const results = mockDb.inventory.map(inv => {
+      const prod = mockDb.products.find(p => p.product_id === inv.product_id);
+      return {
+        product_id: inv.product_id,
+        name: prod ? prod.name : 'Unknown Product',
+        quantity_in_stock: inv.quantity_in_stock
+      };
+    });
+    return [results];
+  }
+
+  // Inventory: PUT /api/inventory/:id/restock
+  if (s.includes('INSERT INTO MAIN_INVENTORY (PRODUCT_ID, QUANTITY_IN_STOCK)')) {
+    const [productId, quantityAdded, quantityAddedUpdate] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(productId));
+    if (inv) {
+      inv.quantity_in_stock += Number(quantityAddedUpdate);
+    } else {
+      mockDb.inventory.push({ product_id: Number(productId), quantity_in_stock: Number(quantityAdded) });
+    }
+    return [{ affectedRows: 1 }];
+  }
+
+  // Inventory: GET /api/inventory
+  if (s.includes('FROM MAIN_INVENTORY MI JOIN PRODUCT P')) {
+    const results = mockDb.inventory.map(inv => {
+      const prod = mockDb.products.find(p => p.product_id === inv.product_id);
+      return {
+        product_id: inv.product_id,
+        name: prod ? prod.name : 'Unknown Product',
+        quantity_in_stock: inv.quantity_in_stock
+      };
+    });
+    return [results];
+  }
+
+  // Inventory: PUT /api/inventory/:id/restock
+  if (s.includes('INSERT INTO MAIN_INVENTORY (PRODUCT_ID, QUANTITY_IN_STOCK)')) {
+    const [productId, quantityAdded, quantityAddedUpdate] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(productId));
+    if (inv) {
+      inv.quantity_in_stock += Number(quantityAddedUpdate);
+    } else {
+      mockDb.inventory.push({ product_id: Number(productId), quantity_in_stock: Number(quantityAdded) });
+    }
     return [{ affectedRows: 1 }];
   }
 
