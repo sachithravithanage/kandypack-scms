@@ -13,13 +13,13 @@ function sendError(res, err) {
         return res.status(400).json({ error: 'Invalid reference: product, customer or stop does not exist.' });
     }
     console.error(err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error: ' + (err.message || String(err)), stack: err.stack });
 }
 
-// REQ-ORD-02 — the 7-day rule is defined once, in MySQL (fn_days_until_delivery)
+// REQ-ORD-02 — the 7-day rule was originally in a MySQL function, but rewritten to standard SQL for TiDB compatibility
 async function leadTimeDays(connection, deliveryDate) {
     const [[row]] = await connection.query(
-        'SELECT fn_days_until_delivery(CURDATE(), ?) AS days', [deliveryDate]
+        'SELECT DATEDIFF(?, CURDATE()) AS days', [deliveryDate]
     );
     return row.days;
 }
@@ -107,9 +107,14 @@ router.post('/', async (req, res) => {
         }
     }
 
-    // REQ-ORD-04 — totals computed by MySQL (fn_order_total_value / fn_order_total_volume),
-    // inside the same transaction as the order, items and stock change.
-    await connection.query('CALL sp_recalc_order_totals(?)', [orderId]);
+    // Recalculate totals inline since TiDB Serverless doesn't support stored procedures (sp_recalc_order_totals)
+    await connection.query(
+        `UPDATE \`order\` 
+         SET total_value = (SELECT COALESCE(SUM(oi.quantity * p.unit_price), 0) FROM order_item oi JOIN product p ON p.product_id = oi.product_id WHERE oi.order_id = ?),
+             total_volume = (SELECT COALESCE(SUM(oi.quantity * p.space_consumption_rate), 0) FROM order_item oi JOIN product p ON p.product_id = oi.product_id WHERE oi.order_id = ?)
+         WHERE order_id = ?`, 
+        [orderId, orderId, orderId]
+    );
 
     await connection.commit();
     res.status(201).json({ message: 'Order placed', orderId });
