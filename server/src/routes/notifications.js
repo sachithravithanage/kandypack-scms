@@ -3,11 +3,32 @@ const db = require('../db');
 const router = express.Router();
 
 async function createNotification(userId, type, message) {
+  // 1. Insert into database
   await db.query(
     'INSERT INTO notification (user_id, type, message) VALUES (?, ?, ?)',
     [userId, type, message]
   );
   console.log(`[Notification Alert] User ${userId} [${type}]: ${message}`);
+
+  // 2. Fetch user phone number for SMS
+  try {
+    const [userRows] = await db.query('SELECT phone, name FROM `user` WHERE user_id = ?', [userId]);
+    if (userRows && userRows.length > 0) {
+      const { phone, name } = userRows[0];
+      if (phone) {
+        // 3. Mock SMS sending (Twilio simulation)
+        console.log(`\n================== SMS GATEWAY ==================`);
+        console.log(`To: ${phone} (${name})`);
+        console.log(`Body: Kandypack Alert - [${type}] ${message}`);
+        console.log(`Status: Sent successfully.`);
+        console.log(`=================================================\n`);
+      } else {
+        console.log(`[SMS Gateway] User ${userId} has no phone number attached. Skipping SMS.`);
+      }
+    }
+  } catch (err) {
+    console.error(`[SMS Gateway] Failed to fetch phone for user ${userId}:`, err.message);
+  }
 }
 
 // GET /api/notifications/:userId - Fetch all notifications for a user
