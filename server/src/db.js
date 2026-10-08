@@ -685,6 +685,116 @@ function executeMockQuery(sql, params = []) {
     return [{ affectedRows: 1 }];
   }
 
+  // 27. Member B: Lead-time & order placement mock queries
+  if (s.includes('DATEDIFF') || s.includes('FN_DAYS_UNTIL_DELIVERY')) {
+    const targetDate = new Date(params[0]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+    const days = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+    return [[{ days }]];
+  }
+
+  if (s.includes('FROM CUSTOMER WHERE USER_ID = ?')) {
+    const uid = params[0];
+    const match = mockDb.customers.filter(c => String(c.user_id) === String(uid));
+    return [match.length > 0 ? match : [{ user_id: Number(uid) }]];
+  }
+
+  if (s.includes('FROM ROUTE_STOP WHERE ROUTE_STOP_ID = ?')) {
+    const stopId = params[0];
+    const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(stopId));
+    return [rs ? [{ route_id: rs.route_id }] : [{ route_id: 1 }]];
+  }
+
+  if (s.includes('FROM MAIN_INVENTORY WHERE PRODUCT_ID = ?')) {
+    const pid = params[0];
+    const inv = mockDb.inventory.find(x => String(x.product_id) === String(pid));
+    return [inv ? [{ quantity_in_stock: inv.quantity_in_stock }] : [{ quantity_in_stock: 500 }]];
+  }
+
+  if (s.includes('FROM PRODUCT WHERE PRODUCT_ID = ?')) {
+    const pid = params[0];
+    const p = mockDb.products.find(x => String(x.product_id) === String(pid));
+    return [p ? [{ unit_price: p.price || 500, space_consumption_rate: p.volume || 1.0, ...p }] : [{ unit_price: 500, space_consumption_rate: 1.0 }]];
+  }
+
+  if (s.includes('INSERT INTO `ORDER`') || s.includes('INSERT INTO ORDER')) {
+    const [customer_id, route_id, route_stop_id, delivery_address, deliveryDate, total_value, total_volume] = params;
+    const newId = 1000 + mockDb.orders.length + 1;
+    mockDb.orders.push({
+      order_id: newId,
+      customer_id: Number(customer_id),
+      route_id: Number(route_id),
+      route_stop_id: Number(route_stop_id),
+      delivery_address,
+      order_date: new Date().toISOString().slice(0, 10),
+      requested_delivery_date: deliveryDate,
+      total_value: Number(total_value) || 0,
+      total_volume: Number(total_volume) || 0,
+      status: 'Placed'
+    });
+    return [{ insertId: newId, affectedRows: 1 }];
+  }
+
+  if (s.includes('INSERT INTO ORDER_ITEM')) {
+    return [{ insertId: 1, affectedRows: 1 }];
+  }
+
+  if (s.includes('UPDATE MAIN_INVENTORY SET QUANTITY_IN_STOCK = QUANTITY_IN_STOCK - ?')) {
+    const [qty, pid] = params;
+    const inv = mockDb.inventory.find(x => String(x.product_id) === String(pid));
+    if (inv) inv.quantity_in_stock = Math.max(0, inv.quantity_in_stock - Number(qty));
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes('UPDATE `ORDER` O SET TOTAL_VALUE') || s.includes('UPDATE ORDER O SET TOTAL_VALUE')) {
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes('FROM `ORDER` O') && s.includes('WHERE O.CUSTOMER_ID = ?')) {
+    const custId = params[0];
+    const list = mockDb.orders.filter(o => String(o.customer_id) === String(custId)).map(o => {
+      const r = mockDb.routes.find(x => String(x.route_id) === String(o.route_id)) || {};
+      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(o.route_stop_id)) || {};
+      return {
+        ...o,
+        route_name: r.name || 'Colombo Central Route',
+        stop_name: rs.stop_name || 'Delivery Stop'
+      };
+    });
+    return [list];
+  }
+
+  if (s.includes('FROM `ORDER` WHERE ORDER_ID = ?') || s.includes('FROM ORDER WHERE ORDER_ID = ?')) {
+    const oid = params[0];
+    const match = mockDb.orders.filter(o => String(o.order_id) === String(oid));
+    return [match];
+  }
+
+  if (s.includes("SET STATUS = 'CANCELLED'")) {
+    const oid = params[0];
+    const ord = mockDb.orders.find(o => String(o.order_id) === String(oid));
+    if (ord) ord.status = 'Cancelled';
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes("SET STATUS = 'CLOSED'")) {
+    const oid = params[0];
+    const ord = mockDb.orders.find(o => String(o.order_id) === String(oid));
+    if (ord) ord.status = 'Closed';
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes('SET DELIVERY_ADDRESS = ?')) {
+    const [addr, date, oid] = params;
+    const ord = mockDb.orders.find(o => String(o.order_id) === String(oid));
+    if (ord) {
+      ord.delivery_address = addr;
+      ord.requested_delivery_date = date;
+    }
+    return [{ affectedRows: 1 }];
+  }
 
   return [[]];
 }

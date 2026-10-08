@@ -19,7 +19,7 @@ import {
   IconFilter,
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "") + "/api";
 
 const STATUS_CONFIG = {
   Placed: {
@@ -72,7 +72,7 @@ function MyOrders() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const customerId = (() => {
-    const stored = localStorage.getItem("userId");
+    const stored = localStorage.getItem("userId") || localStorage.getItem("customerId");
     if (stored) return Number(stored);
     const token = localStorage.getItem("token");
     if (token) {
@@ -81,12 +81,12 @@ function MyOrders() {
         if (payload && payload.userId) return Number(payload.userId);
       } catch {}
     }
-    return 999;
+    return 9;
   })();
   const token = localStorage.getItem("token");
-  const authHeader = {
+  const authHeader = token ? {
     headers: { Authorization: `Bearer ${token}` },
-  };
+  } : {};
 
   const loadOrders = useCallback(async () => {
     try {
