@@ -8,6 +8,8 @@ import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
+import MyOrders from "./pages/MyOrders";
+import NewOrder from "./pages/NewOrder";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -78,6 +80,26 @@ function App() {
           }
         />
         <Route
+          path="/orders"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 6]}>
+              <MyOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-orders"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 6]}>
+              <MyOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/new"
+          element={
+            <ProtectedRoute allowedRoles={[1, 6]}>
+              <NewOrder />
           path="/profile"
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
