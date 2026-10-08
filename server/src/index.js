@@ -12,12 +12,6 @@ const railRoutes = require("./routes/rail");
 const storeRoutes = require("./routes/store");
 const { router: notificationRoutes } = require("./routes/notifications");
 const reportRoutes = require("./routes/reports");
-const userRoutes = require("./routes/users");
-const inventoryRoutes = require("./routes/inventory");
-const cityRoutes = require("./routes/cities");
-
-const rosterRoutes = require("./routes/roster");
-
 const app = express();
 app.use(cors());
 app.use(express.json());

@@ -7,7 +7,6 @@ let pool = null;
 let useFallback = false;
 
 const poolConfig = {
-<<<<<<< HEAD
         host: process.env.DB_HOST || 'railway-proj-railwayp-roj.e.aivencloud.com',
         port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 26357,
         user: process.env.DB_USER || 'avnadmin',

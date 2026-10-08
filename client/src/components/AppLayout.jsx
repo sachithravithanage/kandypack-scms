@@ -12,10 +12,18 @@ import {
   IconChartBar,
   IconCalendarEvent,
   IconTruck,
+  IconTrain,
+  IconPackage,
+  IconBuildingWarehouse,
+  IconClipboardCheck,
 } from "@tabler/icons-react";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard },
+  { to: "/rail/schedules", label: "Train Schedules", Icon: IconTrain },
+  { to: "/rail/loading", label: "Train Loading", Icon: IconPackage },
+  { to: "/store/receipt", label: "Store Receipt", Icon: IconBuildingWarehouse },
+  { to: "/store/dispatch", label: "Daily Dispatch", Icon: IconClipboardCheck },
   { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent },
   { to: "/delivery", label: "Delivery Runs", Icon: IconTruck },
   { to: "/admin/users", label: "Users", Icon: IconUsers },

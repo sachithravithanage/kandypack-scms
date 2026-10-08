@@ -8,6 +8,10 @@ import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
+import AdminTrainSchedule from "./pages/AdminTrainSchedule";
+import DispatcherTrainLoading from "./pages/DispatcherTrainLoading";
+import StoreShipmentReceipt from "./pages/StoreShipmentReceipt";
+import StoreDailyDispatch from "./pages/StoreDailyDispatch";
 
 function App() {
   return (
@@ -18,6 +22,11 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/roster" element={<RosterSchedule />} />
         <Route path="/delivery" element={<DriverDelivery />} />
+        <Route path="/rail/schedules" element={<AdminTrainSchedule />} />
+        <Route path="/admin/trains" element={<AdminTrainSchedule />} />
+        <Route path="/rail/loading" element={<DispatcherTrainLoading />} />
+        <Route path="/store/receipt" element={<StoreShipmentReceipt />} />
+        <Route path="/store/dispatch" element={<StoreDailyDispatch />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/inventory" element={<AdminInventory />} />
         <Route path="/reports" element={<Reports />} />
