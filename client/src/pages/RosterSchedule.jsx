@@ -120,7 +120,12 @@ function RosterSchedule() {
       setShowAddForm(false);
       await loadData();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to schedule run.");
+      const data = err.response?.data;
+      if (data?.violations && Array.isArray(data.violations) && data.violations.length > 0) {
+        setError(data.violations.map(v => v.message).join(" • "));
+      } else {
+        setError(data?.error || "Failed to schedule run.");
+      }
     } finally {
       setActionLoading(false);
     }

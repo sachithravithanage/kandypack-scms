@@ -64,7 +64,7 @@ router.get('/schedule/:truckScheduleId/today', async (req, res) => {
        FROM truck_allocation ta
        JOIN \`order\` o ON ta.order_id = o.order_id
        JOIN user u ON o.customer_id = u.user_id
-       LEFT JOIN customer c ON u.user_id = c.user_id
+       LEFT JOIN customer c ON o.customer_id = c.user_id
        JOIN route_stop rs ON ta.route_stop_id = rs.route_stop_id
        WHERE ta.truck_schedule_id = ?
        ORDER BY rs.stop_order ASC`,

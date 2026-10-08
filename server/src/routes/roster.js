@@ -34,14 +34,14 @@ router.get('/metadata', async (req, res) => {
     `);
 
     const [drivers] = await db.query(`
-      SELECT d.user_id, u.name, d.license_number, u.email
+      SELECT d.user_id, u.name, d.license_number, u.email, NULL AS phone
       FROM driver d
       JOIN \`user\` u ON d.user_id = u.user_id
       ORDER BY u.name ASC
     `);
 
     const [assistants] = await db.query(`
-      SELECT a.user_id, u.name, u.email
+      SELECT a.user_id, u.name, u.email, NULL AS phone
       FROM assistant a
       JOIN \`user\` u ON a.user_id = u.user_id
       ORDER BY u.name ASC
@@ -142,9 +142,31 @@ router.get('/', async (req, res) => {
     }
 
     sql += `
-      GROUP BY ts.truck_schedule_id, rl.roster_log_id
+      GROUP BY 
+        ts.truck_schedule_id,
+        ts.route_id,
+        r.name,
+        r.max_delivery_time_minutes,
+        s.name,
+        ts.truck_id,
+        tk.plate_number,
+        tk.capacity,
+        ts.driver_id,
+        ud.name,
+        ts.assistant_id,
+        ua.name,
+        ts.scheduled_date,
+        ts.start_time,
+        ts.end_time,
+        ts.status,
+        ts.pickup_confirmed_at,
+        rl.roster_log_id,
+        rl.actual_start_time,
+        rl.actual_end_time,
+        rl.actual_hours_worked
       ORDER BY ts.scheduled_date DESC, ts.start_time ASC
     `;
+
 
     const [rows] = await db.query(sql, params);
     res.json(rows);
