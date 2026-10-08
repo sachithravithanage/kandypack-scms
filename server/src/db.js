@@ -7,13 +7,13 @@ let pool = null;
 let useFallback = false;
 
 const poolConfig = {
-  host: process.env.DB_HOST || 'railway-proj-railwayp-roj.e.aivencloud.com',
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 26357,
-  user: process.env.DB_USER || 'avnadmin',
-  password: process.env.DB_PASSWORD || 'AVNS_Bdu7v9tujxO-7vsMDbh',
-  database: process.env.DB_NAME || 'defaultdb',
-  ssl: { rejectUnauthorized: false },
-  connectTimeout: 2000,
+  host: process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 4000,
+  user: process.env.DB_USER || '3RMV7RtvWn5FFds.root',
+  password: process.env.DB_PASSWORD || 'CA1C4000fIE7agjV',
+  database: process.env.DB_NAME || 'kandypack',
+  ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
+  connectTimeout: 25000,
   waitForConnections: true,
   connectionLimit: 10
 };
@@ -38,6 +38,9 @@ const mockDb = {
     { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni@gmail.com', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
   ],
+  customers: [
+    { user_id: 9, phone: '0771234567', address: '42 Flower Road, Colombo 07', city_id: 1 }
+  ],
   drivers: [
     { user_id: 5, license_number: 'DL-78234' },
     { user_id: 6, license_number: 'DL-90112' }
@@ -45,6 +48,18 @@ const mockDb = {
   assistants: [
     { user_id: 7 },
     { user_id: 8 }
+  ],
+  products: [
+    { product_id: 1, name: 'Premium Rice 5kg', price: 950.00, volume: 0.05 },
+    { product_id: 2, name: 'Sugar 1kg', price: 280.00, volume: 0.01 },
+    { product_id: 3, name: 'Dhal 1kg', price: 320.00, volume: 0.01 },
+    { product_id: 4, name: 'Tea Powder 500g', price: 850.00, volume: 0.005 }
+  ],
+  inventory: [
+    { product_id: 1, quantity_in_stock: 450 },
+    { product_id: 2, quantity_in_stock: 80 },
+    { product_id: 3, quantity_in_stock: 0 },
+    { product_id: 4, quantity_in_stock: 1200 }
   ],
   trucks: [
     { truck_id: 1, plate_number: 'WP-CAB-1234', capacity: 50.00 },
@@ -120,6 +135,105 @@ function executeMockQuery(sql, params = []) {
     return [match];
   }
 
+  // Profile lookup: SELECT u.user_id, u.name ... FROM user u LEFT JOIN customer c ON u.user_id = c.user_id WHERE u.user_id = ?
+  if (s.includes('FROM USER U') && s.includes('LEFT JOIN CUSTOMER C') && s.includes('WHERE U.USER_ID = ?')) {
+    const userId = params[0];
+    const user = mockDb.users.find(u => String(u.user_id) === String(userId));
+    if (!user) return [[]];
+    
+    let result = {
+      user_id: user.user_id,
+      name: user.name,
+      email: user.email,
+      role_id: user.role_id,
+      phone: null,
+      address: null,
+      city_id: null
+    };
+
+    if (user.role_id === 6) {
+      const cust = mockDb.customers.find(c => String(c.user_id) === String(userId));
+      if (cust) {
+        result.phone = cust.phone;
+        result.address = cust.address;
+        result.city_id = cust.city_id;
+      }
+    }
+    return [[result]];
+  }
+
+  // Update Profile - User base record
+  if (s.startsWith('UPDATE USER SET NAME = COALESCE')) {
+    const [name, userId] = params;
+    const user = mockDb.users.find(u => String(u.user_id) === String(userId));
+    if (user && name) user.name = name;
+    return [{ affectedRows: 1 }];
+  }
+
+  // Update Profile - Customer details
+  if (s.startsWith('UPDATE CUSTOMER SET PHONE = COALESCE')) {
+    const [phone, address, cityId, userId] = params;
+    let cust = mockDb.customers.find(c => String(c.user_id) === String(userId));
+    if (!cust) {
+      cust = { user_id: Number(userId), phone: null, address: null, city_id: null };
+      mockDb.customers.push(cust);
+    }
+    if (phone) cust.phone = phone;
+    if (address) cust.address = address;
+    if (cityId) cust.city_id = Number(cityId);
+    return [{ affectedRows: 1 }];
+  }
+
+  // Inventory: GET /api/inventory
+  if (s.includes('FROM MAIN_INVENTORY MI JOIN PRODUCT P')) {
+    const results = mockDb.inventory.map(inv => {
+      const prod = mockDb.products.find(p => p.product_id === inv.product_id);
+      return {
+        product_id: inv.product_id,
+        name: prod ? prod.name : 'Unknown Product',
+        quantity_in_stock: inv.quantity_in_stock
+      };
+    });
+    return [results];
+  }
+
+  // Inventory: PUT /api/inventory/:id/restock
+  if (s.includes('INSERT INTO MAIN_INVENTORY (PRODUCT_ID, QUANTITY_IN_STOCK)')) {
+    const [productId, quantityAdded, quantityAddedUpdate] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(productId));
+    if (inv) {
+      inv.quantity_in_stock += Number(quantityAddedUpdate);
+    } else {
+      mockDb.inventory.push({ product_id: Number(productId), quantity_in_stock: Number(quantityAdded) });
+    }
+    return [{ affectedRows: 1 }];
+  }
+
+  // Inventory: GET /api/inventory
+  if (s.includes('FROM MAIN_INVENTORY MI JOIN PRODUCT P')) {
+    const results = mockDb.inventory.map(inv => {
+      const prod = mockDb.products.find(p => p.product_id === inv.product_id);
+      return {
+        product_id: inv.product_id,
+        name: prod ? prod.name : 'Unknown Product',
+        quantity_in_stock: inv.quantity_in_stock
+      };
+    });
+    return [results];
+  }
+
+  // Inventory: PUT /api/inventory/:id/restock
+  if (s.includes('INSERT INTO MAIN_INVENTORY (PRODUCT_ID, QUANTITY_IN_STOCK)')) {
+    const [productId, quantityAdded, quantityAddedUpdate] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(productId));
+    if (inv) {
+      inv.quantity_in_stock += Number(quantityAddedUpdate);
+    } else {
+      mockDb.inventory.push({ product_id: Number(productId), quantity_in_stock: Number(quantityAdded) });
+    }
+    return [{ affectedRows: 1 }];
+  }
+
   // 1. SELECT max_delivery_time_minutes FROM route WHERE route_id = ?
   if (s.includes('FROM ROUTE') && s.includes('ROUTE_ID =')) {
     const routeId = params[0];
@@ -135,6 +249,25 @@ function executeMockQuery(sql, params = []) {
   // 3. SELECT truck_id, plate_number, capacity FROM truck
   if (s.includes('FROM TRUCK') && !s.includes('TRUCK_SCHEDULE')) {
     return [mockDb.trucks];
+  }
+
+  // 4b. Query with UDF fn_get_driver_weekly_hours (CS3043 Advanced SQL)
+  if (s.includes('FN_GET_DRIVER_WEEKLY_HOURS')) {
+    const list = mockDb.drivers.map(d => {
+      const u = mockDb.users.find(x => x.user_id === d.user_id) || {};
+      const driverHours = (mockDb.roster_logs || []).filter(rl => {
+        const sch = mockDb.schedules.find(s => s.truck_schedule_id === rl.truck_schedule_id);
+        return sch && sch.driver_id === d.user_id;
+      }).reduce((sum, rl) => sum + (Number(rl.actual_hours_worked) || 0), 0);
+
+      return {
+        driver_id: d.user_id,
+        driver_name: u.name || 'Kamal Gunaratne',
+        license_number: d.license_number,
+        hours_worked_this_week: parseFloat(driverHours.toFixed(2))
+      };
+    });
+    return [list];
   }
 
   // 4. SELECT d.user_id, u.name, d.license_number ... FROM driver
@@ -323,6 +456,30 @@ function executeMockQuery(sql, params = []) {
     }]];
   }
 
+  // 17b. Stop sequence check query in mockDb
+  if (s.includes('FROM TRUCK_ALLOCATION TA') && (s.includes('RS.STOP_ORDER <') || s.includes('STOP_ORDER <'))) {
+    const [currentRouteStopId, scheduleId, allocationId] = params;
+    const currentStop = mockDb.route_stops.find(x => String(x.route_stop_id) === String(currentRouteStopId));
+    if (!currentStop) return [[]];
+    
+    const prior = mockDb.allocations.filter(a => {
+      if (String(a.truck_schedule_id) !== String(scheduleId)) return false;
+      if (String(a.truck_allocation_id) === String(allocationId)) return false;
+      if (a.delivery_status !== 'Pending') return false;
+      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(a.route_stop_id));
+      return rs && rs.stop_order < currentStop.stop_order;
+    });
+
+    if (prior.length === 0) return [[]];
+    const firstPrior = prior[0];
+    const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(firstPrior.route_stop_id)) || {};
+    return [[{
+      truck_allocation_id: firstPrior.truck_allocation_id,
+      stop_name: rs.stop_name || 'Prior Stop',
+      stop_order: rs.stop_order || 1
+    }]];
+  }
+
   // 17. Delivery stops / allocations for a schedule (REQ-DEL-01)
   if (s.includes('FROM TRUCK_ALLOCATION TA') && s.includes('TA.TRUCK_SCHEDULE_ID = ?')) {
     const scheduleId = params[0];
@@ -377,6 +534,13 @@ function executeMockQuery(sql, params = []) {
     }]];
   }
 
+  // 19c. Count remaining pending stops in mockDb
+  if (s.includes('COUNT(*)') && s.includes('FROM TRUCK_ALLOCATION') && s.includes('DELIVERY_STATUS =')) {
+    const scheduleId = params[0];
+    const count = mockDb.allocations.filter(a => String(a.truck_schedule_id) === String(scheduleId) && a.delivery_status === 'Pending').length;
+    return [[{ count, cnt: count }]];
+  }
+
   // 20. Record delivery outcome (REQ-DEL-03)
   if (s.startsWith('UPDATE TRUCK_ALLOCATION SET DELIVERY_STATUS')) {
     const [status, note, allocId] = params;
@@ -427,6 +591,15 @@ function executeMockQuery(sql, params = []) {
     return [{ insertId: newId, affectedRows: 1 }];
   }
 
+  // 23b. Check pending allocations before completing run (Guide line 1853-1859)
+  if (s.includes('COUNT(*) AS CNT FROM TRUCK_ALLOCATION WHERE TRUCK_SCHEDULE_ID = ? AND DELIVERY_STATUS = "PENDING"')) {
+    const scheduleId = params[0];
+    const pendingCount = mockDb.allocations.filter(
+      a => String(a.truck_schedule_id) === String(scheduleId) && a.delivery_status === 'Pending'
+    ).length;
+    return [[{ cnt: pendingCount }]];
+  }
+
   // 24. Complete truck schedule run & record roster_log
   if (s.includes('UPDATE TRUCK_SCHEDULE SET STATUS = "COMPLETED"')) {
     const scheduleId = params[0];
@@ -448,8 +621,8 @@ function executeMockQuery(sql, params = []) {
     return [{ insertId: newLogId, affectedRows: 1 }];
   }
 
-  // 25. Driver runs list (GET /api/delivery/driver-runs)
-  if (s.includes('LEFT JOIN TRUCK_ALLOCATION TA') && s.includes('FROM TRUCK_SCHEDULE TS')) {
+  // 25. Driver runs list (GET /api/delivery/driver-runs via View v_driver_assigned_runs)
+  if (s.includes('FROM V_DRIVER_ASSIGNED_RUNS') || (s.includes('LEFT JOIN TRUCK_ALLOCATION TA') && s.includes('FROM TRUCK_SCHEDULE TS'))) {
     const list = mockDb.schedules.map(ts => {
       const r = mockDb.routes.find(x => String(x.route_id) === String(ts.route_id)) || {};
       const tk = mockDb.trucks.find(x => String(x.truck_id) === String(ts.truck_id)) || {};
@@ -474,6 +647,7 @@ function executeMockQuery(sql, params = []) {
         total_stops: allocs.length,
         delivered_stops: allocs.filter(a => a.delivery_status === 'Delivered').length,
         failed_stops: allocs.filter(a => a.delivery_status === 'Failed').length,
+        attempted_stops: allocs.filter(a => a.delivery_status === 'Attempted').length,
         pending_stops: allocs.filter(a => a.delivery_status === 'Pending').length
       };
     });

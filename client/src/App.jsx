@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -10,7 +10,23 @@ import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
 import MyOrders from "./pages/MyOrders";
 import NewOrder from "./pages/NewOrder";
+import Profile from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
+
+function ProtectedRoute({ children, adminOnly = false }) {
+  const token = localStorage.getItem("token");
+  const roleId = Number(localStorage.getItem("roleId"));
+
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (adminOnly && roleId !== 1) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
 
 function App() {
   return (
@@ -98,6 +114,10 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 6]}>
               <NewOrder />
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
+              <Profile />
             </ProtectedRoute>
           }
         />

@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+// KandyPack SCMS Server
 
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");

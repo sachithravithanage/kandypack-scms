@@ -36,6 +36,8 @@ export default function ProtectedRoute({ allowedRoles, children }) {
                   window.location.href = "/delivery";
                 } else if (roleId === 2) {
                   window.location.href = "/roster";
+                } else if (roleId === 6) {
+                  window.location.href = "/profile";
                 } else {
                   window.location.href = "/dashboard";
                 }

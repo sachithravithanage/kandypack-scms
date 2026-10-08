@@ -14,7 +14,9 @@ import {
   IconTruck,
   IconPackage,
   IconShoppingCart,
+  IconUser,
 } from "@tabler/icons-react";
+import logo from "../assets/logo.png";
 
 export const roleNames = {
   1: "Administrator",
@@ -36,6 +38,7 @@ const navItems = [
   { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
   { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
   { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
+  { to: "/profile", label: "Profile", Icon: IconUser, allowedRoles: [1, 2, 3, 4, 5, 6] },
 ];
 
 function AppLayout({ pageTitle, children }) {
@@ -88,7 +91,7 @@ function AppLayout({ pageTitle, children }) {
     <div className="kp-shell">
       <aside className={`kp-sidebar ${menuOpen ? "kp-sidebar-open" : ""}`}>
         <div className="kp-sidebar-brand">
-          <div className="kp-logo-mark">K</div>
+          <img src={logo} alt="Logo" style={{ width: "36px", height: "36px", borderRadius: "10px", objectFit: "cover" }} />
           <span>Kandypack</span>
         </div>
         <nav className="kp-nav">
@@ -134,21 +137,6 @@ function AppLayout({ pageTitle, children }) {
               <IconSearch size={16} stroke={1.75} />
               <input type="text" placeholder="Search anything" />
             </div>
-            <IconBell size={19} stroke={1.75} color="var(--color-text-muted)" />
-            <div className="d-flex align-items-center gap-2">
-              <div className="text-end d-none d-md-block">
-                <div style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.2 }}>
-                  {storedName}
-                </div>
-                <div
-                  className="badge bg-secondary-subtle text-secondary"
-                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
-                >
-                  {storedRoleName}
-                </div>
-              </div>
-              <div className="kp-avatar">{initials}</div>
-            </div>
             <button
               onClick={() => navigate("/notifications")}
               style={{
@@ -186,7 +174,20 @@ function AppLayout({ pageTitle, children }) {
                 </span>
               )}
             </button>
-            <div className="kp-avatar">{initials}</div>
+            <div className="d-flex align-items-center gap-2 ms-2">
+              <div className="text-end d-none d-md-block">
+                <div style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.2 }}>
+                  {storedName}
+                </div>
+                <div
+                  className="badge bg-secondary-subtle text-secondary"
+                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                >
+                  {storedRoleName}
+                </div>
+              </div>
+              <div className="kp-avatar">{initials}</div>
+            </div>
           </div>
         </header>
         <main className="kp-content">{children}</main>
