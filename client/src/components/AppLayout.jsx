@@ -99,6 +99,7 @@ function AppLayout({ pageTitle, children }) {
             <NavLink
               key={item.to}
               to={item.to}
+              end
               className={({ isActive }) =>
                 `kp-nav-item ${isActive ? "kp-nav-item-active" : ""}`
               }
