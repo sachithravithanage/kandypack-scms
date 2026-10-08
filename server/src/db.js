@@ -38,6 +38,9 @@ const mockDb = {
     { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni@gmail.com', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
   ],
+  customers: [
+    { user_id: 9, phone: '0771234567', address: '42 Flower Road, Colombo 07', city_id: 1 }
+  ],
   drivers: [
     { user_id: 5, license_number: 'DL-78234' },
     { user_id: 6, license_number: 'DL-90112' }
@@ -46,6 +49,18 @@ const mockDb = {
     { user_id: 7 },
     { user_id: 8 }
   ],
+  products: [
+    { product_id: 1, name: 'Premium Rice 5kg', price: 950.00, volume: 0.05 },
+    { product_id: 2, name: 'Sugar 1kg', price: 280.00, volume: 0.01 },
+    { product_id: 3, name: 'Dhal 1kg', price: 320.00, volume: 0.01 },
+    { product_id: 4, name: 'Tea Powder 500g', price: 850.00, volume: 0.005 }
+  ],
+  inventory: [
+    { product_id: 1, quantity_in_stock: 450 },
+    { product_id: 2, quantity_in_stock: 80 },
+    { product_id: 3, quantity_in_stock: 0 },
+    { product_id: 4, quantity_in_stock: 1200 }
+  ],
   trucks: [
     { truck_id: 1, plate_number: 'WP-CAB-1234', capacity: 50.00 },
     { truck_id: 2, plate_number: 'WP-CAD-5678', capacity: 40.00 },
@@ -53,12 +68,25 @@ const mockDb = {
   ],
   stores: [
     { store_id: 1, city_id: 1, name: 'Colombo Regional Store', address: '100 Baseline Road, Colombo 09', city_name: 'Colombo' },
-    { store_id: 2, city_id: 3, name: 'Galle Regional Store', address: '45 Matara Road, Galle', city_name: 'Galle' }
+    { store_id: 2, city_id: 3, name: 'Galle Regional Store', address: '45 Matara Road, Galle', city_name: 'Galle' },
+    { store_id: 3, city_id: 2, name: 'Negombo Regional Store', address: '15 Beach Road, Negombo', city_name: 'Negombo' },
+    { store_id: 4, city_id: 4, name: 'Matara Regional Store', address: '22 Station Road, Matara', city_name: 'Matara' },
+    { store_id: 5, city_id: 5, name: 'Jaffna Regional Store', address: '5 Temple Road, Jaffna', city_name: 'Jaffna' },
+    { store_id: 6, city_id: 6, name: 'Trincomalee Regional Store', address: '88 Inner Harbour Road, Trincomalee', city_name: 'Trincomalee' }
   ],
   routes: [
     { route_id: 1, store_id: 1, name: 'Colombo Metro North', max_delivery_time_minutes: 240, store_name: 'Colombo Regional Store', city_name: 'Colombo' },
     { route_id: 2, store_id: 1, name: 'Colombo Metro South', max_delivery_time_minutes: 300, store_name: 'Colombo Regional Store', city_name: 'Colombo' },
-    { route_id: 3, store_id: 2, name: 'Galle Coastal Express', max_delivery_time_minutes: 210, store_name: 'Galle Regional Store', city_name: 'Galle' }
+    { route_id: 3, store_id: 3, name: 'Negombo Coastal Express', max_delivery_time_minutes: 180, store_name: 'Negombo Regional Store', city_name: 'Negombo' },
+    { route_id: 4, store_id: 3, name: 'Negombo Airport & Industrial Zone', max_delivery_time_minutes: 210, store_name: 'Negombo Regional Store', city_name: 'Negombo' },
+    { route_id: 5, store_id: 2, name: 'Galle Coastal & Heritage Route', max_delivery_time_minutes: 240, store_name: 'Galle Regional Store', city_name: 'Galle' },
+    { route_id: 6, store_id: 2, name: 'Galle Inland & Medical Corridor', max_delivery_time_minutes: 270, store_name: 'Galle Regional Store', city_name: 'Galle' },
+    { route_id: 7, store_id: 4, name: 'Matara Urban Commercial Route', max_delivery_time_minutes: 210, store_name: 'Matara Regional Store', city_name: 'Matara' },
+    { route_id: 8, store_id: 4, name: 'Matara Southern Coast & Weligama', max_delivery_time_minutes: 260, store_name: 'Matara Regional Store', city_name: 'Matara' },
+    { route_id: 9, store_id: 5, name: 'Jaffna Peninsula Central Route', max_delivery_time_minutes: 300, store_name: 'Jaffna Regional Store', city_name: 'Jaffna' },
+    { route_id: 10, store_id: 5, name: 'Jaffna Northern Coastal Express', max_delivery_time_minutes: 360, store_name: 'Jaffna Regional Store', city_name: 'Jaffna' },
+    { route_id: 11, store_id: 6, name: 'Trincomalee Harbour & City Route', max_delivery_time_minutes: 240, store_name: 'Trincomalee Regional Store', city_name: 'Trincomalee' },
+    { route_id: 12, store_id: 6, name: 'Trincomalee Coastal Tourism Route', max_delivery_time_minutes: 300, store_name: 'Trincomalee Regional Store', city_name: 'Trincomalee' }
   ],
   system_parameters: [
     { param_name: 'driver_min_rest_hours', param_value: '2' }
@@ -83,7 +111,53 @@ const mockDb = {
   ],
   route_stops: [
     { route_stop_id: 1, route_id: 1, stop_name: 'Colombo 07 - Cinnamon Gardens', stop_order: 1 },
-    { route_stop_id: 2, route_id: 1, stop_name: 'Colombo 03 - Kollupitiya Junction', stop_order: 2 }
+    { route_stop_id: 2, route_id: 1, stop_name: 'Colombo 03 - Kollupitiya Junction', stop_order: 2 },
+    { route_stop_id: 101, route_id: 1, stop_name: 'Colombo 10 - Maradana Commercial Hub', stop_order: 3 },
+    { route_stop_id: 102, route_id: 1, stop_name: 'Colombo 01 - Fort Central Station', stop_order: 4 },
+    { route_stop_id: 4, route_id: 2, stop_name: 'Dehiwala Junction Central', stop_order: 1 },
+    { route_stop_id: 5, route_id: 2, stop_name: 'Mount Lavinia Hotel Stop', stop_order: 2 },
+    { route_stop_id: 3, route_id: 2, stop_name: 'Ratmalana Airport Bypass', stop_order: 3 },
+    { route_stop_id: 103, route_id: 2, stop_name: 'Moratuwa Town Crossroad', stop_order: 4 },
+    { route_stop_id: 201, route_id: 3, stop_name: 'Negombo Town Bus Stand', stop_order: 1 },
+    { route_stop_id: 202, route_id: 3, stop_name: 'Kochchikade Central Market', stop_order: 2 },
+    { route_stop_id: 203, route_id: 3, stop_name: 'Porutota Beach Promenade', stop_order: 3 },
+    { route_stop_id: 204, route_id: 3, stop_name: 'Waikkal Bridge Terminal', stop_order: 4 },
+    { route_stop_id: 205, route_id: 4, stop_name: 'Katunayake FTZ Gate 1', stop_order: 1 },
+    { route_stop_id: 206, route_id: 4, stop_name: 'Bandaranaike Airport Cargo Bay', stop_order: 2 },
+    { route_stop_id: 207, route_id: 4, stop_name: 'Seeduwa Junction Marketplace', stop_order: 3 },
+    { route_stop_id: 208, route_id: 4, stop_name: 'Ja-Ela Express Interchange', stop_order: 4 },
+    { route_stop_id: 301, route_id: 5, stop_name: 'Galle Fort Main Gate', stop_order: 1 },
+    { route_stop_id: 302, route_id: 5, stop_name: 'Unawatuna Beach Junction', stop_order: 2 },
+    { route_stop_id: 303, route_id: 5, stop_name: 'Talpe Coastal Bypass', stop_order: 3 },
+    { route_stop_id: 304, route_id: 5, stop_name: 'Koggala Export Processing Zone', stop_order: 4 },
+    { route_stop_id: 305, route_id: 6, stop_name: 'Karapitiya Teaching Hospital Square', stop_order: 1 },
+    { route_stop_id: 306, route_id: 6, stop_name: 'Labuduwa Agricultural Complex', stop_order: 2 },
+    { route_stop_id: 307, route_id: 6, stop_name: 'Baddegama Road Industrial Park', stop_order: 3 },
+    { route_stop_id: 308, route_id: 6, stop_name: 'Hikkaduwa Tourism Hub', stop_order: 4 },
+    { route_stop_id: 401, route_id: 7, stop_name: 'Matara Fort & Bus Terminal', stop_order: 1 },
+    { route_stop_id: 402, route_id: 7, stop_name: 'Nupe Junction Trade Hub', stop_order: 2 },
+    { route_stop_id: 403, route_id: 7, stop_name: 'Uyanwatta Stadium Road', stop_order: 3 },
+    { route_stop_id: 404, route_id: 7, stop_name: 'Rahula Crossroad Commercial Area', stop_order: 4 },
+    { route_stop_id: 405, route_id: 8, stop_name: 'Mirissa Harbour Road', stop_order: 1 },
+    { route_stop_id: 406, route_id: 8, stop_name: 'Weligama Bay Central Market', stop_order: 2 },
+    { route_stop_id: 407, route_id: 8, stop_name: 'Dondra Head Lighthouse Halt', stop_order: 3 },
+    { route_stop_id: 408, route_id: 8, stop_name: 'Akuressa Inland Trade Station', stop_order: 4 },
+    { route_stop_id: 501, route_id: 9, stop_name: 'Jaffna Town Clock Tower Square', stop_order: 1 },
+    { route_stop_id: 502, route_id: 9, stop_name: 'Nallur Kandaswamy Kovil Approach', stop_order: 2 },
+    { route_stop_id: 503, route_id: 9, stop_name: 'Kopay Junction Agricultural Center', stop_order: 3 },
+    { route_stop_id: 504, route_id: 9, stop_name: 'Chavakachcheri Market Hub', stop_order: 4 },
+    { route_stop_id: 505, route_id: 10, stop_name: 'Chunnakam Commercial Market', stop_order: 1 },
+    { route_stop_id: 506, route_id: 10, stop_name: 'Tellippalai Hospital Halt', stop_order: 2 },
+    { route_stop_id: 507, route_id: 10, stop_name: 'Kankesanthurai (KKS) Harbour Port', stop_order: 3 },
+    { route_stop_id: 508, route_id: 10, stop_name: 'Point Pedro Fishery Terminal', stop_order: 4 },
+    { route_stop_id: 601, route_id: 11, stop_name: 'Trincomalee Inner Harbour Wharf', stop_order: 1 },
+    { route_stop_id: 602, route_id: 11, stop_name: 'Fort Frederick / Koneswaram Road', stop_order: 2 },
+    { route_stop_id: 603, route_id: 11, stop_name: 'China Bay Industrial Zone', stop_order: 3 },
+    { route_stop_id: 604, route_id: 11, stop_name: 'Kinniya Bridge Main Terminal', stop_order: 4 },
+    { route_stop_id: 605, route_id: 12, stop_name: 'Uppuveli Beach Commercial Strip', stop_order: 1 },
+    { route_stop_id: 606, route_id: 12, stop_name: 'Nilaveli Tourism Beach Road', stop_order: 2 },
+    { route_stop_id: 607, route_id: 12, stop_name: 'Kuchchaveli Bypass Halt', stop_order: 3 },
+    { route_stop_id: 608, route_id: 12, stop_name: 'Kantale Agricultural Depot', stop_order: 4 }
   ],
   allocations: [
     {
@@ -118,6 +192,170 @@ function executeMockQuery(sql, params = []) {
     const email = params[0];
     const match = mockDb.users.filter(u => u.email.toLowerCase() === String(email).toLowerCase());
     return [match];
+  }
+
+  // Delivery Stops for New Order Form (JOIN ROUTE_STOP, ROUTE, STORE)
+  if (s.includes('FROM ROUTE_STOP RS') && s.includes('JOIN ROUTE R')) {
+    const cityId = params[0];
+    const stops = mockDb.route_stops.filter(rs => {
+      const r = mockDb.routes.find(route => route.route_id === rs.route_id);
+      if (!r) return false;
+      const st = mockDb.stores.find(store => store.store_id === r.store_id);
+      return st && String(st.city_id) === String(cityId);
+    }).map(rs => {
+      const r = mockDb.routes.find(route => route.route_id === rs.route_id);
+      return {
+        route_stop_id: rs.route_stop_id,
+        stop_name: rs.stop_name,
+        route_id: r.route_id,
+        route_name: r.name
+      };
+    });
+    return [stops];
+  }
+
+  // Profile lookup: SELECT u.user_id, u.name ... FROM user u LEFT JOIN customer c ON u.user_id = c.user_id WHERE u.user_id = ?
+  if (s.includes('FROM USER U') && s.includes('LEFT JOIN CUSTOMER C') && s.includes('WHERE U.USER_ID = ?')) {
+    const userId = params[0];
+    const user = mockDb.users.find(u => String(u.user_id) === String(userId));
+    if (!user) return [[]];
+    
+    let result = {
+      user_id: user.user_id,
+      name: user.name,
+      email: user.email,
+      role_id: user.role_id,
+      phone: null,
+      address: null,
+      city_id: null
+    };
+
+    if (user.role_id === 6) {
+      const cust = mockDb.customers.find(c => String(c.user_id) === String(userId));
+      if (cust) {
+        result.phone = cust.phone;
+        result.address = cust.address;
+        result.city_id = cust.city_id;
+      }
+    }
+    return [[result]];
+  }
+
+  // Update Profile - User base record
+  if (s.startsWith('UPDATE USER SET NAME = COALESCE')) {
+    const [name, userId] = params;
+    const user = mockDb.users.find(u => String(u.user_id) === String(userId));
+    if (user && name) user.name = name;
+    return [{ affectedRows: 1 }];
+  }
+
+  // Update Profile - Customer details
+  if (s.startsWith('UPDATE CUSTOMER SET PHONE = COALESCE')) {
+    const [phone, address, cityId, userId] = params;
+    let cust = mockDb.customers.find(c => String(c.user_id) === String(userId));
+    if (!cust) {
+      cust = { user_id: Number(userId), phone: null, address: null, city_id: null };
+      mockDb.customers.push(cust);
+    }
+    if (phone) cust.phone = phone;
+    if (address) cust.address = address;
+    if (cityId) cust.city_id = Number(cityId);
+    return [{ affectedRows: 1 }];
+  }
+
+  // Inventory: GET /api/inventory
+  if (s.includes('FROM MAIN_INVENTORY MI JOIN PRODUCT P')) {
+    const results = mockDb.inventory.map(inv => {
+      const prod = mockDb.products.find(p => p.product_id === inv.product_id);
+      return {
+        product_id: inv.product_id,
+        name: prod ? prod.name : 'Unknown Product',
+        quantity_in_stock: inv.quantity_in_stock
+      };
+    });
+    return [results];
+  }
+
+  // Inventory: PUT /api/inventory/:id/restock
+  if (s.includes('INSERT INTO MAIN_INVENTORY (PRODUCT_ID, QUANTITY_IN_STOCK)')) {
+    const [productId, quantityAdded, quantityAddedUpdate] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(productId));
+    if (inv) {
+      inv.quantity_in_stock += Number(quantityAddedUpdate);
+    } else {
+      mockDb.inventory.push({ product_id: Number(productId), quantity_in_stock: Number(quantityAdded) });
+    }
+    return [{ affectedRows: 1 }];
+  }
+
+  // Order Placement Mock: fn_days_until_delivery
+  if (s.includes('FN_DAYS_UNTIL_DELIVERY')) {
+    const deliveryDate = params[0];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const chosen = new Date(deliveryDate);
+    const diffDays = Math.ceil((chosen.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return [[{ days: diffDays }]];
+  }
+
+  // Order Placement Mock: Validate customer
+  if (s.includes('SELECT USER_ID FROM CUSTOMER WHERE USER_ID = ?')) {
+    return [[{ user_id: params[0] }]];
+  }
+
+  // Order Placement Mock: Validate route stop
+  if (s.includes('SELECT ROUTE_ID FROM ROUTE_STOP WHERE ROUTE_STOP_ID = ?')) {
+    const stop = mockDb.route_stops.find(rs => String(rs.route_stop_id) === String(params[0]));
+    return [[stop || { route_id: 1 }]];
+  }
+
+  // Order Placement Mock: Insert order
+  if (s.startsWith('INSERT INTO `ORDER`') || s.startsWith('INSERT INTO ORDER ')) {
+    const orderId = mockDb.orders.length + 101;
+    mockDb.orders.push({ order_id: orderId, customer_id: params[0], delivery_address: params[3], total_volume: 5.0, status: 'Placed' });
+    return [{ insertId: orderId, affectedRows: 1 }];
+  }
+
+  // Order Placement Mock: Insert order item
+  if (s.startsWith('INSERT INTO ORDER_ITEM')) {
+    return [{ affectedRows: 1 }];
+  }
+
+  // Order Placement Mock: Update inventory
+  if (s.includes('UPDATE MAIN_INVENTORY SET QUANTITY_IN_STOCK = QUANTITY_IN_STOCK - ?')) {
+    const [qty, pid, checkQty] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(pid));
+    if (inv && inv.quantity_in_stock >= Number(checkQty)) {
+      inv.quantity_in_stock -= Number(qty);
+      return [{ affectedRows: 1 }];
+    }
+    return [{ affectedRows: 0 }];
+  }
+
+  // Order Placement Mock: Recalculate totals
+  if (s.includes('CALL SP_RECALC_ORDER_TOTALS')) {
+    return [[]]; // SPs usually return arrays of result sets
+  }
+
+  // Dashboard: Total orders (reports/sales)
+  if (s.includes('AS TOTAL_ORDERS') && s.includes('FROM `ORDER`')) {
+    return [[{ period: '2026-10', total_orders: 1450, total_revenue: 2500000, total_volume: 120 }]];
+  }
+
+  // Dashboard: In-transit trips (reports/truck-utilization)
+  if (s.includes('TOTAL_TRIPS_ASSIGNED') && s.includes('FROM TRUCK')) {
+    return [[
+      { truck_id: 1, plate_number: 'WP-CAB-1234', capacity: 50.00, total_trips_assigned: 12, total_stops_serviced: 45 },
+      { truck_id: 2, plate_number: 'WP-CAD-5678', capacity: 40.00, total_trips_assigned: 8, total_stops_serviced: 22 }
+    ]];
+  }
+
+  // Dashboard / AppLayout: Notifications
+  if (s.includes('FROM NOTIFICATION WHERE USER_ID = ?')) {
+    return [[
+      { notification_id: 1, user_id: params[0], message: 'System maintenance scheduled for tonight.', is_read: 0, created_at: new Date() },
+      { notification_id: 2, user_id: params[0], message: 'New order #1042 assigned to your region.', is_read: 1, created_at: new Date() }
+    ]];
   }
 
   // 1. SELECT max_delivery_time_minutes FROM route WHERE route_id = ?
@@ -550,6 +788,116 @@ function executeMockQuery(sql, params = []) {
     return [{ affectedRows: 1 }];
   }
 
+  // 27. Member B: Lead-time & order placement mock queries
+  if (s.includes('DATEDIFF') || s.includes('FN_DAYS_UNTIL_DELIVERY')) {
+    const targetDate = new Date(params[0]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+    const days = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+    return [[{ days }]];
+  }
+
+  if (s.includes('FROM CUSTOMER WHERE USER_ID = ?')) {
+    const uid = params[0];
+    const match = mockDb.customers.filter(c => String(c.user_id) === String(uid));
+    return [match.length > 0 ? match : [{ user_id: Number(uid) }]];
+  }
+
+  if (s.includes('FROM ROUTE_STOP WHERE ROUTE_STOP_ID = ?')) {
+    const stopId = params[0];
+    const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(stopId));
+    return [rs ? [{ route_id: rs.route_id }] : [{ route_id: 1 }]];
+  }
+
+  if (s.includes('FROM MAIN_INVENTORY WHERE PRODUCT_ID = ?')) {
+    const pid = params[0];
+    const inv = mockDb.inventory.find(x => String(x.product_id) === String(pid));
+    return [inv ? [{ quantity_in_stock: inv.quantity_in_stock }] : [{ quantity_in_stock: 500 }]];
+  }
+
+  if (s.includes('FROM PRODUCT WHERE PRODUCT_ID = ?')) {
+    const pid = params[0];
+    const p = mockDb.products.find(x => String(x.product_id) === String(pid));
+    return [p ? [{ unit_price: p.price || 500, space_consumption_rate: p.volume || 1.0, ...p }] : [{ unit_price: 500, space_consumption_rate: 1.0 }]];
+  }
+
+  if (s.includes('INSERT INTO `ORDER`') || s.includes('INSERT INTO ORDER')) {
+    const [customer_id, route_id, route_stop_id, delivery_address, deliveryDate, total_value, total_volume] = params;
+    const newId = 1000 + mockDb.orders.length + 1;
+    mockDb.orders.push({
+      order_id: newId,
+      customer_id: Number(customer_id),
+      route_id: Number(route_id),
+      route_stop_id: Number(route_stop_id),
+      delivery_address,
+      order_date: new Date().toISOString().slice(0, 10),
+      requested_delivery_date: deliveryDate,
+      total_value: Number(total_value) || 0,
+      total_volume: Number(total_volume) || 0,
+      status: 'Placed'
+    });
+    return [{ insertId: newId, affectedRows: 1 }];
+  }
+
+  if (s.includes('INSERT INTO ORDER_ITEM')) {
+    return [{ insertId: 1, affectedRows: 1 }];
+  }
+
+  if (s.includes('UPDATE MAIN_INVENTORY SET QUANTITY_IN_STOCK = QUANTITY_IN_STOCK - ?')) {
+    const [qty, pid] = params;
+    const inv = mockDb.inventory.find(x => String(x.product_id) === String(pid));
+    if (inv) inv.quantity_in_stock = Math.max(0, inv.quantity_in_stock - Number(qty));
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes('UPDATE `ORDER` O SET TOTAL_VALUE') || s.includes('UPDATE ORDER O SET TOTAL_VALUE')) {
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes('FROM `ORDER` O') && s.includes('WHERE O.CUSTOMER_ID = ?')) {
+    const custId = params[0];
+    const list = mockDb.orders.filter(o => String(o.customer_id) === String(custId)).map(o => {
+      const r = mockDb.routes.find(x => String(x.route_id) === String(o.route_id)) || {};
+      const rs = mockDb.route_stops.find(x => String(x.route_stop_id) === String(o.route_stop_id)) || {};
+      return {
+        ...o,
+        route_name: r.name || 'Colombo Central Route',
+        stop_name: rs.stop_name || 'Delivery Stop'
+      };
+    });
+    return [list];
+  }
+
+  if (s.includes('FROM `ORDER` WHERE ORDER_ID = ?') || s.includes('FROM ORDER WHERE ORDER_ID = ?')) {
+    const oid = params[0];
+    const match = mockDb.orders.filter(o => String(o.order_id) === String(oid));
+    return [match];
+  }
+
+  if (s.includes("SET STATUS = 'CANCELLED'")) {
+    const oid = params[0];
+    const ord = mockDb.orders.find(o => String(o.order_id) === String(oid));
+    if (ord) ord.status = 'Cancelled';
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes("SET STATUS = 'CLOSED'")) {
+    const oid = params[0];
+    const ord = mockDb.orders.find(o => String(o.order_id) === String(oid));
+    if (ord) ord.status = 'Closed';
+    return [{ affectedRows: 1 }];
+  }
+
+  if (s.includes('SET DELIVERY_ADDRESS = ?')) {
+    const [addr, date, oid] = params;
+    const ord = mockDb.orders.find(o => String(o.order_id) === String(oid));
+    if (ord) {
+      ord.delivery_address = addr;
+      ord.requested_delivery_date = date;
+    }
+    return [{ affectedRows: 1 }];
+  }
 
   return [[]];
 }

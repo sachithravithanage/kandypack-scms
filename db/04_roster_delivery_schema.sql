@@ -192,4 +192,4 @@ BEGIN
     
   RETURN v_total_hours;
 END$$
-DELIMITER ;
+DELIMITER ;

@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
+import { apiUrl } from "../api";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -12,12 +13,13 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", {
+      const res = await axios.post(apiUrl("/api/auth/login"), {
         email,
         password,
       });
       const user = res.data.user;
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("userId", user.id);
       localStorage.setItem("name", user.name);
       localStorage.setItem("roleId", user.roleId);
 
@@ -38,6 +40,9 @@ function Login() {
       } else if (user.roleId === 2) {
         // Dispatcher -> Land directly in Roster Schedule portal
         navigate("/roster");
+      } else if (user.roleId === 6) {
+        // Customer -> Land directly in Profile
+        navigate("/profile");
       } else {
         // Admin or Store Manager -> Dashboard
         navigate("/dashboard");

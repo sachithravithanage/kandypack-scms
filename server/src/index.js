@@ -14,6 +14,8 @@ const storeRoutes = require("./routes/store");
 const { router: notificationRoutes } = require("./routes/notifications");
 const reportRoutes = require("./routes/reports");
 const orderRoutes = require("./routes/orders");
+const productsRouter = require('./routes/products');
+const routesRouter = require('./routes/routes');
 
 
 const app = express();
@@ -37,6 +39,8 @@ app.use("/api/stores", storeRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/orders", orderRoutes);
+app.use('/api/products', productsRouter);
+app.use('/api/routes', routesRouter);
 
 
 // Centralized Error Handling Middleware
@@ -44,6 +48,8 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
+
+require("./cron");
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
