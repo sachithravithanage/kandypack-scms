@@ -310,9 +310,8 @@ label {
 }
 .kp-auth-brand {
   flex: 1.2;
-  background: linear-gradient(-45deg, var(--color-navy-900), var(--color-navy-700), var(--color-navy-800), #0f172a);
-  background-size: 400% 400%;
-  animation: gradientBG 15s ease infinite;
+  background: linear-gradient(135deg, rgba(2, 6, 23, 0.8), rgba(15, 23, 42, 0.85)), 
+              url("https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=1600&q=80") center/cover no-repeat;
   color: #f5f6f8;
   display: flex;
   align-items: center;
@@ -359,9 +358,9 @@ label {
 .kp-auth-card {
   width: 100%;
   max-width: 420px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-xl);
   box-shadow: 0 20px 40px -15px rgba(16, 26, 51, 0.1), 0 0 0 1px rgba(16, 26, 51, 0.02);

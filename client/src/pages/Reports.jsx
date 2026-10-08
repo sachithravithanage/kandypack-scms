@@ -1,6 +1,9 @@
 import { useState } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 const REPORT_TYPES = [
   { value: "sales",            label: "Quarterly Sales" },
@@ -59,6 +62,33 @@ function Reports() {
     link.remove();
   };
 
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const title = REPORT_TYPES.find((r) => r.value === reportType)?.label || "Report";
+    doc.text(`Kandypack SCMS - ${title}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 22);
+    
+    const tableData = rows.map((row) => columns.map((col) => row[col] ?? "—"));
+    
+    doc.autoTable({
+      head: [columns.map((col) => col.replace(/_/g, " ").toUpperCase())],
+      body: tableData,
+      startY: 28,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [15, 23, 42] } // Navy 900
+    });
+    
+    doc.save(`${reportType}-report.pdf`);
+  };
+
+  const exportExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report Data");
+    XLSX.writeFile(workbook, `${reportType}-report.xlsx`);
+  };
+
   return (
     <AppLayout pageTitle="Reports">
       <div className="kp-card" style={{ marginBottom: "1rem" }}>
@@ -83,7 +113,11 @@ function Reports() {
             {loading ? "Loading…" : "Run Report"}
           </button>
           {fetched && rows.length > 0 && (
-            <button className="btn btn-secondary" onClick={exportCsv}>Export CSV</button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button className="btn btn-secondary" onClick={exportCsv}>CSV</button>
+              <button className="btn btn-secondary" onClick={exportExcel}>Excel</button>
+              <button className="btn btn-secondary" onClick={exportPDF}>PDF</button>
+            </div>
           )}
         </div>
         {error && <p style={{ color: "var(--color-danger-text)", marginTop: "0.75rem", marginBottom: 0 }}>{error}</p>}
