@@ -34,14 +34,14 @@ router.get('/metadata', async (req, res) => {
     `);
 
     const [drivers] = await db.query(`
-      SELECT d.user_id, u.name, d.license_number, u.email, u.phone
+      SELECT d.user_id, u.name, d.license_number, u.email
       FROM driver d
       JOIN \`user\` u ON d.user_id = u.user_id
       ORDER BY u.name ASC
     `);
 
     const [assistants] = await db.query(`
-      SELECT a.user_id, u.name, u.email, u.phone
+      SELECT a.user_id, u.name, u.email
       FROM assistant a
       JOIN \`user\` u ON a.user_id = u.user_id
       ORDER BY u.name ASC

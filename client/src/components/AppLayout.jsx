@@ -132,21 +132,6 @@ function AppLayout({ pageTitle, children }) {
               <IconSearch size={16} stroke={1.75} />
               <input type="text" placeholder="Search anything" />
             </div>
-            <IconBell size={19} stroke={1.75} color="var(--color-text-muted)" />
-            <div className="d-flex align-items-center gap-2">
-              <div className="text-end d-none d-md-block">
-                <div style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.2 }}>
-                  {storedName}
-                </div>
-                <div
-                  className="badge bg-secondary-subtle text-secondary"
-                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
-                >
-                  {storedRoleName}
-                </div>
-              </div>
-              <div className="kp-avatar">{initials}</div>
-            </div>
             <button
               onClick={() => navigate("/notifications")}
               style={{
@@ -184,7 +169,20 @@ function AppLayout({ pageTitle, children }) {
                 </span>
               )}
             </button>
-            <div className="kp-avatar">{initials}</div>
+            <div className="d-flex align-items-center gap-2 ms-2">
+              <div className="text-end d-none d-md-block">
+                <div style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.2 }}>
+                  {storedName}
+                </div>
+                <div
+                  className="badge bg-secondary-subtle text-secondary"
+                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                >
+                  {storedRoleName}
+                </div>
+              </div>
+              <div className="kp-avatar">{initials}</div>
+            </div>
           </div>
         </header>
         <main className="kp-content">{children}</main>
