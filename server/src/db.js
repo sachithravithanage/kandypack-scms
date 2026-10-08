@@ -135,6 +135,26 @@ function executeMockQuery(sql, params = []) {
     return [match];
   }
 
+  // Delivery Stops for New Order Form (JOIN ROUTE_STOP, ROUTE, STORE)
+  if (s.includes('FROM ROUTE_STOP RS') && s.includes('JOIN ROUTE R')) {
+    const cityId = params[0];
+    const stops = mockDb.route_stops.filter(rs => {
+      const r = mockDb.routes.find(route => route.route_id === rs.route_id);
+      if (!r) return false;
+      const st = mockDb.stores.find(store => store.store_id === r.store_id);
+      return st && String(st.city_id) === String(cityId);
+    }).map(rs => {
+      const r = mockDb.routes.find(route => route.route_id === rs.route_id);
+      return {
+        route_stop_id: rs.route_stop_id,
+        stop_name: rs.stop_name,
+        route_id: r.route_id,
+        route_name: r.name
+      };
+    });
+    return [stops];
+  }
+
   // Profile lookup: SELECT u.user_id, u.name ... FROM user u LEFT JOIN customer c ON u.user_id = c.user_id WHERE u.user_id = ?
   if (s.includes('FROM USER U') && s.includes('LEFT JOIN CUSTOMER C') && s.includes('WHERE U.USER_ID = ?')) {
     const userId = params[0];
@@ -209,29 +229,53 @@ function executeMockQuery(sql, params = []) {
     return [{ affectedRows: 1 }];
   }
 
-  // Inventory: GET /api/inventory
-  if (s.includes('FROM MAIN_INVENTORY MI JOIN PRODUCT P')) {
-    const results = mockDb.inventory.map(inv => {
-      const prod = mockDb.products.find(p => p.product_id === inv.product_id);
-      return {
-        product_id: inv.product_id,
-        name: prod ? prod.name : 'Unknown Product',
-        quantity_in_stock: inv.quantity_in_stock
-      };
-    });
-    return [results];
+  // Order Placement Mock: fn_days_until_delivery
+  if (s.includes('FN_DAYS_UNTIL_DELIVERY')) {
+    const deliveryDate = params[0];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const chosen = new Date(deliveryDate);
+    const diffDays = Math.ceil((chosen.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return [[{ days: diffDays }]];
   }
 
-  // Inventory: PUT /api/inventory/:id/restock
-  if (s.includes('INSERT INTO MAIN_INVENTORY (PRODUCT_ID, QUANTITY_IN_STOCK)')) {
-    const [productId, quantityAdded, quantityAddedUpdate] = params;
-    const inv = mockDb.inventory.find(i => String(i.product_id) === String(productId));
-    if (inv) {
-      inv.quantity_in_stock += Number(quantityAddedUpdate);
-    } else {
-      mockDb.inventory.push({ product_id: Number(productId), quantity_in_stock: Number(quantityAdded) });
-    }
+  // Order Placement Mock: Validate customer
+  if (s.includes('SELECT USER_ID FROM CUSTOMER WHERE USER_ID = ?')) {
+    return [[{ user_id: params[0] }]];
+  }
+
+  // Order Placement Mock: Validate route stop
+  if (s.includes('SELECT ROUTE_ID FROM ROUTE_STOP WHERE ROUTE_STOP_ID = ?')) {
+    const stop = mockDb.route_stops.find(rs => String(rs.route_stop_id) === String(params[0]));
+    return [[stop || { route_id: 1 }]];
+  }
+
+  // Order Placement Mock: Insert order
+  if (s.startsWith('INSERT INTO `ORDER`') || s.startsWith('INSERT INTO ORDER ')) {
+    const orderId = mockDb.orders.length + 101;
+    mockDb.orders.push({ order_id: orderId, customer_id: params[0], delivery_address: params[3], total_volume: 5.0, status: 'Placed' });
+    return [{ insertId: orderId, affectedRows: 1 }];
+  }
+
+  // Order Placement Mock: Insert order item
+  if (s.startsWith('INSERT INTO ORDER_ITEM')) {
     return [{ affectedRows: 1 }];
+  }
+
+  // Order Placement Mock: Update inventory
+  if (s.includes('UPDATE MAIN_INVENTORY SET QUANTITY_IN_STOCK = QUANTITY_IN_STOCK - ?')) {
+    const [qty, pid, checkQty] = params;
+    const inv = mockDb.inventory.find(i => String(i.product_id) === String(pid));
+    if (inv && inv.quantity_in_stock >= Number(checkQty)) {
+      inv.quantity_in_stock -= Number(qty);
+      return [{ affectedRows: 1 }];
+    }
+    return [{ affectedRows: 0 }];
+  }
+
+  // Order Placement Mock: Recalculate totals
+  if (s.includes('CALL SP_RECALC_ORDER_TOTALS')) {
+    return [[]]; // SPs usually return arrays of result sets
   }
 
   // Dashboard: Total orders (reports/sales)
