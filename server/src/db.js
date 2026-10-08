@@ -7,13 +7,13 @@ let pool = null;
 let useFallback = false;
 
 const poolConfig = {
-  host: process.env.DB_HOST || 'railway-proj-railwayp-roj.e.aivencloud.com',
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 26357,
-  user: process.env.DB_USER || 'avnadmin',
-  password: process.env.DB_PASSWORD || 'AVNS_Bdu7v9tujxO-7vsMDbh',
-  database: process.env.DB_NAME || 'defaultdb',
-  ssl: { rejectUnauthorized: false },
-  connectTimeout: 10000,
+  host: process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 4000,
+  user: process.env.DB_USER || '3RMV7RtvWn5FFds.root',
+  password: process.env.DB_PASSWORD || 'CA1C4000fIE7agjV',
+  database: process.env.DB_NAME || 'kandypack',
+  ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
+  connectTimeout: 25000,
   waitForConnections: true,
   connectionLimit: 10
 };

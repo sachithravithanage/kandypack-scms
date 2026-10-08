@@ -83,12 +83,63 @@ function Login() {
           <button type="submit" className="btn btn-primary w-100 mt-2">
             Log in
           </button>
+
+          {/* Quick-Fill Demo Credentials */}
+          <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #e2e8f0" }}>
+            <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", textAlign: "center" }}>
+              Quick Demo Accounts (Password: password123)
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center" }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                onClick={() => { setEmail("admin@kandypack.lk"); setPassword("password123"); setError(""); }}
+              >
+                👑 Admin
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                onClick={() => { setEmail("dispatcher@kandypack.lk"); setPassword("password123"); setError(""); }}
+              >
+                📋 Dispatcher
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                onClick={() => { setEmail("kamal.driver@kandypack.lk"); setPassword("password123"); setError(""); }}
+              >
+                🚚 Driver
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                onClick={() => { setEmail("bandara.asst@kandypack.lk"); setPassword("password123"); setError(""); }}
+              >
+                🤝 Assistant
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                onClick={() => { setEmail("suneth.cmb@kandypack.lk"); setPassword("password123"); setError(""); }}
+              >
+                🏬 Store Mgr
+              </button>
+            </div>
+          </div>
+
           <p className="mt-3 text-center" style={{ fontSize: "0.875rem" }}>
             Don't have an account? <Link to="/register">Register</Link>
           </p>
         </form>
       </div>
     </AuthLayout>
+
   );
 }
 
