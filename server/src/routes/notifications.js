@@ -10,18 +10,23 @@ async function createNotification(userId, type, message) {
   );
   console.log(`[Notification Alert] User ${userId} [${type}]: ${message}`);
 
-  // 2. Fetch user phone number for SMS
+  // 2. Fetch user phone number and preferences for SMS
   try {
-    const [userRows] = await db.query('SELECT phone, name FROM `user` WHERE user_id = ?', [userId]);
+    const [userRows] = await db.query('SELECT phone, name, notification_preferences FROM `user` WHERE user_id = ?', [userId]);
     if (userRows && userRows.length > 0) {
-      const { phone, name } = userRows[0];
-      if (phone) {
+      const { phone, name, notification_preferences } = userRows[0];
+      const prefs = notification_preferences || 'ALL';
+      const allowsSMS = prefs === 'ALL' || prefs.includes('SMS');
+
+      if (phone && allowsSMS) {
         // 3. Mock SMS sending (Twilio simulation)
         console.log(`\n================== SMS GATEWAY ==================`);
         console.log(`To: ${phone} (${name})`);
         console.log(`Body: Kandypack Alert - [${type}] ${message}`);
         console.log(`Status: Sent successfully.`);
         console.log(`=================================================\n`);
+      } else if (!allowsSMS) {
+        console.log(`[SMS Gateway] User ${userId} preference does not allow SMS. Skipping.`);
       } else {
         console.log(`[SMS Gateway] User ${userId} has no phone number attached. Skipping SMS.`);
       }

@@ -137,10 +137,28 @@ router.post("/login", async (req, res) => {
     );
     res.json({
       token,
-      user: { id: user.user_id, name: user.name, roleId: user.role_id, role: user.role },
+      user: { id: user.user_id, name: user.name, roleId: user.role_id, role: user.role, notification_preferences: user.notification_preferences },
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Update notification preferences
+router.put("/preferences", async (req, res) => {
+  try {
+    const { userId, preferences } = req.body;
+    if (!userId || !preferences) {
+      return res.status(400).json({ error: "userId and preferences are required" });
+    }
+    
+    // preferences could be a string or JSON. We'll stringify if it's an array/object, or just use it if it's a string.
+    const prefsString = typeof preferences === 'string' ? preferences : JSON.stringify(preferences);
+    
+    await db.query("UPDATE `user` SET notification_preferences = ? WHERE user_id = ?", [prefsString, userId]);
+    res.json({ message: "Notification preferences updated successfully", preferences: prefsString });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
