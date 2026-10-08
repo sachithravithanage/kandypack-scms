@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
+import { apiUrl } from "../api";
 
 function Register() {
   const [form, setForm] = useState({
@@ -20,7 +21,7 @@ function Register() {
   // Load the city list once, when the page first opens
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/cities")
+      .get(apiUrl("/api/cities"))
       .then((res) => setCities(res.data))
       .catch(() => setError("Could not load cities. Is the server running?"));
   }, []);
@@ -44,7 +45,7 @@ function Register() {
     }
 
     try {
-      await axios.post("http://localhost:5000/api/auth/register", {
+      await axios.post(apiUrl("/api/auth/register"), {
         name: form.name,
         email: form.email,
         password: form.password,

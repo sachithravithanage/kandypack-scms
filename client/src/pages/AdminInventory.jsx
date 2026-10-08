@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { apiUrl } from "../api";
 
 function AdminInventory() {
   const [stock, setStock] = useState([]);
@@ -12,7 +13,7 @@ function AdminInventory() {
 
   const loadStock = () => {
     axios
-      .get("http://localhost:5000/api/inventory")
+      .get(apiUrl("/api/inventory"))
       .then((res) => setStock(res.data))
       .catch((err) =>
         setError(err.response?.data?.error || "Could not load inventory"),
@@ -28,7 +29,7 @@ function AdminInventory() {
     if (!quantityAdded || quantityAdded <= 0) return;
     try {
       await axios.put(
-        `http://localhost:5000/api/inventory/${productId}/restock`,
+        apiUrl(`/api/inventory/${productId}/restock`),
         { quantityAdded },
         authHeader,
       );
