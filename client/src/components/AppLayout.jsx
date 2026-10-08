@@ -14,6 +14,7 @@ import {
   IconTruck,
   IconUser,
 } from "@tabler/icons-react";
+import logo from "../assets/logo.png";
 
 export const roleNames = {
   1: "Administrator",
@@ -86,7 +87,7 @@ function AppLayout({ pageTitle, children }) {
     <div className="kp-shell">
       <aside className={`kp-sidebar ${menuOpen ? "kp-sidebar-open" : ""}`}>
         <div className="kp-sidebar-brand">
-          <div className="kp-logo-mark">K</div>
+          <img src={logo} alt="Logo" style={{ width: "36px", height: "36px", borderRadius: "10px", objectFit: "cover" }} />
           <span>Kandypack</span>
         </div>
         <nav className="kp-nav">
