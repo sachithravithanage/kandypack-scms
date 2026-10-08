@@ -12,6 +12,8 @@ import {
   IconChartBar,
   IconCalendarEvent,
   IconTruck,
+  IconPackage,
+  IconShoppingCart,
 } from "@tabler/icons-react";
 
 export const roleNames = {
@@ -26,6 +28,8 @@ export const roleNames = {
 // Defined navigation links with strict role permissions
 const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard, allowedRoles: [1, 2, 3] },
+  { to: "/orders", label: "My Orders", Icon: IconPackage, allowedRoles: [1, 2, 6] },
+  { to: "/orders/new", label: "Place Order", Icon: IconShoppingCart, allowedRoles: [1, 6] },
   { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
   { to: "/delivery", label: "Delivery Runs", Icon: IconTruck, allowedRoles: [1, 2, 3, 4, 5] },
   { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },
