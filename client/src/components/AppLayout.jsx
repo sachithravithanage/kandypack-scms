@@ -13,16 +13,31 @@ import {
   IconCalendarEvent,
   IconTruck,
   IconTrain,
-  IconPackage,
+  IconBoxSeam,
   IconBuildingWarehouse,
   IconClipboardCheck,
+  IconPackage,
+  IconShoppingCart,
+  IconSettings,
   IconUser,
 } from "@tabler/icons-react";
 
+const roleNames = {
+  1: "Administrator",
+  2: "Dispatcher",
+  3: "Regional Store Manager",
+  4: "Driver",
+  5: "Assistant",
+  6: "Customer",
+};
+
+// Defined navigation links with strict role permissions
 const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard, allowedRoles: [1, 2, 3] },
+  { to: "/orders", label: "My Orders", Icon: IconPackage, allowedRoles: [1, 2, 6] },
+  { to: "/orders/new", label: "Place Order", Icon: IconShoppingCart, allowedRoles: [1, 6] },
   { to: "/rail/schedules", label: "Train Schedules", Icon: IconTrain, allowedRoles: [1, 2, 3] },
-  { to: "/rail/loading", label: "Train Loading", Icon: IconPackage, allowedRoles: [1, 2] },
+  { to: "/rail/loading", label: "Train Loading", Icon: IconBoxSeam, allowedRoles: [1, 2] },
   { to: "/store/receipt", label: "Store Receipt", Icon: IconBuildingWarehouse, allowedRoles: [1, 3] },
   { to: "/store/dispatch", label: "Daily Dispatch", Icon: IconClipboardCheck, allowedRoles: [1, 3] },
   { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
@@ -31,14 +46,23 @@ const navItems = [
   { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
   { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
   { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
+  { to: "/settings", label: "Settings", Icon: IconSettings, allowedRoles: [1, 2, 3, 4, 5, 6] },
   { to: "/profile", label: "Profile", Icon: IconUser, allowedRoles: [1, 2, 3, 4, 5, 6] },
 ];
-
 
 function AppLayout({ pageTitle, children }) {
   const [menuOpen, setMenuOpen]       = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
+
+  const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
+  const storedRoleName = localStorage.getItem("roleName") || roleNames[storedRoleId] || "Staff";
+  const storedName = localStorage.getItem("name") || "User";
+
+  // Filter navigation items strictly by role permissions
+  const visibleNavItems = navItems.filter(
+    (item) => !item.allowedRoles || item.allowedRoles.includes(storedRoleId)
+  );
 
   // Poll unread notification count every 60 s
   useEffect(() => {
@@ -61,31 +85,9 @@ function AppLayout({ pageTitle, children }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("name");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("roleId");
-    localStorage.removeItem("role");
     navigate("/");
   };
 
-  // Determine user role from localStorage or fallback decode from token
-  let userRoleId = Number(localStorage.getItem("roleId"));
-  if (!userRoleId) {
-    try {
-      const token = localStorage.getItem("token");
-      if (token) {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        userRoleId = Number(payload.roleId || payload.role_id);
-      }
-    } catch {
-      // Fallback: leave undefined to show all items
-    }
-  }
-
-  const visibleNavItems = navItems.filter(
-    (item) => !userRoleId || !item.allowedRoles || item.allowedRoles.includes(userRoleId)
-  );
-
-  const storedName = localStorage.getItem("name") || "User";
   const initials = storedName
     .split(" ")
     .map((w) => w[0])
