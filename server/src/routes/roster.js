@@ -34,14 +34,14 @@ router.get('/metadata', async (req, res) => {
     `);
 
     const [drivers] = await db.query(`
-      SELECT d.user_id, u.name, d.license_number, u.email, u.phone
+      SELECT d.user_id, u.name, d.license_number, u.email, NULL AS phone
       FROM driver d
       JOIN \`user\` u ON d.user_id = u.user_id
       ORDER BY u.name ASC
     `);
 
     const [assistants] = await db.query(`
-      SELECT a.user_id, u.name, u.email, u.phone
+      SELECT a.user_id, u.name, u.email, NULL AS phone
       FROM assistant a
       JOIN \`user\` u ON a.user_id = u.user_id
       ORDER BY u.name ASC
@@ -62,6 +62,25 @@ router.get('/metadata', async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /api/roster/metadata:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/roster/driver-hours - Query driver weekly hours using UDF fn_get_driver_weekly_hours (CS3043 Advanced SQL: Slides 19–20)
+router.get('/driver-hours', async (req, res) => {
+  try {
+    const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+    const [rows] = await db.query(
+      `SELECT d.user_id AS driver_id, u.name AS driver_name, d.license_number,
+              fn_get_driver_weekly_hours(d.user_id, ?) AS hours_worked_this_week
+       FROM driver d
+       JOIN \`user\` u ON d.user_id = u.user_id
+       ORDER BY u.name ASC`,
+      [targetDate]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error('Error in GET /api/roster/driver-hours:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -123,9 +142,31 @@ router.get('/', async (req, res) => {
     }
 
     sql += `
-      GROUP BY ts.truck_schedule_id, rl.roster_log_id
+      GROUP BY 
+        ts.truck_schedule_id,
+        ts.route_id,
+        r.name,
+        r.max_delivery_time_minutes,
+        s.name,
+        ts.truck_id,
+        tk.plate_number,
+        tk.capacity,
+        ts.driver_id,
+        ud.name,
+        ts.assistant_id,
+        ua.name,
+        ts.scheduled_date,
+        ts.start_time,
+        ts.end_time,
+        ts.status,
+        ts.pickup_confirmed_at,
+        rl.roster_log_id,
+        rl.actual_start_time,
+        rl.actual_end_time,
+        rl.actual_hours_worked
       ORDER BY ts.scheduled_date DESC, ts.start_time ASC
     `;
+
 
     const [rows] = await db.query(sql, params);
     res.json(rows);

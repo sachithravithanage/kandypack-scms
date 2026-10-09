@@ -21,8 +21,9 @@ import {
   IconSettings,
   IconUser,
 } from "@tabler/icons-react";
+import logo from "../assets/logo.png";
 
-const roleNames = {
+export const roleNames = {
   1: "Administrator",
   2: "Dispatcher",
   3: "Regional Store Manager",
@@ -63,7 +64,6 @@ function AppLayout({ pageTitle, children }) {
   const visibleNavItems = navItems.filter(
     (item) => !item.allowedRoles || item.allowedRoles.includes(storedRoleId)
   );
-
   // Poll unread notification count every 60 s
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -85,6 +85,8 @@ function AppLayout({ pageTitle, children }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("name");
+    localStorage.removeItem("roleId");
+    localStorage.removeItem("roleName");
     navigate("/");
   };
 
@@ -99,7 +101,7 @@ function AppLayout({ pageTitle, children }) {
     <div className="kp-shell">
       <aside className={`kp-sidebar ${menuOpen ? "kp-sidebar-open" : ""}`}>
         <div className="kp-sidebar-brand">
-          <div className="kp-logo-mark">K</div>
+          <img src={logo} alt="Logo" style={{ width: "36px", height: "36px", borderRadius: "10px", objectFit: "cover" }} />
           <span>Kandypack</span>
         </div>
         <nav className="kp-nav">
@@ -107,6 +109,7 @@ function AppLayout({ pageTitle, children }) {
             <NavLink
               key={item.to}
               to={item.to}
+              end
               className={({ isActive }) =>
                 `kp-nav-item ${isActive ? "kp-nav-item-active" : ""}`
               }
@@ -182,7 +185,20 @@ function AppLayout({ pageTitle, children }) {
                 </span>
               )}
             </button>
-            <div className="kp-avatar">{initials}</div>
+            <div className="d-flex align-items-center gap-2 ms-2">
+              <div className="text-end d-none d-md-block">
+                <div style={{ fontWeight: 600, fontSize: "0.85rem", lineHeight: 1.2 }}>
+                  {storedName}
+                </div>
+                <div
+                  className="badge bg-secondary-subtle text-secondary"
+                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                >
+                  {storedRoleName}
+                </div>
+              </div>
+              <div className="kp-avatar">{initials}</div>
+            </div>
           </div>
         </header>
         <main className="kp-content">{children}</main>

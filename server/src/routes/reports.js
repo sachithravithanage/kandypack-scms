@@ -86,22 +86,24 @@ router.get('/staff-hours', requireAuth, async (req, res) => {
   const [rows] = await db.query(
     `SELECT 
        e.user_id,
-       e.name AS staff_name,
+       u.name AS staff_name,
        CASE WHEN d.user_id IS NOT NULL THEN 'Driver' ELSE 'Assistant' END AS role_type,
-       rl.week_start_date,
-       COALESCE(SUM(rl.hours_worked), 0) AS total_hours,
+       DATE_FORMAT(DATE_ADD(ts.scheduled_date, INTERVAL -WEEKDAY(ts.scheduled_date) DAY), '%Y-%m-%d') AS week_start_date,
+       COALESCE(SUM(rl.actual_hours_worked), 0) AS total_hours,
        CASE 
-         WHEN d.user_id IS NOT NULL AND SUM(rl.hours_worked) > 40 THEN 1
-         WHEN a.user_id IS NOT NULL AND SUM(rl.hours_worked) > 60 THEN 1
+         WHEN d.user_id IS NOT NULL AND COALESCE(SUM(rl.actual_hours_worked), 0) > 40 THEN 1
+         WHEN a.user_id IS NOT NULL AND COALESCE(SUM(rl.actual_hours_worked), 0) > 60 THEN 1
          ELSE 0
        END AS limit_exceeded
      FROM employee e
+     JOIN \`user\` u ON e.user_id = u.user_id
      LEFT JOIN driver d ON e.user_id = d.user_id
      LEFT JOIN assistant a ON e.user_id = a.user_id
-     JOIN roster_log rl ON (rl.driver_id = e.user_id OR rl.assistant_id = e.user_id)
-     WHERE (? IS NULL OR rl.week_start_date = ?)
-     GROUP BY e.user_id, e.name, role_type, rl.week_start_date
-     ORDER BY rl.week_start_date DESC, total_hours DESC`,
+     JOIN truck_schedule ts ON (ts.driver_id = e.user_id OR ts.assistant_id = e.user_id)
+     JOIN roster_log rl ON rl.truck_schedule_id = ts.truck_schedule_id
+     WHERE (? IS NULL OR DATE_FORMAT(DATE_ADD(ts.scheduled_date, INTERVAL -WEEKDAY(ts.scheduled_date) DAY), '%Y-%m-%d') = ?)
+     GROUP BY e.user_id, u.name, d.user_id, a.user_id, role_type, week_start_date
+     ORDER BY week_start_date DESC, total_hours DESC`,
     [weekStart || null, weekStart || null]
   );
   sendFormatted(res, rows, format);
@@ -115,11 +117,11 @@ router.get('/truck-utilization', requireAuth, async (req, res) => {
        t.truck_id,
        t.plate_number,
        t.capacity,
-       COUNT(ts.truck_schedule_id) AS total_trips_assigned,
-       COUNT(ds.stop_id) AS total_stops_serviced
+       COUNT(DISTINCT ts.truck_schedule_id) AS total_trips_assigned,
+       COUNT(ta.truck_allocation_id) AS total_stops_serviced
      FROM truck t
      LEFT JOIN truck_schedule ts ON t.truck_id = ts.truck_id
-     LEFT JOIN delivery_stop ds ON ts.truck_schedule_id = ds.truck_schedule_id
+     LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
      GROUP BY t.truck_id, t.plate_number, t.capacity
      ORDER BY total_trips_assigned DESC`
   );
