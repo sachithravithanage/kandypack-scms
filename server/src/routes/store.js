@@ -326,9 +326,9 @@ router.get('/:storeId/dispatch/available-orders', requireAuth, requireRole([1, 2
     const [rows] = await db.query(
       `SELECT o.order_id,
               o.order_date,
-              o.delivery_date,
+              o.requested_delivery_date AS delivery_date,
               o.status,
-              o.total_amount,
+              o.total_value AS total_amount,
               o.route_stop_id,
               rs.stop_name,
               rs.route_id,

@@ -42,12 +42,16 @@ router.get('/train-trips', requireAuth, requireRole([1, 2, 3]), async (req, res,
       SELECT tt.trip_id, tt.train_id, tt.destination_city_id, tt.departure_datetime,
              tt.arrival_datetime, tt.total_capacity, tt.status,
              c.name AS destination_city, t.name AS train_name,
-             COALESCE(SUM(ca.allocated_quantity), 0) AS used_capacity,
-             (tt.total_capacity - COALESCE(SUM(ca.allocated_quantity), 0)) AS remaining_capacity
+             COALESCE(ca.used_capacity, 0) AS used_capacity,
+             (tt.total_capacity - COALESCE(ca.used_capacity, 0)) AS remaining_capacity
       FROM train_trip tt
       JOIN city c ON tt.destination_city_id = c.city_id
       JOIN train t ON tt.train_id = t.train_id
-      LEFT JOIN cargo_allocation ca ON ca.trip_id = tt.trip_id
+      LEFT JOIN (
+        SELECT trip_id, SUM(allocated_quantity) AS used_capacity
+        FROM cargo_allocation
+        GROUP BY trip_id
+      ) ca ON ca.trip_id = tt.trip_id
       WHERE 1=1
     `;
     const params = [];
@@ -61,7 +65,7 @@ router.get('/train-trips', requireAuth, requireRole([1, 2, 3]), async (req, res,
       params.push(status);
     }
 
-    query += ' GROUP BY tt.trip_id ORDER BY tt.departure_datetime';
+    query += ' ORDER BY tt.departure_datetime';
 
     const [rows] = await db.query(query, params);
     res.json(rows);
