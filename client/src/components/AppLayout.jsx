@@ -12,10 +12,14 @@ import {
   IconChartBar,
   IconCalendarEvent,
   IconTruck,
+  IconTrain,
+  IconBoxSeam,
+  IconBuildingWarehouse,
+  IconClipboardCheck,
   IconPackage,
   IconShoppingCart,
-  IconUser,
   IconSettings,
+  IconUser,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";
 
@@ -33,6 +37,10 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard, allowedRoles: [1, 2, 3] },
   { to: "/orders", label: "My Orders", Icon: IconPackage, allowedRoles: [1, 2, 6] },
   { to: "/orders/new", label: "Place Order", Icon: IconShoppingCart, allowedRoles: [1, 6] },
+  { to: "/rail/schedules", label: "Train Schedules", Icon: IconTrain, allowedRoles: [1, 2, 3] },
+  { to: "/rail/loading", label: "Train Loading", Icon: IconBoxSeam, allowedRoles: [1, 2] },
+  { to: "/store/receipt", label: "Store Receipt", Icon: IconBuildingWarehouse, allowedRoles: [1, 3] },
+  { to: "/store/dispatch", label: "Daily Dispatch", Icon: IconClipboardCheck, allowedRoles: [1, 3] },
   { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
   { to: "/delivery", label: "Delivery Runs", Icon: IconTruck, allowedRoles: [1, 2, 3, 4, 5] },
   { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },

@@ -8,6 +8,10 @@ import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
+import AdminTrainSchedule from "./pages/AdminTrainSchedule";
+import DispatcherTrainLoading from "./pages/DispatcherTrainLoading";
+import StoreShipmentReceipt from "./pages/StoreShipmentReceipt";
+import StoreDailyDispatch from "./pages/StoreDailyDispatch";
 import MyOrders from "./pages/MyOrders";
 import NewOrder from "./pages/NewOrder";
 import Profile from "./pages/Profile";
@@ -45,6 +49,46 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
               <DriverDelivery />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rail/schedules"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <AdminTrainSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/trains"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <AdminTrainSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rail/loading"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <DispatcherTrainLoading />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/store/receipt"
+          element={
+            <ProtectedRoute allowedRoles={[1, 3]}>
+              <StoreShipmentReceipt />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/store/dispatch"
+          element={
+            <ProtectedRoute allowedRoles={[1, 3]}>
+              <StoreDailyDispatch />
             </ProtectedRoute>
           }
         />

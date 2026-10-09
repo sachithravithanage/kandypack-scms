@@ -19,9 +19,9 @@ const poolConfig = {
 };
 
 try {
-  pool = mysql.createPool(poolConfig);
+        pool = mysql.createPool(poolConfig);
 } catch (e) {
-  useFallback = true;
+        useFallback = true;
 }
 
 // In-Memory Seed Store (Dual-Mode Fallback when Cloud DB is unreachable)
@@ -903,47 +903,47 @@ function executeMockQuery(sql, params = []) {
 }
 
 module.exports = {
-  query: async (sql, params = []) => {
-    if (useFallback) {
-      return executeMockQuery(sql, params);
-    }
-    try {
-      return await pool.query(sql, params);
-    } catch (err) {
-      if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ER_ACCESS_DENIED_ERROR') {
-        console.log(`[DB Notice] Cloud MySQL unavailable (${err.code}). Switching to Resilient Seed Data Store.`);
-        useFallback = true;
-        return executeMockQuery(sql, params);
-      }
-      throw err;
-    }
-  },
-  execute: async (sql, params) => {
-    return module.exports.query(sql, params);
-  },
-  getConnection: async () => {
-    if (useFallback) {
-      return {
-        beginTransaction: async () => {},
-        commit: async () => {},
-        rollback: async () => {},
-        release: () => {},
-        query: async (sql, params) => executeMockQuery(sql, params),
-        execute: async (sql, params) => executeMockQuery(sql, params)
-      };
-    }
-    try {
-      return await pool.getConnection();
-    } catch (err) {
-      useFallback = true;
-      return {
-        beginTransaction: async () => {},
-        commit: async () => {},
-        rollback: async () => {},
-        release: () => {},
-        query: async (sql, params) => executeMockQuery(sql, params),
-        execute: async (sql, params) => executeMockQuery(sql, params)
-      };
-    }
-  }
+        query: async (sql, params = []) => {
+                if (useFallback) {
+                        return executeMockQuery(sql, params);
+                }
+                try {
+                        return await pool.query(sql, params);
+                } catch (err) {
+                        if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ER_ACCESS_DENIED_ERROR') {
+                                console.log(`[DB Notice] Cloud MySQL unavailable (${err.code}). Switching to Resilient Seed Data Store.`);
+                                useFallback = true;
+                                return executeMockQuery(sql, params);
+                        }
+                        throw err;
+                }
+        },
+        execute: async (sql, params) => {
+                return module.exports.query(sql, params);
+        },
+        getConnection: async () => {
+                if (useFallback) {
+                        return {
+                                beginTransaction: async () => { },
+                                commit: async () => { },
+                                rollback: async () => { },
+                                release: () => { },
+                                query: async (sql, params) => executeMockQuery(sql, params),
+                                execute: async (sql, params) => executeMockQuery(sql, params)
+                        };
+                }
+                try {
+                        return await pool.getConnection();
+                } catch (err) {
+                        useFallback = true;
+                        return {
+                                beginTransaction: async () => { },
+                                commit: async () => { },
+                                rollback: async () => { },
+                                release: () => { },
+                                query: async (sql, params) => executeMockQuery(sql, params),
+                                execute: async (sql, params) => executeMockQuery(sql, params)
+                        };
+                }
+        }
 };
