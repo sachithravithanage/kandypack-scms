@@ -35,8 +35,12 @@ function NewOrder() {
   const [deliveryDate, setDeliveryDate] = useState("");
   const [cart, setCart] = useState([]); // [{ product_id, name, unit_price, space_consumption_rate, quantity }]
 
-  // Product Search / Filter
+  // Product Search / Filter (sent to the server, which uses the product indexes)
   const [searchQuery, setSearchQuery] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [sortBy, setSortBy] = useState("name_asc");
+  const [productsLoading, setProductsLoading] = useState(true);
 
   // UI States
   const [loading, setLoading] = useState(true);
@@ -72,27 +76,71 @@ function NewOrder() {
     setDeliveryDate(earliestAllowedDate);
   }, [earliestAllowedDate]);
 
-  // Load initial product catalog and cities
+  // Load delivery cities once
   useEffect(() => {
-    const loadInitialData = async () => {
+    const loadCities = async () => {
       try {
         setLoading(true);
-        setError("");
-        const [prodRes, cityRes] = await Promise.all([
-          axios.get(`${API_BASE}/products`),
-          axios.get(`${API_BASE}/cities`),
-        ]);
-        setProducts(prodRes.data || []);
+        const cityRes = await axios.get(`${API_BASE}/cities`);
         setCities(cityRes.data || []);
       } catch (err) {
-        console.error("Failed to load catalog or cities:", err);
-        setError("Could not load products or delivery cities. Make sure the server is running.");
+        console.error("Failed to load cities:", err);
+        setError("Could not load delivery cities. Make sure the server is running.");
       } finally {
         setLoading(false);
       }
     };
-    loadInitialData();
+    loadCities();
   }, []);
+
+  // Search-as-you-type: query the server (name FULLTEXT index + unit_price index).
+  // Typing is debounced so we do not fire a request on every keystroke, and an
+  // in-flight request is cancelled when a newer one starts so stale results
+  // can never overwrite fresh ones.
+  const priceRangeInvalid =
+    minPrice !== "" && maxPrice !== "" && Number(minPrice) > Number(maxPrice);
+
+  useEffect(() => {
+    if (priceRangeInvalid) {
+      setProductsLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const hasFilters = searchQuery.trim() !== "" || minPrice !== "" || maxPrice !== "";
+    const delay = hasFilters ? 300 : 0;
+
+    const timer = setTimeout(async () => {
+      let cancelled = false;
+      try {
+        setProductsLoading(true);
+        const params = { sort: sortBy };
+        if (searchQuery.trim()) params.q = searchQuery.trim();
+        if (minPrice !== "") params.minPrice = minPrice;
+        if (maxPrice !== "") params.maxPrice = maxPrice;
+
+        const res = await axios.get(`${API_BASE}/products`, {
+          params,
+          signal: controller.signal,
+        });
+        setProducts(res.data || []);
+      } catch (err) {
+        if (axios.isCancel(err)) {
+          cancelled = true;
+          return;
+        }
+        console.error("Failed to load products:", err);
+        setError(err.response?.data?.error || "Could not load products. Make sure the server is running.");
+      } finally {
+        if (!cancelled) setProductsLoading(false);
+      }
+    }, delay);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, minPrice, maxPrice, sortBy, priceRangeInvalid]);
 
   // When city changes, load stops for that city
   useEffect(() => {
@@ -191,14 +239,6 @@ function NewOrder() {
       { totalValue: 0, totalVolume: 0, totalUnits: 0 }
     );
   }, [cart]);
-
-  // Filter products by search query
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery) return products;
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [products, searchQuery]);
 
   // Handle Form Submission
   const handleSubmitOrder = async (e) => {
@@ -299,19 +339,83 @@ function NewOrder() {
               </div>
             </div>
 
-            {loading ? (
+            {/* Price range + sort filters */}
+            <div className="row g-2 mb-3 align-items-end">
+              <div className="col-4">
+                <label className="form-label small mb-1">Min price (LKR)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="form-control form-control-sm"
+                  placeholder="0"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                />
+              </div>
+              <div className="col-4">
+                <label className="form-label small mb-1">Max price (LKR)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="form-control form-control-sm"
+                  placeholder="Any"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                />
+              </div>
+              <div className="col-4">
+                <label className="form-label small mb-1">Sort by</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="name_asc">Name (A–Z)</option>
+                  <option value="price_asc">Price (low to high)</option>
+                  <option value="price_desc">Price (high to low)</option>
+                </select>
+              </div>
+              {priceRangeInvalid && (
+                <div className="col-12 small text-danger">
+                  Minimum price cannot be greater than maximum price.
+                </div>
+              )}
+              {(searchQuery || minPrice !== "" || maxPrice !== "") && (
+                <div className="col-12 d-flex justify-content-between align-items-center small text-muted">
+                  <span>{productsLoading ? "Searching…" : `${products.length} product(s) found`}</span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setMinPrice("");
+                      setMaxPrice("");
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {productsLoading && products.length === 0 ? (
               <div className="text-center py-4">
                 <div className="spinner-border text-primary spinner-border-sm mb-2" role="status"></div>
                 <div className="text-muted small">Loading catalog…</div>
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : products.length === 0 ? (
               <div className="text-center py-4 text-muted">
                 <IconBox size={32} stroke={1.5} className="mb-2" />
-                <p className="mb-0 small">No products match your search query.</p>
+                <p className="mb-0 small">No products match your search.</p>
               </div>
             ) : (
-              <div className="row g-2">
-                {filteredProducts.map((p) => {
+              <div
+                className="row g-2"
+                style={{ opacity: productsLoading ? 0.6 : 1, transition: "opacity 0.15s ease" }}
+              >
+                {products.map((p) => {
                   const cartItem = cart.find((i) => i.product_id === p.product_id);
                   const inCartQty = cartItem ? cartItem.quantity : 0;
 
