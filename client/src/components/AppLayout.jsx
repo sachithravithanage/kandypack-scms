@@ -24,7 +24,7 @@ import {
 import logo from "../assets/logo.png";
 import { apiUrl } from "../api";
 
-export const roleNames = {
+const roleNames = {
   1: "Administrator",
   2: "Dispatcher",
   3: "Regional Store Manager",
@@ -45,7 +45,7 @@ const navItems = [
   { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
   { to: "/delivery", label: "Delivery Runs", Icon: IconTruck, allowedRoles: [1, 2, 3, 4, 5] },
   { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },
-  { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
+  { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1] },
   { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
   { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
   { to: "/settings", label: "Settings", Icon: IconSettings, allowedRoles: [1, 2, 3, 4, 5, 6] },

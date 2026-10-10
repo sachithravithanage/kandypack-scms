@@ -7,7 +7,7 @@ function requireAuth(req, res, next) {
         if (!token) return res.status(401).json({ error: 'No token provided' });
 
         try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'kandypack_scms_super_secret_jwt_key_2026');
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
                 req.user = {
                         ...decoded,
                         userId: decoded.userId || decoded.user_id,
@@ -36,4 +36,3 @@ function requireRole(allowedRoleIds) {
 }
 
 module.exports = { requireAuth, requireRole };
-

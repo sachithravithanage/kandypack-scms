@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -79,7 +79,7 @@ function App() {
         <Route
           path="/store/receipt"
           element={
-            <ProtectedRoute allowedRoles={[1, 3]}>
+            <ProtectedRoute allowedRoles={[1]}>
               <StoreShipmentReceipt />
             </ProtectedRoute>
           }

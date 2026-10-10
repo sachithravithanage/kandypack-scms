@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { IconPackage, IconPlus } from "@tabler/icons-react";
@@ -10,22 +10,21 @@ function AdminInventory() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const authHeader = {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  };
-
-  const loadStock = () => {
+  const loadStock = useCallback(() => {
+    const authHeader = {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    };
     axios
-      .get(apiUrl("/api/inventory"))
+      .get(apiUrl("/api/inventory"), authHeader)
       .then((res) => setStock(res.data))
       .catch((err) =>
         setError(err.response?.data?.error || "Could not load inventory"),
       );
-  };
+  }, []);
 
   useEffect(() => {
     loadStock();
-  }, []);
+  }, [loadStock]);
 
   const handleRestock = async (productId) => {
     setError("");
@@ -33,6 +32,9 @@ function AdminInventory() {
     const quantityAdded = Number(restockAmount[productId]);
     if (!quantityAdded || quantityAdded <= 0) return;
     try {
+      const authHeader = {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      };
       await axios.put(
         apiUrl(`/api/inventory/${productId}/restock`),
         { quantityAdded },
