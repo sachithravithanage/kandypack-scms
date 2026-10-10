@@ -144,10 +144,23 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Update notification preferences
-router.put("/preferences", async (req, res) => {
+// Get notification preferences
+router.get("/preferences/:userId", async (req, res) => {
   try {
-    const { userId, preferences } = req.body;
+    const { userId } = req.params;
+    const [rows] = await db.query("SELECT notification_preferences FROM `user` WHERE user_id = ?", [userId]);
+    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
+    res.json({ preferences: rows[0].notification_preferences });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update notification preferences
+router.put("/preferences/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { preferences } = req.body;
     if (!userId || !preferences) {
       return res.status(400).json({ error: "userId and preferences are required" });
     }

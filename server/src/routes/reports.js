@@ -42,19 +42,7 @@ router.get('/sales', requireAuth, async (req, res) => {
 router.get('/top-products', requireAuth, async (req, res) => {
   const { limit = 10, format } = req.query;
   const [rows] = await db.query(
-    `SELECT 
-       p.product_id,
-       p.name,
-       p.unit_price,
-       COALESCE(SUM(oi.quantity), 0) AS total_quantity_sold,
-       COALESCE(SUM(oi.quantity * p.unit_price), 0) AS total_sales_value
-     FROM product p
-     JOIN order_item oi ON p.product_id = oi.product_id
-     JOIN \`order\` o ON oi.order_id = o.order_id
-     WHERE o.status != 'Cancelled'
-     GROUP BY p.product_id, p.name, p.unit_price
-     ORDER BY total_quantity_sold DESC
-     LIMIT ?`,
+    `SELECT * FROM vw_top_selling_products ORDER BY total_quantity_sold DESC LIMIT ?`,
     [parseInt(limit)]
   );
   sendFormatted(res, rows, format);
@@ -113,18 +101,9 @@ router.get('/staff-hours', requireAuth, async (req, res) => {
 router.get('/truck-utilization', requireAuth, async (req, res) => {
   const { format } = req.query;
   const [rows] = await db.query(
-    `SELECT 
-       t.truck_id,
-       t.plate_number,
-       t.capacity,
-       COUNT(DISTINCT ts.truck_schedule_id) AS total_trips_assigned,
-       COUNT(ta.truck_allocation_id) AS total_stops_serviced
-     FROM truck t
-     LEFT JOIN truck_schedule ts ON t.truck_id = ts.truck_id
-     LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
-     GROUP BY t.truck_id, t.plate_number, t.capacity
-     ORDER BY total_trips_assigned DESC`
+    `SELECT * FROM vw_truck_utilization ORDER BY total_trips_assigned DESC`
   );
+  sendFormatted(res, rows, format);
   sendFormatted(res, rows, format);
 });
 
@@ -147,6 +126,40 @@ router.get('/customer/:customerId', requireAuth, async (req, res) => {
      WHERE o.customer_id = ?
      ORDER BY o.order_date DESC, oi.order_item_id ASC`,
     [req.params.customerId]
+  );
+  sendFormatted(res, rows, format);
+});
+
+// 7. NEW: Recent Deliveries Summary (Replacing CRON)
+router.get('/recent-deliveries', requireAuth, async (req, res) => {
+  const { limit = 10, format } = req.query;
+  const [rows] = await db.query(
+    `SELECT 
+       ta.truck_allocation_id,
+       o.order_id,
+       u.name AS customer_name,
+       c.phone,
+       ta.delivery_status,
+       ta.delivered_at,
+       ta.delivery_note
+     FROM truck_allocation ta
+     JOIN \`order\` o ON ta.order_id = o.order_id
+     JOIN \`user\` u ON o.customer_id = u.user_id
+     JOIN \`customer\` c ON u.user_id = c.user_id
+     WHERE ta.delivery_status IN ('Delivered', 'Failed')
+     ORDER BY ta.delivered_at DESC
+     LIMIT ?`,
+    [parseInt(limit)]
+  );
+  sendFormatted(res, rows, format);
+});
+
+// 8. NEW: Complete System Summary (Admin Only)
+router.get('/system-summary', requireAuth, async (req, res) => {
+  const { limit = 10, format } = req.query;
+  const [rows] = await db.query(
+    `SELECT * FROM vw_complete_system_summary ORDER BY truck_allocation_id DESC LIMIT ?`,
+    [parseInt(limit)]
   );
   sendFormatted(res, rows, format);
 });
