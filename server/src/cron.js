@@ -1,6 +1,6 @@
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 const db = require('./db');
+const { createNotification } = require('./routes/notifications');
 
 // End-of-Day Summary Email at 6:00 PM every day (0 18 * * *)
 cron.schedule('0 18 * * *', async () => {
@@ -16,18 +16,14 @@ cron.schedule('0 18 * * *', async () => {
       const totalDeliveries = deliveries[0].count;
 
       // Find administrators
-      const [admins] = await connection.query("SELECT email FROM `user` WHERE role_id = 1 AND is_active = 1");
+      const [admins] = await connection.query("SELECT user_id FROM `user` WHERE role_id = 1 AND is_active = 1");
       
       if (admins.length > 0) {
-        // Mock sending an email
-        console.log(`\n================== EMAIL GATEWAY ==================`);
-        console.log(`To: ${admins.map(a => a.email).join(', ')}`);
-        console.log(`Subject: End-of-Day Summary`);
-        console.log(`Body: Total successful deliveries today: ${totalDeliveries}`);
-        console.log(`Status: Mock Email sent successfully.`);
-        console.log(`=================================================\n`);
+        for (const admin of admins) {
+          await createNotification(admin.user_id, 'Daily Summary', `Total successful deliveries today: ${totalDeliveries}`);
+        }
       } else {
-        console.log('[CRON] No active administrators found to send email to.');
+        console.log('[CRON] No active administrators found to notify.');
       }
     } finally {
       connection.release();

@@ -15,7 +15,6 @@ import StoreDailyDispatch from "./pages/StoreDailyDispatch";
 import MyOrders from "./pages/MyOrders";
 import NewOrder from "./pages/NewOrder";
 import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 
@@ -153,14 +152,6 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
               <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
-              <Settings />
             </ProtectedRoute>
           }
         />

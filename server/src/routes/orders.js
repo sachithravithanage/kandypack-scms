@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -168,6 +169,21 @@ router.post('/', async (req, res) => {
         );
 
         await connection.commit();
+
+        // Send Real-Time Notifications
+        try {
+            // Notify Customer
+            await createNotification(customerId, 'Order Placed', `Your order #${orderId} has been successfully placed and is awaiting dispatch.`);
+            
+            // Notify Dispatchers
+            const [dispatchers] = await db.query('SELECT user_id FROM `user` WHERE role_id = 2 AND is_active = 1');
+            for (const dispatcher of dispatchers) {
+                await createNotification(dispatcher.user_id, 'New Order', `New order #${orderId} was just placed and needs to be scheduled.`);
+            }
+        } catch (notifErr) {
+            console.error('Failed to send order notifications:', notifErr.message);
+        }
+
         res.status(201).json({ message: 'Order placed successfully', orderId });
     } catch (err) {
         await connection.rollback();
