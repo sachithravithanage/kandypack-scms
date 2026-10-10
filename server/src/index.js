@@ -3,6 +3,10 @@ const cors = require("cors");
 require("dotenv").config();
 // KandyPack SCMS Server
 
+if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET must be configured before starting the server.");
+}
+
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const inventoryRoutes = require("./routes/inventory");
