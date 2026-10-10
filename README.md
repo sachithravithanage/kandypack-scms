@@ -31,6 +31,14 @@ The repository is organized into the following primary directories:
 - `db/` — Contains database schema definitions, initialization scripts (`init.sql`), and sample seed data.
 - `docs/` — Contains project documentation, including the Software Requirements Specification (SRS).
 
+### SQL concepts demonstrated
+
+The database initializer also includes `db/07_advanced_sql.sql`, which adds
+join-backed views, composite indexes, `CHECK` constraints, transaction-safe
+stored routines, validation triggers, and window-function reporting. These are
+additive database features: the existing API routes and user flows continue to
+use the same tables and endpoints.
+
 ## Getting Started (Local Development)
 
 ### Prerequisites
