@@ -16,7 +16,7 @@ function Settings() {
   useEffect(() => {
     // Fetch user preferences
     axios
-      .get(apiUrl(`/api/auth/preferences/${userId}`), authH)
+      .get(apiUrl("/api/auth/preferences"), { ...authH, params: { userId } })
       .then((res) => {
         const prefs = res.data.preferences;
         if (prefs) {
@@ -38,7 +38,7 @@ function Settings() {
     setMessage("");
     try {
       await axios.put(
-        apiUrl(`/api/auth/preferences/${userId}`),
+        apiUrl("/api/auth/preferences"),
         { preferences: JSON.stringify(preferences) },
         authH
       );

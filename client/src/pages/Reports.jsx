@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -33,7 +34,7 @@ function Reports() {
     try {
       const params = { startDate, endDate };
       const res = await axios.get(
-        `http://localhost:5000/api/reports/${reportType}`,
+        apiUrl(`/api/reports/${reportType}`),
         { headers: { Authorization: `Bearer ${token}` }, params }
       );
       const data = res.data;
@@ -50,7 +51,7 @@ function Reports() {
   const exportCsv = async () => {
     const params = { startDate, endDate, format: "csv" };
     const res = await axios.get(
-      `http://localhost:5000/api/reports/${reportType}`,
+      apiUrl(`/api/reports/${reportType}`),
       { headers: { Authorization: `Bearer ${token}` }, params, responseType: "blob" }
     );
     const url  = window.URL.createObjectURL(new Blob([res.data]));
@@ -156,4 +157,3 @@ function Reports() {
 }
 
 export default Reports;
-

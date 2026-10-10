@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
 
   # ── MySQL Database ──────────────────────────────────────────────────────────
@@ -11,10 +9,10 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./db:/docker-entrypoint-initdb.d   # auto-runs all *.sql files on first start
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
@@ -40,13 +38,15 @@ services:
       DB_NAME: ${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
 
   # ── React Client (built + served via nginx) ─────────────────────────────────
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
     container_name: kandypack-client
     restart: always
     depends_on:

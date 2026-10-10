@@ -2,6 +2,7 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../db");
+const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,12 +145,30 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Update notification preferences
-router.put("/preferences", async (req, res) => {
+// Read notification preferences
+router.get("/preferences", requireAuth, async (req, res) => {
   try {
-    const { userId, preferences } = req.body;
-    if (!userId || !preferences) {
-      return res.status(400).json({ error: "userId and preferences are required" });
+    const userId = req.user.userId;
+    const [[user]] = await db.query(
+      "SELECT notification_preferences FROM `user` WHERE user_id = ?",
+      [userId],
+    );
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json({ preferences: user.notification_preferences });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update notification preferences
+router.put("/preferences", requireAuth, async (req, res) => {
+  try {
+    const { preferences } = req.body;
+    const userId = req.user.userId;
+    if (!preferences) {
+      return res.status(400).json({ error: "preferences are required" });
     }
     
     // preferences could be a string or JSON. We'll stringify if it's an array/object, or just use it if it's a string.

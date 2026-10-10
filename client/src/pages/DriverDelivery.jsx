@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconTruck,
   IconMapPin,
@@ -19,7 +20,7 @@ import {
   IconSend,
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = apiUrl("/api");
 
 function DriverDelivery() {
   const [runs, setRuns] = useState([]);

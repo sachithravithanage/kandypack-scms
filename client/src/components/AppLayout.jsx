@@ -22,6 +22,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";
+import { apiUrl } from "../api";
 
 export const roleNames = {
   1: "Administrator",
@@ -70,7 +71,7 @@ function AppLayout({ pageTitle, children }) {
     if (!userId) return;
     const fetchUnread = () => {
       axios
-        .get(`http://localhost:5000/api/notifications/${userId}`)
+        .get(apiUrl(`/api/notifications/${userId}`))
         .then((res) => {
           const count = res.data.filter((n) => !n.is_read).length;
           setUnreadCount(count);

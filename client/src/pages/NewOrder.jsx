@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconSearch,
   IconPlus,
@@ -18,7 +19,7 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "") + "/api";
+const API_BASE = apiUrl("/api");
 
 function NewOrder() {
   const navigate = useNavigate();
@@ -711,4 +712,3 @@ function NewOrder() {
 }
 
 export default NewOrder;
-

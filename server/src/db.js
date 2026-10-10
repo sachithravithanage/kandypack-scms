@@ -4,25 +4,19 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 let pool = null;
-let useFallback = false;
 
 const poolConfig = {
-  host: process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 4000,
-  user: process.env.DB_USER || '3RMV7RtvWn5FFds.root',
-  password: process.env.DB_PASSWORD || 'CA1C4000fIE7agjV',
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'kandypack',
-  ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
   connectTimeout: 25000,
   waitForConnections: true,
   connectionLimit: 10
 };
 
-try {
-        pool = mysql.createPool(poolConfig);
-} catch (e) {
-        useFallback = true;
-}
+pool = mysql.createPool(poolConfig);
 
 // In-Memory Seed Store (Dual-Mode Fallback when Cloud DB is unreachable)
 const defaultPasswordHash = '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVEdHurSIa2O'; // password123
@@ -904,46 +898,12 @@ function executeMockQuery(sql, params = []) {
 
 module.exports = {
         query: async (sql, params = []) => {
-                if (useFallback) {
-                        return executeMockQuery(sql, params);
-                }
-                try {
-                        return await pool.query(sql, params);
-                } catch (err) {
-                        if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'ER_ACCESS_DENIED_ERROR') {
-                                console.log(`[DB Notice] Cloud MySQL unavailable (${err.code}). Switching to Resilient Seed Data Store.`);
-                                useFallback = true;
-                                return executeMockQuery(sql, params);
-                        }
-                        throw err;
-                }
+                return pool.query(sql, params);
         },
         execute: async (sql, params) => {
                 return module.exports.query(sql, params);
         },
         getConnection: async () => {
-                if (useFallback) {
-                        return {
-                                beginTransaction: async () => { },
-                                commit: async () => { },
-                                rollback: async () => { },
-                                release: () => { },
-                                query: async (sql, params) => executeMockQuery(sql, params),
-                                execute: async (sql, params) => executeMockQuery(sql, params)
-                        };
-                }
-                try {
-                        return await pool.getConnection();
-                } catch (err) {
-                        useFallback = true;
-                        return {
-                                beginTransaction: async () => { },
-                                commit: async () => { },
-                                rollback: async () => { },
-                                release: () => { },
-                                query: async (sql, params) => executeMockQuery(sql, params),
-                                execute: async (sql, params) => executeMockQuery(sql, params)
-                        };
-                }
+                return pool.getConnection();
         }
 };

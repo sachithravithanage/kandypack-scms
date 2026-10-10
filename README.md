@@ -58,8 +58,8 @@ Ensure the following tools are installed on your local machine:
     cd kandypack-scms
     ```
 2.  **Environment Variables:**
-    - Locate the `.env.example` file in the project root and create a copy named `.env`.
-    - Populate the `.env` file with your specific database credentials (`DB_ROOT_PASSWORD`) and a secure `JWT_SECRET` for authentication.
+    - Copy the root `.env.example` to `.env`.
+    - Set a strong `DB_PASSWORD` and `JWT_SECRET`. Never commit `.env`.
 3.  **Run with Docker Compose:**
     - The project uses a multi-container Docker setup that initializes the MySQL database, Node backend, and React frontend simultaneously. Run the following command in the project root:
 
@@ -67,7 +67,32 @@ Ensure the following tools are installed on your local machine:
     docker compose up --build
     ```
 
-    - Once the containers are running, the application will be accessible via your web browser at `http://localhost:3000`.
+    - Once the containers are running, the application will be accessible via your web browser at `http://localhost`.
+    - The database and API ports are bound to localhost only. The browser reaches the API through nginx at `/api`.
+
+### Azure VM deployment
+
+The same Compose stack can run on an Azure Linux VM with Docker Engine and the
+Compose plugin installed.
+
+1. Clone the repository on the VM.
+2. Copy `.env.example` to `.env` and replace the placeholder values with unique
+   secrets. Keep this file only on the VM.
+3. Start the stack:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Check service health and logs:
+
+   ```bash
+   docker compose ps
+   docker compose logs --tail=100 db server client
+   ```
+
+5. Open `http://<VM-public-IP>/`. Only expose TCP 80 (and later 443) in the
+   Azure Network Security Group. Do not expose MySQL publicly.
 
 ## Team Contributors
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 
 function Profile() {
   const [form, setForm] = useState({
@@ -21,13 +22,13 @@ function Profile() {
   useEffect(() => {
     // Load cities for the dropdown
     axios
-      .get("http://localhost:5000/api/cities")
+      .get(apiUrl("/api/cities"))
       .then((res) => setCities(res.data))
       .catch(() => setError("Could not load cities."));
 
     // Load user's profile
     axios
-      .get("http://localhost:5000/api/users/profile", authH)
+      .get(apiUrl("/api/users/profile"), authH)
       .then((res) => {
         const data = res.data;
         setRoleId(data.role_id);
@@ -56,7 +57,7 @@ function Profile() {
 
     try {
       await axios.put(
-        "http://localhost:5000/api/users/profile",
+        apiUrl("/api/users/profile"),
         {
           name: form.name,
           phone: form.phone,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import { IconPackage, IconTruck, IconAlertTriangle } from "@tabler/icons-react";
 import {
   Chart as ChartJS,
@@ -38,7 +39,7 @@ function Dashboard() {
 
     // 1. Total orders from sales report
     axios
-      .get("http://localhost:5000/api/reports/sales", {
+      .get(apiUrl("/api/reports/sales"), {
         ...authH,
         params: { startDate, endDate },
       })
@@ -63,7 +64,7 @@ function Dashboard() {
 
     // 2. In-transit: count truck schedules from utilization report
     axios
-      .get("http://localhost:5000/api/reports/truck-utilization", authH)
+      .get(apiUrl("/api/reports/truck-utilization"), authH)
       .then((res) => {
         const trips = res.data.reduce(
           (sum, t) => sum + (t.total_trips_assigned || 0), 0
@@ -90,7 +91,7 @@ function Dashboard() {
     // 3. Unread notifications as open alerts
     if (userId) {
       axios
-        .get(`http://localhost:5000/api/notifications/${userId}`)
+        .get(apiUrl(`/api/notifications/${userId}`))
         .then((res) => {
           const unread = res.data.filter((n) => !n.is_read);
           setOpenAlerts(unread.length);
@@ -198,4 +199,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-
