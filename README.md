@@ -31,6 +31,14 @@ The repository is organized into the following primary directories:
 - `db/` — Contains database schema definitions, initialization scripts (`init.sql`), and sample seed data.
 - `docs/` — Contains project documentation, including the Software Requirements Specification (SRS).
 
+### SQL concepts demonstrated
+
+The database initializer also includes `db/07_advanced_sql.sql`, which adds
+join-backed views, composite indexes, `CHECK` constraints, transaction-safe
+stored routines, validation triggers, and window-function reporting. These are
+additive database features: the existing API routes and user flows continue to
+use the same tables and endpoints.
+
 ## Getting Started (Local Development)
 
 ### Prerequisites
@@ -50,8 +58,8 @@ Ensure the following tools are installed on your local machine:
     cd kandypack-scms
     ```
 2.  **Environment Variables:**
-    - Locate the `.env.example` file in the project root and create a copy named `.env`.
-    - Populate the `.env` file with your specific database credentials (`DB_ROOT_PASSWORD`) and a secure `JWT_SECRET` for authentication.
+    - Copy the root `.env.example` to `.env`.
+    - Set a strong `DB_PASSWORD` and `JWT_SECRET`. Never commit `.env`.
 3.  **Run with Docker Compose:**
     - The project uses a multi-container Docker setup that initializes the MySQL database, Node backend, and React frontend simultaneously. Run the following command in the project root:
 
@@ -59,7 +67,32 @@ Ensure the following tools are installed on your local machine:
     docker compose up --build
     ```
 
-    - Once the containers are running, the application will be accessible via your web browser at `http://localhost:3000`.
+    - Once the containers are running, the application will be accessible via your web browser at `http://localhost`.
+    - The database and API ports are bound to localhost only. The browser reaches the API through nginx at `/api`.
+
+### Azure VM deployment
+
+The same Compose stack can run on an Azure Linux VM with Docker Engine and the
+Compose plugin installed.
+
+1. Clone the repository on the VM.
+2. Copy `.env.example` to `.env` and replace the placeholder values with unique
+   secrets. Keep this file only on the VM.
+3. Start the stack:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Check service health and logs:
+
+   ```bash
+   docker compose ps
+   docker compose logs --tail=100 db server client
+   ```
+
+5. Open `http://<VM-public-IP>/`. Only expose TCP 80 (and later 443) in the
+   Azure Network Security Group. Do not expose MySQL publicly.
 
 ## Team Contributors
 

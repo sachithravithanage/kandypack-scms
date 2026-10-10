@@ -123,6 +123,74 @@ a:hover {
   background: var(--color-navy-800);
   border-color: var(--color-navy-800);
 }
+.btn-outline-secondary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+}
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+  background: var(--color-bg);
+  border-color: var(--color-navy-700);
+  color: var(--color-navy-900);
+}
+
+/* Unified button classes matching train loading design */
+.kp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  padding: 0.55rem 1.3rem;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.05s ease;
+  text-decoration: none;
+}
+.kp-btn:active {
+  transform: scale(0.98);
+}
+.kp-btn-primary {
+  background: var(--color-navy-800);
+  border-color: var(--color-navy-800);
+  color: #ffffff;
+}
+.kp-btn-primary:hover,
+.kp-btn-primary:focus {
+  background: var(--color-navy-700);
+  border-color: var(--color-navy-700);
+  color: #ffffff;
+}
+.kp-btn-secondary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+}
+.kp-btn-secondary:hover,
+.kp-btn-secondary:focus {
+  background: var(--color-bg);
+  border-color: var(--color-navy-700);
+  color: var(--color-navy-900);
+}
+.kp-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+@keyframes kpSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: kpSpin 1s linear infinite;
+}
 .btn-sm {
   padding: 0.32rem 0.9rem;
   font-size: 0.8rem;

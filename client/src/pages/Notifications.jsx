@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 
 function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -16,7 +17,7 @@ function Notifications() {
     if (!userId) return;
     setLoading(true);
     axios
-      .get(`http://localhost:5000/api/notifications/${userId}`)
+      .get(apiUrl(`/api/notifications/${userId}`))
       .then((res) => {
         setNotifications(res.data);
         setLoading(false);
@@ -34,7 +35,7 @@ function Notifications() {
   const acknowledge = async (id) => {
     try {
       await axios.put(
-        `http://localhost:5000/api/notifications/${id}/acknowledge`,
+        apiUrl(`/api/notifications/${id}/acknowledge`),
         {},
         authHeader
       );
@@ -138,4 +139,3 @@ function Notifications() {
 }
 
 export default Notifications;
-

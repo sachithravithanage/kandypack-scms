@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconPackage,
   IconPlus,
@@ -19,7 +20,7 @@ import {
   IconFilter,
 } from "@tabler/icons-react";
 
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "") + "/api";
+const API_BASE = apiUrl("/api");
 
 const STATUS_CONFIG = {
   Placed: {
@@ -631,4 +632,3 @@ function MyOrders() {
 }
 
 export default MyOrders;
-

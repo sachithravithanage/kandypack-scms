@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconBuildingWarehouse,
   IconTrain,
@@ -16,7 +17,7 @@ import {
   IconFileSpreadsheet
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = apiUrl("/api");
 
 function StoreShipmentReceipt() {
   const [stores, setStores] = useState([]);
@@ -291,15 +292,16 @@ function StoreShipmentReceipt() {
 
           <div className="col-md-2 d-flex align-items-end">
             <button
-              className="kp-btn kp-btn-secondary w-100"
+              type="button"
+              className="btn btn-outline-secondary w-100 d-inline-flex align-items-center justify-content-center"
               onClick={() => {
                 if (selectedStoreId) loadStoreData(selectedStoreId);
                 if (selectedStoreId && selectedTripId) loadManifest(selectedStoreId, selectedTripId);
               }}
               disabled={loading || loadingManifest}
-              style={{ padding: "9px 14px", marginTop: "24px" }}
+              style={{ padding: "8px 16px", marginTop: "24px" }}
             >
-              <IconRefresh size={16} className="me-1" />
+              <IconRefresh size={16} className={`me-1.5 ${loading || loadingManifest ? "spin" : ""}`} />
               Refresh
             </button>
           </div>
@@ -332,17 +334,19 @@ function StoreShipmentReceipt() {
       {/* Navigation Tabs */}
       <div className="d-flex gap-2 mb-3">
         <button
-          className={`kp-btn ${activeTab === "manifest" ? "kp-btn-primary" : "kp-btn-secondary"}`}
+          type="button"
+          className={`btn d-inline-flex align-items-center gap-1.5 ${activeTab === "manifest" ? "btn-primary" : "btn-outline-secondary"}`}
           onClick={() => setActiveTab("manifest")}
         >
-          <IconFileSpreadsheet size={16} className="me-1" />
+          <IconFileSpreadsheet size={16} />
           Manifest Reconciliation
         </button>
         <button
-          className={`kp-btn ${activeTab === "inventory" ? "kp-btn-primary" : "kp-btn-secondary"}`}
+          type="button"
+          className={`btn d-inline-flex align-items-center gap-1.5 ${activeTab === "inventory" ? "btn-primary" : "btn-outline-secondary"}`}
           onClick={() => setActiveTab("inventory")}
         >
-          <IconBoxSeam size={16} className="me-1" />
+          <IconBoxSeam size={16} />
           Current Store Inventory Ledger ({storeStock.length} Products)
         </button>
       </div>
@@ -408,12 +412,11 @@ function StoreShipmentReceipt() {
               {manifest.length > 0 && (
                 <button
                   type="button"
-                  className="kp-btn kp-btn-secondary"
+                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
                   onClick={handleAutoFillExpected}
                   disabled={submitting}
-                  style={{ fontSize: "0.85rem" }}
                 >
-                  <IconCheck size={16} className="me-1 text-success" />
+                  <IconCheck size={16} className="me-1.5 text-success" />
                   Auto-fill All as Expected
                 </button>
               )}
@@ -537,9 +540,9 @@ function StoreShipmentReceipt() {
                   </div>
                   <button
                     type="submit"
-                    className="kp-btn kp-btn-primary"
+                    className="btn btn-primary d-inline-flex align-items-center"
                     disabled={submitting || manifest.length === 0}
-                    style={{ padding: "10px 24px", fontSize: "0.95rem" }}
+                    style={{ padding: "9px 24px" }}
                   >
                     {submitting ? (
                       <>
@@ -571,9 +574,9 @@ function StoreShipmentReceipt() {
               </p>
             </div>
             <button
-              className="kp-btn kp-btn-secondary"
+              type="button"
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
               onClick={() => loadStoreData(selectedStoreId)}
-              style={{ fontSize: "0.85rem" }}
             >
               <IconRefresh size={16} className="me-1" />
               Refresh Stock
