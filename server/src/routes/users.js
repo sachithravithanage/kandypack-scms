@@ -101,6 +101,63 @@ router.put("/profile", requireAuth, async (req, res) => {
   }
 });
 
+// PUT /api/users/change-password — User updates their own password from Profile
+// Defined BEFORE /:id to prevent Express parameterized route shadowing!
+router.put(["/change-password", "/profile/password"], requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "Current password and new password are required." });
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 8 characters long." });
+    }
+    if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res
+        .status(400)
+        .json({ error: "New password must contain both letters and numbers." });
+    }
+
+    const [rows] = await db.query(
+      "SELECT password_hash FROM `user` WHERE user_id = ?",
+      [req.user.userId],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Current password is incorrect." });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.query(
+      "UPDATE `user` SET password_hash = ? WHERE user_id = ?",
+      [newHash, req.user.userId],
+    );
+
+    await db.query(
+      "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+      [
+        req.user.userId,
+        "Changed account password",
+        "user",
+        req.user.userId,
+        "User updated password via profile security settings",
+      ],
+    );
+
+    res.json({ message: "Password updated successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to update password." });
+  }
+});
+
 // Admin creates a Dispatcher/Store Manager/Driver/Assistant account — REQ-USR-03
 // IMPORTANT: role_id 4 (Driver) and 5 (Assistant) need extra rows created in the same
 // transaction — Member D's `truck_schedule` table has foreign keys into `driver` and
@@ -305,57 +362,6 @@ router.put(
     }
   },
 );
-
-// PUT /api/users/change-password — User updates their own password from Profile
-router.put("/change-password", requireAuth, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ error: "Current password and new password are required." });
-    }
-    if (typeof newPassword !== "string" || newPassword.length < 8) {
-      return res
-        .status(400)
-        .json({ error: "New password must be at least 8 characters long." });
-    }
-
-    const [rows] = await db.query(
-      "SELECT password_hash FROM `user` WHERE user_id = ?",
-      [req.user.userId],
-    );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "User not found." });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, rows[0].password_hash);
-    if (!isMatch) {
-      return res.status(400).json({ error: "Current password is incorrect." });
-    }
-
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await db.query(
-      "UPDATE `user` SET password_hash = ? WHERE user_id = ?",
-      [newHash, req.user.userId],
-    );
-
-    await db.query(
-      "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
-      [
-        req.user.userId,
-        "Changed account password",
-        "user",
-        req.user.userId,
-        "User updated password via profile security settings",
-      ],
-    );
-
-    res.json({ message: "Password updated successfully." });
-  } catch (err) {
-    res.status(500).json({ error: err.message || "Failed to update password." });
-  }
-});
 
 // GET /api/users/audit-logs — Admin reads system audit trail (REQ-USR-05)
 router.get("/audit-logs", requireAuth, requireRole([1]), async (req, res) => {

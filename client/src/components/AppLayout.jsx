@@ -176,12 +176,26 @@ function AppLayout({ pageTitle, children }) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("name");
-    localStorage.removeItem("roleId");
-    localStorage.removeItem("roleName");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        axios
+          .post(
+            apiUrl("/api/auth/logout"),
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          .catch(() => {});
+      }
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("name");
+      localStorage.removeItem("roleId");
+      localStorage.removeItem("roleName");
+      navigate("/");
+    }
   };
 
   const initials = storedName

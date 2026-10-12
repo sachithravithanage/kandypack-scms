@@ -57,6 +57,9 @@ function validateRegistration({
   if (typeof password !== "string" || password.length < 8) {
     return "Password must be at least 8 characters.";
   }
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return "Password must contain both letters and numbers.";
+  }
   if (typeof phone !== "string" || !phone.trim()) {
     return "Phone number is required.";
   }
@@ -168,17 +171,31 @@ router.post("/login", authLimiter, async (req, res) => {
        WHERE u.email = ?`,
       [email],
     );
-    if (rows.length === 0)
+    if (rows.length === 0) {
+      db.query(
+        "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+        [null, "Failed login attempt", "user", null, `Attempted unknown email: ${email}`]
+      ).catch(() => {});
       return res.status(401).json({ error: "Invalid email or password" });
+    }
 
     const user = rows[0];
 
     // Standard, production-grade bcrypt verification (no hardcoded bypass)
     const match = await bcrypt.compare(password, user.password_hash);
-    if (!match)
+    if (!match) {
+      db.query(
+        "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+        [user.user_id, "Failed login attempt", "user", user.user_id, `Failed password verification for email: ${email}`]
+      ).catch(() => {});
       return res.status(401).json({ error: "Invalid email or password" });
+    }
 
     if (!user.is_active) {
+      db.query(
+        "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+        [user.user_id, "Deactivated login attempt", "user", user.user_id, `Deactivated account attempted login: ${email}`]
+      ).catch(() => {});
       return res.status(403).json({
         error: "This account has been deactivated. Contact an administrator.",
       });
@@ -291,6 +308,10 @@ router.post("/reset-password", passwordResetLimiter, async (req, res) => {
       await connection.rollback();
       return res.status(400).json({ error: "New password must be at least 8 characters long." });
     }
+    if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      await connection.rollback();
+      return res.status(400).json({ error: "New password must contain both letters and numbers." });
+    }
 
     const tokenHash = crypto.createHash("sha256").update(token.trim()).digest("hex");
 
@@ -392,6 +413,20 @@ router.put(["/preferences", "/preferences/:userId"], requireAuth, async (req, re
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// User session logout
+router.post("/logout", requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.user_id;
+    await db.query(
+      "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+      [userId, "User logged out", "user", userId, "Session terminated"]
+    );
+    res.json({ message: "Logged out successfully" });
+  } catch (err) {
+    res.json({ message: "Logged out" });
   }
 });
 
