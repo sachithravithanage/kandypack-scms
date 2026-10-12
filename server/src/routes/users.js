@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
@@ -37,7 +38,10 @@ function validateUserFields({ name, email, password, roleId, licenseNumber }) {
 // GET all users — Admin only (role_id 1)
 router.get("/", requireAuth, requireRole([1]), async (req, res) => {
   const [rows] = await db.query(
-    "SELECT user_id, name, email, role_id, is_active FROM `user`",
+    `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role, u.is_active, u.created_at
+     FROM \`user\` u
+     JOIN role r ON r.role_id = u.role_id
+     ORDER BY u.user_id ASC`,
   );
   res.json(rows);
 });
@@ -45,11 +49,15 @@ router.get("/", requireAuth, requireRole([1]), async (req, res) => {
 // GET current user's profile — Accessible by any logged-in user
 router.get("/profile", requireAuth, async (req, res) => {
   try {
-    // For customers, join with the customer table to get phone, address, city
     const [rows] = await db.query(
-      `SELECT u.user_id, u.name, u.email, u.role_id, c.phone, c.address, c.city_id 
-       FROM user u 
-       LEFT JOIN customer c ON u.user_id = c.user_id 
+      `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
+              u.notification_preferences, c.phone, c.address, c.city_id,
+              ci.name AS city_name, d.license_number
+       FROM \`user\` u
+       JOIN role r ON r.role_id = u.role_id
+       LEFT JOIN customer c ON u.user_id = c.user_id
+       LEFT JOIN city ci ON c.city_id = ci.city_id
+       LEFT JOIN driver d ON u.user_id = d.user_id
        WHERE u.user_id = ?`,
       [req.user.userId]
     );
@@ -294,6 +302,132 @@ router.put(
       res.json({ message: "User deactivated" });
     } catch (err) {
       res.status(400).json({ error: err.message });
+    }
+  },
+);
+
+// PUT /api/users/change-password — User updates their own password from Profile
+router.put("/change-password", requireAuth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "Current password and new password are required." });
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 8 characters long." });
+    }
+
+    const [rows] = await db.query(
+      "SELECT password_hash FROM `user` WHERE user_id = ?",
+      [req.user.userId],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Current password is incorrect." });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await db.query(
+      "UPDATE `user` SET password_hash = ? WHERE user_id = ?",
+      [newHash, req.user.userId],
+    );
+
+    await db.query(
+      "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+      [
+        req.user.userId,
+        "Changed account password",
+        "user",
+        req.user.userId,
+        "User updated password via profile security settings",
+      ],
+    );
+
+    res.json({ message: "Password updated successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to update password." });
+  }
+});
+
+// GET /api/users/audit-logs — Admin reads system audit trail (REQ-USR-05)
+router.get("/audit-logs", requireAuth, requireRole([1]), async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 100, 300);
+    const search = req.query.search ? `%${req.query.search}%` : null;
+
+    let query = `
+      SELECT al.log_id, al.user_id, al.action, al.table_affected, al.record_id, al.timestamp, al.details,
+             u.name AS user_name, u.email AS user_email
+      FROM audit_log al
+      LEFT JOIN \`user\` u ON al.user_id = u.user_id
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` WHERE al.action LIKE ? OR al.table_affected LIKE ? OR al.details LIKE ? OR u.name LIKE ? OR u.email LIKE ? `;
+      params.push(search, search, search, search, search);
+    }
+
+    query += ` ORDER BY al.timestamp DESC LIMIT ? `;
+    params.push(limit);
+
+    const [rows] = await db.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Could not load audit logs." });
+  }
+});
+
+// PUT /api/users/:id/reset-password — Admin forces a password reset for a user
+router.put(
+  "/:id/reset-password",
+  requireAuth,
+  requireRole([1]),
+  async (req, res) => {
+    try {
+      const targetUserId = Number(req.params.id);
+      const { newPassword } = req.body;
+      if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+        return res.status(400).json({ error: "Invalid user ID." });
+      }
+      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+        return res
+          .status(400)
+          .json({ error: "New password must be at least 8 characters long." });
+      }
+
+      const newHash = await bcrypt.hash(newPassword, 10);
+      const [result] = await db.query(
+        "UPDATE `user` SET password_hash = ? WHERE user_id = ?",
+        [newHash, targetUserId],
+      );
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "User not found." });
+      }
+
+      await db.query(
+        "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+        [
+          req.user.userId,
+          "Admin reset user password",
+          "user",
+          targetUserId,
+          `Admin forced password reset for user ID ${targetUserId}`,
+        ],
+      );
+
+      res.json({ message: "Password for this account has been reset." });
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Failed to reset password." });
     }
   },
 );
