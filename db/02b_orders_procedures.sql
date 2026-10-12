@@ -100,4 +100,19 @@ CREATE EVENT ev_auto_close_delivered_orders
 ON SCHEDULE EVERY 1 HOUR
 DO CALL sp_auto_close_delivered_orders() //
 
+
+-- REQ-ORD-05  View: a customer's orders with route and stop names
+-- Used by GET /api/orders/customer/:customerId (orders.js).
+-- The route filters it with WHERE customer_id = ?. Read-only: orders are still
+-- created, edited and cancelled on the real `order` table.
+
+CREATE OR REPLACE VIEW v_customer_orders AS
+SELECT o.order_id, o.customer_id, o.route_id, o.route_stop_id,
+       o.delivery_address, o.order_date, o.requested_delivery_date,
+       o.status, o.total_value, o.total_volume, o.delivered_at,
+       r.name AS route_name, rs.stop_name
+  FROM `order` o
+  LEFT JOIN route r ON o.route_id = r.route_id
+  LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id //
+
 DELIMITER ;
