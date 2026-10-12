@@ -26,7 +26,7 @@ export default function ProtectedRoute({ allowedRoles, children }) {
           <h2 className="h4 mb-2">Access Restricted</h2>
           <p className="text-muted mb-4 small">
             Your current account (<strong>{roleName}</strong>) is not permitted to access this module.
-            Member D's delivery execution portals are customized for Drivers and Assistants, while Roster Scheduling is reserved for Dispatchers.
+            Please navigate to your permitted dashboard or contact your system administrator for permissions.
           </p>
           <div className="d-flex justify-content-center gap-2">
             <button
@@ -36,8 +36,10 @@ export default function ProtectedRoute({ allowedRoles, children }) {
                   window.location.href = "/delivery";
                 } else if (roleId === 2) {
                   window.location.href = "/roster";
+                } else if (roleId === 3) {
+                  window.location.href = "/store/receipt";
                 } else if (roleId === 6) {
-                  window.location.href = "/profile";
+                  window.location.href = "/orders";
                 } else {
                   window.location.href = "/dashboard";
                 }
