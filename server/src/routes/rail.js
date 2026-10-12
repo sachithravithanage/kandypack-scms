@@ -28,6 +28,18 @@ router.post('/train-trips', requireAuth, requireRole([1]), async (req, res, next
        VALUES (?, ?, ?, ?, ?, 'Scheduled')`,
       [trainId, destinationCityId, departureDatetime, arrivalDatetime, totalCapacity]
     );
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || null;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Created train trip schedule', 'train_trip', ?, ?)`,
+      [
+        operatorUserId,
+        result.insertId,
+        `train_id=${trainId}, dest_city_id=${destinationCityId}, cap=${totalCapacity}, dep=${departureDatetime}, arr=${arrivalDatetime}`
+      ]
+    );
+
     res.status(201).json({ tripId: result.insertId });
   } catch (err) {
     next(err);
@@ -242,11 +254,12 @@ router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2
 
           // Log overflow hop to audit_log (REQ-RAIL-05)
           if (curTripId !== startTripId) {
+            const operatorUserId = req.user?.user_id || req.user?.userId || null;
             await connection.query(
               `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
                VALUES (?, 'Cargo overflow allocation', 'cargo_allocation', ?, ?)`,
               [
-                req.user?.userId || null,
+                operatorUserId,
                 ins.insertId,
                 `order_item_id=${orderItemId} overflowed from trip ${startTripId} -> trip ${curTripId}, qty=${toAllocate}`
               ]
@@ -341,6 +354,17 @@ router.put('/allocations/:id/loading-status', requireAuth, requireRole([1, 2]), 
         [tripId]
       );
       tripLocked = true;
+
+      const operatorUserId = req.user?.user_id || req.user?.userId || null;
+      await db.query(
+        `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+         VALUES (?, 'Manifest fully loaded and locked', 'train_trip', ?, ?)`,
+        [
+          operatorUserId,
+          tripId,
+          `Trip #${tripId} all allocations Loaded. Manifest locked and parent orders transitioned to In Transit.`
+        ]
+      );
     }
 
     res.json({ message: 'Loading status updated', tripLocked });
@@ -410,11 +434,12 @@ router.post('/allocations/:id/shortfall', requireAuth, requireRole([1, 2]), asyn
     );
 
     // Log physical shortfall requeue to audit_log
+    const operatorUserId = req.user?.user_id || req.user?.userId || null;
     await connection.query(
       `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
        VALUES (?, 'Physical loading shortfall requeued', 'cargo_allocation', ?, ?)`,
       [
-        req.user?.userId || null,
+        operatorUserId,
         ins.insertId,
         `order_item_id=${alloc.order_item_id} shortfall of ${unloadedQuantity} from trip ${alloc.trip_id} -> next trip ${nextTripId}`
       ]

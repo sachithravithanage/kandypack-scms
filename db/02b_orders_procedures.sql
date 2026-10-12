@@ -3,7 +3,7 @@ USE kandypack;
 DELIMITER //
 
 -- REQ-ORD-02  Days between order date and requested delivery date
-
+DROP FUNCTION IF EXISTS fn_days_until_delivery //
 CREATE FUNCTION fn_days_until_delivery (p_from DATE, p_requested DATE)
 RETURNS INT
 DETERMINISTIC
@@ -13,7 +13,7 @@ END //
 
 
 -- REQ-ORD-04  Order totals computed from items x product
-
+DROP FUNCTION IF EXISTS fn_order_total_value //
 CREATE FUNCTION fn_order_total_value (p_order_id INT)
 RETURNS DECIMAL(11,2)
 READS SQL DATA
@@ -27,6 +27,7 @@ BEGIN
   RETURN v_total;
 END //
 
+DROP FUNCTION IF EXISTS fn_order_total_volume //
 CREATE FUNCTION fn_order_total_volume (p_order_id INT)
 RETURNS DECIMAL(10,2)
 READS SQL DATA
@@ -40,6 +41,7 @@ BEGIN
   RETURN v_total;
 END //
 
+DROP PROCEDURE IF EXISTS sp_recalc_order_totals //
 CREATE PROCEDURE sp_recalc_order_totals (IN p_order_id INT)
 BEGIN
   UPDATE `order`
@@ -50,7 +52,7 @@ END //
 
 
 -- REQ-ORD-02  7-day lead time enforced by the database
-
+DROP TRIGGER IF EXISTS trg_order_before_insert //
 CREATE TRIGGER trg_order_before_insert
 BEFORE INSERT ON `order`
 FOR EACH ROW
@@ -67,7 +69,7 @@ END //
 -- Whoever sets status = 'Delivered' MUST also set delivered_at = NOW().
 -- One transaction: every eligible order is closed AND logged, or nothing changes.
 -- Requires:  SET GLOBAL event_scheduler = ON;
-
+DROP PROCEDURE IF EXISTS sp_auto_close_delivered_orders //
 CREATE PROCEDURE sp_auto_close_delivered_orders ()
 BEGIN
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -96,6 +98,7 @@ BEGIN
   COMMIT;
 END //
 
+DROP EVENT IF EXISTS ev_auto_close_delivered_orders //
 CREATE EVENT ev_auto_close_delivered_orders
 ON SCHEDULE EVERY 1 HOUR
 DO CALL sp_auto_close_delivered_orders() //

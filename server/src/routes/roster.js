@@ -16,7 +16,7 @@ function computeEndTime(startTime, durationMins) {
 }
 
 // GET /api/roster/metadata - Dropdowns for routes, trucks, staff, system parameters
-router.get('/metadata', async (req, res) => {
+router.get('/metadata', requireAuth, async (req, res) => {
   try {
     const [routes] = await db.query(`
       SELECT r.route_id, r.name AS route_name, r.max_delivery_time_minutes,
@@ -67,7 +67,7 @@ router.get('/metadata', async (req, res) => {
 });
 
 // GET /api/roster/driver-hours - Query driver weekly hours using UDF fn_get_driver_weekly_hours (CS3043 Advanced SQL: Slides 19–20)
-router.get('/driver-hours', async (req, res) => {
+router.get('/driver-hours', requireAuth, async (req, res) => {
   try {
     const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
     const [rows] = await db.query(
@@ -86,7 +86,7 @@ router.get('/driver-hours', async (req, res) => {
 });
 
 // GET /api/roster - List schedules with route, crew, truck, order count and capacity load
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { date, routeId, status } = req.query;
     let sql = `
@@ -363,6 +363,18 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
     );
 
     const newScheduleId = result.insertId;
+    const operatorUserId = req.user?.user_id || req.user?.userId || actorUserId;
+
+    // Log schedule creation to audit_log
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Created truck schedule', 'truck_schedule', ?, ?)`,
+      [
+        operatorUserId,
+        newScheduleId,
+        `route_id=${routeId}, truck_id=${truckId}, driver_id=${driverId}, asst_id=${assistantId}, date=${scheduledDate}, window=${startTime}-${endTime}`
+      ]
+    );
 
     // Log Dispatcher Override to audit_log (REQ-SCHED-05)
     if (violations.length > 0 && overrideJustification) {
@@ -373,7 +385,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
         await db.query(
           `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
            VALUES (?, 'ROSTER_OVERRIDE', 'truck_schedule', ?, ?)`,
-          [actorUserId, newScheduleId, auditDetails]
+          [operatorUserId, newScheduleId, auditDetails]
         );
       } catch (auditErr) {
         console.error('Audit log insert error:', auditErr);
@@ -395,7 +407,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
 // PUT /api/roster/:id/override - Dispatcher Override standalone endpoint (REQ-SCHED-05)
 router.put('/:id/override', requireAuth, requireRole([1, 2]), async (req, res) => {
   try {
-    const actorUserId = req.user ? (req.user.userId || req.user.user_id) : 1;
+    const actorUserId = req.user?.user_id || req.user?.userId || 1;
     const { justification } = req.body;
     if (!justification || justification.trim().length === 0) {
       return res.status(400).json({ error: 'Override justification is mandatory.' });
@@ -429,6 +441,13 @@ router.delete('/:id', requireAuth, requireRole([1, 2]), async (req, res) => {
 
     await db.query('DELETE FROM truck_allocation WHERE truck_schedule_id = ?', [scheduleId]);
     await db.query('DELETE FROM truck_schedule WHERE truck_schedule_id = ?', [scheduleId]);
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || 1;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Deleted truck schedule', 'truck_schedule', ?, ?)`,
+      [operatorUserId, scheduleId, `Cancelled and removed truck schedule #${scheduleId}`]
+    );
 
     res.json({ message: `Truck schedule #${scheduleId} deleted successfully.` });
   } catch (err) {

@@ -19,6 +19,7 @@ import {
   IconPackage,
   IconShoppingCart,
   IconUser,
+  IconHistory,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";
 import { apiUrl } from "../api";
@@ -96,6 +97,12 @@ const navItems = [
     allowedRoles: [1],
   },
   {
+    to: "/admin/audit-logs",
+    label: "Audit Logs",
+    Icon: IconHistory,
+    allowedRoles: [1],
+  },
+  {
     to: "/reports",
     label: "Reports",
     Icon: IconChartBar,
@@ -118,12 +125,30 @@ const navItems = [
 function AppLayout({ pageTitle, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [globalSearch, setGlobalSearch] = useState("");
   const navigate = useNavigate();
 
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
   const storedRoleName =
     localStorage.getItem("roleName") || roleNames[storedRoleId] || "Staff";
   const storedName = localStorage.getItem("name") || "User";
+
+  const handleGlobalSearch = (e) => {
+    if (e.key === "Enter" && globalSearch.trim()) {
+      const term = encodeURIComponent(globalSearch.trim());
+      if (storedRoleId === 1) {
+        navigate(`/admin/inventory?search=${term}`);
+      } else if (storedRoleId === 2) {
+        navigate(`/roster?search=${term}`);
+      } else if (storedRoleId === 3) {
+        navigate(`/store/receipt?search=${term}`);
+      } else if (storedRoleId === 4 || storedRoleId === 5) {
+        navigate(`/delivery?search=${term}`);
+      } else {
+        navigate(`/orders?search=${term}`);
+      }
+    }
+  };
 
   // Filter navigation items strictly by role permissions
   const visibleNavItems = navItems.filter(
@@ -224,7 +249,13 @@ function AppLayout({ pageTitle, children }) {
           <div className="kp-topbar-actions">
             <div className="kp-search">
               <IconSearch size={16} stroke={1.75} />
-              <input type="text" placeholder="Search anything" />
+              <input
+                type="text"
+                placeholder="Search anything (Press Enter)..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                onKeyDown={handleGlobalSearch}
+              />
             </div>
             <button
               onClick={() => navigate("/notifications")}

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
+import * as XLSX from "xlsx";
 import {
         IconTruck,
         IconBuildingWarehouse,
@@ -14,6 +15,8 @@ import {
         IconRefresh,
         IconSparkles,
         IconPackage,
+        IconFileSpreadsheet,
+        IconSearch,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -25,6 +28,9 @@ function StoreDailyDispatch() {
         const [runs, setRuns] = useState([]);
         const [suggestions, setSuggestions] = useState([]);
         const [availableOrders, setAvailableOrders] = useState([]);
+
+        const [dispatchSearch, setDispatchSearch] = useState("");
+        const [orderSearch, setOrderSearch] = useState("");
 
         const [loading, setLoading] = useState(true);
         const [refreshing, setRefreshing] = useState(false);
@@ -123,9 +129,73 @@ function StoreDailyDispatch() {
 
         const scheduleList = Object.values(groupedRuns);
 
+        const filteredScheduleList = useMemo(() => {
+                if (!dispatchSearch.trim()) return scheduleList;
+                const q = dispatchSearch.toLowerCase().trim();
+                return scheduleList.filter(
+                        (s) =>
+                                String(s.truck_schedule_id).includes(q) ||
+                                String(s.truck_id).includes(q) ||
+                                (s.route_name && s.route_name.toLowerCase().includes(q))
+                );
+        }, [scheduleList, dispatchSearch]);
+
+        const filteredAvailableOrders = useMemo(() => {
+                if (!orderSearch.trim()) return availableOrders;
+                const q = orderSearch.toLowerCase().trim();
+                return availableOrders.filter(
+                        (ord) =>
+                                String(ord.order_id).includes(q) ||
+                                (ord.stop_name && ord.stop_name.toLowerCase().includes(q)) ||
+                                (ord.route_name && ord.route_name.toLowerCase().includes(q))
+                );
+        }, [availableOrders, orderSearch]);
+
+        const exportDispatchManifestExcel = () => {
+                const rows = [];
+                scheduleList.forEach((schedule) => {
+                        if (schedule.deliveries.length === 0) {
+                                rows.push({
+                                        "Run ID": schedule.truck_schedule_id,
+                                        "Truck ID": schedule.truck_id,
+                                        "Route Name": schedule.route_name,
+                                        "Window Start": schedule.start_time || "08:00",
+                                        "Window End": schedule.end_time || "17:00",
+                                        "Run Status": schedule.schedule_status,
+                                        "Stop Order": "—",
+                                        "Order ID": "None Assigned",
+                                        "Stop Destination": "—",
+                                        "Delivery Status": "Unassigned"
+                                });
+                        } else {
+                                schedule.deliveries.forEach((del, idx) => {
+                                        rows.push({
+                                                "Run ID": schedule.truck_schedule_id,
+                                                "Truck ID": schedule.truck_id,
+                                                "Route Name": schedule.route_name,
+                                                "Window Start": schedule.start_time || "08:00",
+                                                "Window End": schedule.end_time || "17:00",
+                                                "Run Status": schedule.schedule_status,
+                                                "Stop Order": idx + 1,
+                                                "Order ID": del.order_id,
+                                                "Stop Destination": del.stop_name || `Stop #${del.route_stop_id}`,
+                                                "Delivery Status": del.delivery_status
+                                        });
+                                });
+                        }
+                });
+
+                const storeName = stores.find((s) => String(s.store_id) === String(selectedStoreId))?.name || `Store_${selectedStoreId}`;
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Daily Truck Dispatch");
+                XLSX.writeFile(wb, `Daily_Truck_Dispatch_${storeName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        };
+
         // Open modal to assign order
         const handleOpenAssignModal = (scheduleId, routeName) => {
                 setSelectedOrderId("");
+                setOrderSearch("");
                 setAssignModal({
                         show: true,
                         truckScheduleId: scheduleId,
@@ -290,11 +360,38 @@ function StoreDailyDispatch() {
 
                         {/* Today's Truck Runs List */}
                         <div className="kp-card mb-4">
-                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
                                         <div>
                                                 <h5 className="mb-1" style={{ fontWeight: 600 }}>
                                                         Today&apos;s Scheduled Truck Runs & Loading
                                                 </h5>
+                                                <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
+                                                        Review routes, stops, and load manifest for store truck dispatches.
+                                                </p>
+                                        </div>
+                                        <div className="d-flex flex-wrap align-items-center gap-2">
+                                                <div className="input-group input-group-sm" style={{ width: "240px" }}>
+                                                        <span className="input-group-text bg-white">
+                                                                <IconSearch size={14} className="text-muted" />
+                                                        </span>
+                                                        <input
+                                                                type="text"
+                                                                className="form-control"
+                                                                placeholder="Search runs / routes..."
+                                                                value={dispatchSearch}
+                                                                onChange={(e) => setDispatchSearch(e.target.value)}
+                                                                disabled={scheduleList.length === 0}
+                                                        />
+                                                </div>
+                                                <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-outline-success d-inline-flex align-items-center"
+                                                        onClick={exportDispatchManifestExcel}
+                                                        disabled={scheduleList.length === 0}
+                                                >
+                                                        <IconFileSpreadsheet size={16} className="me-1.5" />
+                                                        Export Manifest (Excel)
+                                                </button>
                                         </div>
                                 </div>
 
@@ -308,9 +405,21 @@ function StoreDailyDispatch() {
                                                 <IconTruck size={40} className="mb-2 opacity-50" />
                                                 <p>No truck delivery runs scheduled for this store facility today.</p>
                                         </div>
+                                ) : filteredScheduleList.length === 0 ? (
+                                        <div className="text-center py-5 text-muted">
+                                                <IconSearch size={36} className="mb-2 opacity-50" />
+                                                <p>No scheduled runs matched &ldquo;{dispatchSearch}&rdquo;</p>
+                                                <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-outline-secondary"
+                                                        onClick={() => setDispatchSearch("")}
+                                                >
+                                                        Clear Search
+                                                </button>
+                                        </div>
                                 ) : (
                                         <div className="d-flex flex-column gap-3">
-                                                {scheduleList.map((schedule) => (
+                                                {filteredScheduleList.map((schedule) => (
                                                         <div key={schedule.truck_schedule_id} className="p-3 rounded border bg-white">
                                                                 <div className="d-flex flex-wrap justify-content-between align-items-center border-bottom pb-3 mb-3 gap-2">
                                                                         <div>
@@ -414,15 +523,29 @@ function StoreDailyDispatch() {
                                                                                 <label className="form-label fw-semibold" style={{ fontSize: "0.85rem" }}>
                                                                                         Select Order Waiting for Dispatch
                                                                                 </label>
+                                                                                {availableOrders.length > 5 && (
+                                                                                        <div className="input-group input-group-sm mb-2">
+                                                                                                <span className="input-group-text bg-white">
+                                                                                                        <IconSearch size={14} className="text-muted" />
+                                                                                                </span>
+                                                                                                <input
+                                                                                                        type="text"
+                                                                                                        className="form-control"
+                                                                                                        placeholder="Filter available orders..."
+                                                                                                        value={orderSearch}
+                                                                                                        onChange={(e) => setOrderSearch(e.target.value)}
+                                                                                                />
+                                                                                        </div>
+                                                                                )}
                                                                                 <select
                                                                                         className="form-select"
                                                                                         value={selectedOrderId}
                                                                                         onChange={(e) => setSelectedOrderId(e.target.value)}
                                                                                         required
                                                                                 >
-                                                                                        <option value="">Choose an order...</option>
-                                                                                        {availableOrders.map((ord) => (
-                                                                                                <option key={ord.order_id} value={ord.order_id}>
+                                                                                        <option value="">Choose an order ({filteredAvailableOrders.length} available)...</option>
+                                                                                        {filteredAvailableOrders.map((ord) => (
+                                                                                                 <option key={ord.order_id} value={ord.order_id}>
                                                                                                         Order #{ord.order_id} — {ord.stop_name || ord.route_name} (LKR {Number(ord.total_amount).toLocaleString()})
                                                                                                 </option>
                                                                                         ))}

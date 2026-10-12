@@ -3,9 +3,10 @@ const db = require('../db');
 const router = express.Router();
 
 const SORT_OPTIONS = {
-    name_asc: 'name ASC',
-    price_asc: 'unit_price ASC, name ASC',
-    price_desc: 'unit_price DESC, name ASC',
+    name_asc: 'p.name ASC',
+    price_asc: 'p.unit_price ASC, p.name ASC',
+    price_desc: 'p.unit_price DESC, p.name ASC',
+    stock_desc: 'quantity_in_stock DESC, p.name ASC',
 };
 
 const MAX_RESULTS = 100;
@@ -32,11 +33,8 @@ function parsePrice(value) {
 //   q                   every typed word must appear somewhere in the name
 //                       ("baby cr" matches "Pears Baby Cream"), case-insensitive
 //   minPrice, maxPrice  price range      (uses idx_product_unit_price)
-//   sort                name_asc | price_asc | price_desc
-//                       (name sort uses the UNIQUE index on name,
-//                        price sorts use idx_product_unit_price)
-// Works on MySQL and on MySQL-compatible databases such as TiDB, which do not
-// support MATCH ... AGAINST full-text search. Indexes: db/02c_orders_indexes.sql.
+//   sort                name_asc | price_asc | price_desc | stock_desc
+//   join main_inventory to provide real-time stock levels
 router.get('/', async (req, res) => {
     try {
         const minPrice = parsePrice(req.query.minPrice);
@@ -58,14 +56,17 @@ router.get('/', async (req, res) => {
         // One condition per word; all must match (AND).
         // LOWER() makes the match case-insensitive whatever the column collation is.
         for (const w of words) {
-            where.push('LOWER(name) LIKE ?');
+            where.push('LOWER(p.name) LIKE ?');
             params.push(`%${w}%`);
         }
-        if (minPrice !== null) { where.push('unit_price >= ?'); params.push(minPrice); }
-        if (maxPrice !== null) { where.push('unit_price <= ?'); params.push(maxPrice); }
+        if (minPrice !== null) { where.push('p.unit_price >= ?'); params.push(minPrice); }
+        if (maxPrice !== null) { where.push('p.unit_price <= ?'); params.push(maxPrice); }
 
         const sql =
-            'SELECT product_id, name, unit_price, space_consumption_rate FROM product' +
+            'SELECT p.product_id, p.name, p.unit_price, p.space_consumption_rate, ' +
+            'COALESCE(mi.quantity_in_stock, 0) AS quantity_in_stock ' +
+            'FROM product p ' +
+            'LEFT JOIN main_inventory mi ON p.product_id = mi.product_id' +
             (where.length ? ` WHERE ${where.join(' AND ')}` : '') +
             ` ORDER BY ${orderBy} LIMIT ${MAX_RESULTS}`;
 

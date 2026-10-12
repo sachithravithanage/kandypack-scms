@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -20,6 +20,9 @@ const StoreDailyDispatch = lazy(() => import("./pages/StoreDailyDispatch"));
 const MyOrders = lazy(() => import("./pages/MyOrders"));
 const NewOrder = lazy(() => import("./pages/NewOrder"));
 const Profile = lazy(() => import("./pages/Profile"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AdminAuditLog = lazy(() => import("./pages/AdminAuditLog"));
 
 function App() {
   return (
@@ -31,6 +34,8 @@ function App() {
           {/* Public authentication routes */}
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected portals with role-based restrictions */}
           <Route
@@ -84,7 +89,7 @@ function App() {
           <Route
             path="/store/receipt"
             element={
-              <ProtectedRoute allowedRoles={[1]}>
+              <ProtectedRoute allowedRoles={[1, 3]}>
                 <StoreShipmentReceipt />
               </ProtectedRoute>
             }
@@ -102,6 +107,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={[1]}>
                 <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/audit-logs"
+            element={
+              <ProtectedRoute allowedRoles={[1]}>
+                <AdminAuditLog />
               </ProtectedRoute>
             }
           />
@@ -161,6 +174,9 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Catch-all route to prevent blank screens on invalid URLs */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

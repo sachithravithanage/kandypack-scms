@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 require("dotenv").config();
 // KandyPack SCMS Server
 
@@ -22,6 +23,7 @@ const productsRouter = require("./routes/products");
 const routesRouter = require("./routes/routes");
 
 const app = express();
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
