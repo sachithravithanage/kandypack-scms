@@ -6,9 +6,6 @@
 USE kandypack;
 SET FOREIGN_KEY_CHECKS = 0;
 
--- Ensure all columns exist before inserting
-ALTER TABLE `order` ADD COLUMN IF NOT EXISTS delivered_at DATETIME NULL;
-
 -- ------------------------------------------------------------
 -- Table: `role` (6 rows)
 -- ------------------------------------------------------------
@@ -300,7 +297,7 @@ INSERT IGNORE INTO `truck_allocation` (`truck_allocation_id`, `truck_schedule_id
 -- ------------------------------------------------------------
 -- Table: `roster_log` (1 rows)
 -- ------------------------------------------------------------
-INSERT IGNORE INTO `roster_log` (`roster_log_id`, `truck_schedule_id`, `actual_start_time`, `actual_end_time`, `actual_hours_worked`) VALUES (1, 4, '2026-10-07 08:05:00', '2026-10-07 12:20:00', '4.25');
+INSERT IGNORE INTO `roster_log` (`roster_log_id`, `truck_schedule_id`, `actual_start_time`, `actual_end_time`) VALUES (1, 4, '2026-10-07 08:05:00', '2026-10-07 12:20:00');
 
 -- ------------------------------------------------------------
 -- Table: `notification` (11 rows)
