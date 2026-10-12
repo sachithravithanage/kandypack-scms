@@ -53,7 +53,7 @@ function App() {
           <Route
             path="/roster"
             element={
-              <ProtectedRoute allowedRoles={[1, 2]}>
+              <ProtectedRoute allowedRoles={[2]}>
                 <RosterSchedule />
               </ProtectedRoute>
             }
@@ -61,7 +61,7 @@ function App() {
           <Route
             path="/delivery"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
+              <ProtectedRoute allowedRoles={[4, 5]}>
                 <DriverDelivery />
               </ProtectedRoute>
             }
@@ -85,7 +85,7 @@ function App() {
           <Route
             path="/rail/loading"
             element={
-              <ProtectedRoute allowedRoles={[1, 2]}>
+              <ProtectedRoute allowedRoles={[2]}>
                 <DispatcherTrainLoading />
               </ProtectedRoute>
             }
@@ -93,7 +93,7 @@ function App() {
           <Route
             path="/store/receipt"
             element={
-              <ProtectedRoute allowedRoles={[1, 3]}>
+              <ProtectedRoute allowedRoles={[3]}>
                 <StoreShipmentReceipt />
               </ProtectedRoute>
             }
@@ -101,7 +101,7 @@ function App() {
           <Route
             path="/store/dispatch"
             element={
-              <ProtectedRoute allowedRoles={[1, 3]}>
+              <ProtectedRoute allowedRoles={[3]}>
                 <StoreDailyDispatch />
               </ProtectedRoute>
             }
@@ -149,7 +149,7 @@ function App() {
           <Route
             path="/orders"
             element={
-              <ProtectedRoute allowedRoles={[1, 6]}>
+              <ProtectedRoute allowedRoles={[6]}>
                 <MyOrders />
               </ProtectedRoute>
             }
@@ -157,7 +157,7 @@ function App() {
           <Route
             path="/my-orders"
             element={
-              <ProtectedRoute allowedRoles={[1, 6]}>
+              <ProtectedRoute allowedRoles={[6]}>
                 <MyOrders />
               </ProtectedRoute>
             }
@@ -165,7 +165,7 @@ function App() {
           <Route
             path="/orders/new"
             element={
-              <ProtectedRoute allowedRoles={[1, 6]}>
+              <ProtectedRoute allowedRoles={[6]}>
                 <NewOrder />
               </ProtectedRoute>
             }
