@@ -69,7 +69,7 @@ router.get('/metadata', requireAuth, async (req, res) => {
 // GET /api/roster/driver-hours - Query driver weekly hours using UDF fn_get_driver_weekly_hours (CS3043 Advanced SQL: Slides 19–20)
 router.get('/driver-hours', requireAuth, async (req, res) => {
   try {
-    const targetDate = req.query.date || new Date().toISOString().slice(0, 10);
+    const targetDate = req.query.date || req.query.scheduledDate || new Date().toISOString().slice(0, 10);
     const [rows] = await db.query(
       `SELECT d.user_id AS driver_id, u.name AS driver_name, d.license_number,
               fn_get_driver_weekly_hours(d.user_id, ?) AS hours_worked_this_week

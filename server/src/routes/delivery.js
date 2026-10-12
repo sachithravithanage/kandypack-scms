@@ -311,10 +311,28 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
 
     // Fallbacks if timestamps not provided in payload
     if (!actualStartTime) {
-      actualStartTime = schedule.pickup_confirmed_at || `${schedule.scheduled_date} ${schedule.start_time}`;
+      if (schedule.pickup_confirmed_at) {
+        actualStartTime = schedule.pickup_confirmed_at instanceof Date
+          ? schedule.pickup_confirmed_at.toISOString().slice(0, 19).replace('T', ' ')
+          : String(schedule.pickup_confirmed_at).replace('T', ' ').slice(0, 19);
+      } else {
+        const dateStr = schedule.scheduled_date instanceof Date
+          ? schedule.scheduled_date.toISOString().slice(0, 10)
+          : String(schedule.scheduled_date).slice(0, 10);
+        actualStartTime = `${dateStr} ${schedule.start_time || '08:00:00'}`;
+      }
+    } else if (actualStartTime instanceof Date) {
+      actualStartTime = actualStartTime.toISOString().slice(0, 19).replace('T', ' ');
+    } else if (typeof actualStartTime === 'string') {
+      actualStartTime = actualStartTime.replace('T', ' ').slice(0, 19);
     }
+
     if (!actualEndTime) {
       actualEndTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    } else if (actualEndTime instanceof Date) {
+      actualEndTime = actualEndTime.toISOString().slice(0, 19).replace('T', ' ');
+    } else if (typeof actualEndTime === 'string') {
+      actualEndTime = actualEndTime.replace('T', ' ').slice(0, 19);
     }
 
     // 1. Mark schedule Completed
