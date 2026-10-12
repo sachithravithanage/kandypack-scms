@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -32,6 +32,7 @@ const parseLocalDate = (s) => {
 
 function NewOrder() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Data Sources
   const [products, setProducts] = useState([]);
@@ -86,6 +87,25 @@ function NewOrder() {
   useEffect(() => {
     setDeliveryDate(earliestAllowedDate);
   }, [earliestAllowedDate]);
+
+  // Handle re-ordering items passed from MyOrders page
+  useEffect(() => {
+    if (location.state?.reorderItems && Array.isArray(location.state.reorderItems)) {
+      setCart(
+        location.state.reorderItems.map((item) => ({
+          product_id: item.product_id,
+          name: item.product_name || item.name,
+          unit_price: item.unit_price,
+          space_consumption_rate: item.space_consumption_rate,
+          quantity: Number(item.quantity) || 1,
+        }))
+      );
+      if (location.state.deliveryAddress) {
+        setDeliveryAddress(location.state.deliveryAddress);
+      }
+      setSuccessMsg("Pre-filled items from previous order. Please review and choose delivery date.");
+    }
+  }, [location.state]);
 
   // Load delivery cities once
   useEffect(() => {
@@ -201,11 +221,22 @@ function NewOrder() {
     };
   }, [deliveryDate, earliestAllowedDate]);
 
-  // Cart operations
+  // Cart operations with inventory stock limits
   const addToCart = (product) => {
+    const available = product.quantity_in_stock !== undefined ? Number(product.quantity_in_stock) : 99999;
+    if (available <= 0) {
+      setError(`"${product.name}" is currently out of stock in the central warehouse.`);
+      return;
+    }
+
+    setError("");
     setCart((prev) => {
       const existing = prev.find((item) => item.product_id === product.product_id);
       if (existing) {
+        if (existing.quantity >= available) {
+          setError(`Cannot add more: you already have all ${available} available units of "${product.name}" in your cart.`);
+          return prev;
+        }
         return prev.map((item) =>
           item.product_id === product.product_id
             ? { ...item, quantity: item.quantity + 1 }
@@ -217,11 +248,19 @@ function NewOrder() {
   };
 
   const updateQuantity = (productId, delta) => {
+    const product = products.find((p) => p.product_id === productId);
+    const available = product?.quantity_in_stock !== undefined ? Number(product.quantity_in_stock) : 99999;
+
+    setError("");
     setCart((prev) =>
       prev
         .map((item) => {
           if (item.product_id === productId) {
             const newQty = item.quantity + delta;
+            if (newQty > available) {
+              setError(`Cannot exceed available stock of ${available} units for "${item.name}".`);
+              return item;
+            }
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;
@@ -383,6 +422,7 @@ function NewOrder() {
                   <option value="name_asc">Name (A–Z)</option>
                   <option value="price_asc">Price (low to high)</option>
                   <option value="price_desc">Price (high to low)</option>
+                  <option value="stock_desc">Highest Stock First</option>
                 </select>
               </div>
               {priceRangeInvalid && (
@@ -426,14 +466,22 @@ function NewOrder() {
                 {products.map((p) => {
                   const cartItem = cart.find((i) => i.product_id === p.product_id);
                   const inCartQty = cartItem ? cartItem.quantity : 0;
+                  const stock = p.quantity_in_stock !== undefined ? Number(p.quantity_in_stock) : 0;
+                  const isOutOfStock = stock <= 0;
+                  const isLowStock = stock > 0 && stock <= 50;
 
                   return (
                     <div key={p.product_id} className="col-md-6 col-12">
                       <div
                         className="p-3 border rounded h-100 d-flex flex-column justify-content-between"
                         style={{
-                          background: inCartQty > 0 ? "var(--color-amber-50)" : "var(--color-surface)",
+                          background: isOutOfStock
+                            ? "var(--color-bg-subtle, #f8fafc)"
+                            : inCartQty > 0
+                            ? "var(--color-amber-50)"
+                            : "var(--color-surface)",
                           borderColor: inCartQty > 0 ? "var(--color-amber-500)" : "var(--color-border)",
+                          opacity: isOutOfStock ? 0.75 : 1,
                           transition: "all 0.15s ease",
                         }}
                       >
@@ -446,12 +494,30 @@ function NewOrder() {
                               #{p.product_id}
                             </span>
                           </div>
+
                           <div className="d-flex align-items-center gap-3 text-muted small mb-2">
                             <span>
                               <strong>LKR {parseFloat(p.unit_price).toFixed(2)}</strong> / unit
                             </span>
                             <span>•</span>
                             <span>{parseFloat(p.space_consumption_rate).toFixed(2)} m³ space</span>
+                          </div>
+
+                          {/* Inventory stock badge */}
+                          <div className="mb-2">
+                            {isOutOfStock ? (
+                              <span className="badge bg-danger-subtle text-danger border border-danger-subtle" style={{ fontSize: "0.72rem" }}>
+                                Out of Stock (0 units)
+                              </span>
+                            ) : isLowStock ? (
+                              <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style={{ fontSize: "0.72rem" }}>
+                                Low Stock: {stock} units left
+                              </span>
+                            ) : (
+                              <span className="badge bg-success-subtle text-success border border-success-subtle" style={{ fontSize: "0.72rem" }}>
+                                In Stock: {stock} units
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -474,6 +540,7 @@ function NewOrder() {
                                 className="btn btn-sm btn-primary p-1 rounded-circle d-flex align-items-center justify-content-center"
                                 style={{ width: 28, height: 28 }}
                                 onClick={() => updateQuantity(p.product_id, 1)}
+                                disabled={inCartQty >= stock}
                               >
                                 <IconPlus size={14} />
                               </button>
@@ -484,11 +551,24 @@ function NewOrder() {
 
                           <button
                             type="button"
-                            className={`btn btn-sm ${inCartQty > 0 ? "btn-outline-primary" : "btn-primary"} px-3`}
+                            className={`btn btn-sm ${
+                              isOutOfStock
+                                ? "btn-secondary text-muted"
+                                : inCartQty > 0
+                                ? "btn-outline-primary"
+                                : "btn-primary"
+                            } px-3`}
                             onClick={() => addToCart(p)}
+                            disabled={isOutOfStock || inCartQty >= stock}
                           >
                             <IconPlus size={14} className="me-1" />
-                            {inCartQty > 0 ? "Add More" : "Add to Order"}
+                            {isOutOfStock
+                              ? "Out of Stock"
+                              : inCartQty >= stock
+                              ? "Stock Reached"
+                              : inCartQty > 0
+                              ? "Add More"
+                              : "Add to Order"}
                           </button>
                         </div>
                       </div>
