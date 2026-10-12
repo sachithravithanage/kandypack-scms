@@ -10,6 +10,8 @@ function AuthLayout({ children }) {
           <p>
             Rail and road-based supply chain distribution — from Kandy to every
             corner of the island.
+
+            Congrats. Pipeline Works!!!!!!!!!
           </p>
         </div>
       </div>
