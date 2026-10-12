@@ -11,10 +11,6 @@ import {
   IconAlertCircle,
   IconPhone,
   IconChecklist,
-  IconArrowRight,
-  IconPackage,
-  IconRotateClockwise,
-  IconNote,
   IconSignature,
   IconAlertTriangle,
   IconSend,
@@ -91,7 +87,7 @@ function DriverDelivery() {
     } finally {
       setActionLoading(false);
     }
-  }, []);
+  }, [authHeader]);
 
   useEffect(() => {
     loadRuns();

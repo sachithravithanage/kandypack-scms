@@ -5,7 +5,6 @@ import { apiUrl } from "../api";
 import {
         IconTruck,
         IconBuildingWarehouse,
-        IconCalendarEvent,
         IconPlus,
         IconCheck,
         IconAlertCircle,
@@ -15,7 +14,6 @@ import {
         IconRefresh,
         IconSparkles,
         IconPackage,
-        IconUserCheck
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");

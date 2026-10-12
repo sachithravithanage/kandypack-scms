@@ -5,10 +5,6 @@ import { apiUrl } from "../api";
 import {
   IconCalendarEvent,
   IconPlus,
-  IconClock,
-  IconTruck,
-  IconUser,
-  IconRoute,
   IconAlertCircle,
   IconCheck,
   IconAlertTriangle,

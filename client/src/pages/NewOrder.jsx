@@ -21,6 +21,15 @@ import {
 
 const API_BASE = apiUrl("/api");
 
+// Dates are handled in the user's LOCAL time zone. (toISOString() converts to UTC,
+// which in Sri Lanka (UTC+5:30) gives the previous day between 00:00 and 05:30.)
+const toLocalDateString = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const parseLocalDate = (s) => {
+  const [y, m, d] = String(s).split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 function NewOrder() {
   const navigate = useNavigate();
 
@@ -44,7 +53,6 @@ function NewOrder() {
   const [productsLoading, setProductsLoading] = useState(true);
 
   // UI States
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -57,7 +65,9 @@ function NewOrder() {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         if (payload && payload.userId) return Number(payload.userId);
-      } catch {}
+      } catch (err) {
+        console.warn("Unable to read the stored customer token.", err);
+      }
     }
     return 9;
   })();
@@ -69,7 +79,7 @@ function NewOrder() {
   const earliestAllowedDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
-    return d.toISOString().split("T")[0];
+    return toLocalDateString(d);
   }, []);
 
   // Set default delivery date to earliest allowed
@@ -81,20 +91,17 @@ function NewOrder() {
   useEffect(() => {
     const loadCities = async () => {
       try {
-        setLoading(true);
         const cityRes = await axios.get(`${API_BASE}/cities`);
         setCities(cityRes.data || []);
       } catch (err) {
         console.error("Failed to load cities:", err);
         setError("Could not load delivery cities. Make sure the server is running.");
-      } finally {
-        setLoading(false);
       }
     };
     loadCities();
   }, []);
 
-  // Search-as-you-type: query the server (name FULLTEXT index + unit_price index).
+  // Search-as-you-type: query the server (name LIKE search + unit_price index for price filter/sort).
   // Typing is debounced so we do not fire a request on every keystroke, and an
   // in-flight request is cancelled when a newer one starts so stale results
   // can never overwrite fresh ones.
@@ -176,9 +183,9 @@ function NewOrder() {
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const chosen = new Date(deliveryDate);
+    const chosen = parseLocalDate(deliveryDate);
     const diffTime = chosen.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 7) {
       return {

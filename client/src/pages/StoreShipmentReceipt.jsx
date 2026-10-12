@@ -8,12 +8,9 @@ import {
   IconCheck,
   IconAlertTriangle,
   IconAlertCircle,
-  IconClock,
   IconBoxSeam,
-  IconNotes,
   IconRefresh,
   IconShieldCheck,
-  IconArrowRight,
   IconFileSpreadsheet
 } from "@tabler/icons-react";
 

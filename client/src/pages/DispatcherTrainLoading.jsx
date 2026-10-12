@@ -4,11 +4,9 @@ import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
   IconTrain,
-  IconPackage,
   IconAlertTriangle,
   IconCheck,
   IconAlertCircle,
-  IconArrowRight,
   IconRefresh,
   IconClock,
   IconMapPin,
