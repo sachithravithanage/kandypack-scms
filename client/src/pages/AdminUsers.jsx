@@ -259,7 +259,7 @@ function AdminUsers() {
                           setEditForm({ ...editForm, roleId: e.target.value })
                         }
                       >
-                        {Object.entries(roleNames).map(([id, name]) => (
+                        {Object.entries(creatableRoles).map(([id, name]) => (
                           <option key={id} value={id}>
                             {name}
                           </option>

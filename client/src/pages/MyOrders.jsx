@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconPackage,
   IconPlus,
-  IconClock,
   IconCheck,
   IconTruck,
   IconAlertCircle,
@@ -14,12 +14,19 @@ import {
   IconSearch,
   IconMapPin,
   IconCalendar,
-  IconArrowRight,
   IconCircleCheck,
-  IconFilter,
 } from "@tabler/icons-react";
 
-const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "") + "/api";
+const API_BASE = apiUrl("/api");
+
+// Dates are handled in the user's LOCAL time zone. (toISOString() converts to UTC,
+// which in Sri Lanka (UTC+5:30) can show the previous day.)
+const toLocalDateString = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const parseLocalDate = (s) => {
+  const [y, m, d] = String(s).split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
 
 const STATUS_CONFIG = {
   Placed: {
@@ -79,7 +86,9 @@ function MyOrders() {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         if (payload && payload.userId) return Number(payload.userId);
-      } catch {}
+      } catch (err) {
+        console.warn("Unable to read the stored customer token.", err);
+      }
     }
     return 9;
   })();
@@ -92,7 +101,9 @@ function MyOrders() {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, authHeader);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, { headers });
       // Sort orders newest first
       const sorted = (res.data || []).sort(
         (a, b) => new Date(b.order_date || 0) - new Date(a.order_date || 0) || b.order_id - a.order_id
@@ -104,7 +115,7 @@ function MyOrders() {
     } finally {
       setLoading(false);
     }
-  }, [customerId]);
+  }, [customerId, authHeader]);
 
   useEffect(() => {
     loadOrders();
@@ -147,9 +158,12 @@ function MyOrders() {
     setEditingOrder(order);
     setEditAddress(order.delivery_address || "");
     // Format date YYYY-MM-DD
-    const d = order.requested_delivery_date
-      ? new Date(order.requested_delivery_date).toISOString().split("T")[0]
-      : "";
+    const raw = order.requested_delivery_date;
+    const d = !raw
+      ? ""
+      : /^\d{4}-\d{2}-\d{2}$/.test(raw)
+      ? raw
+      : toLocalDateString(new Date(raw));
     setEditDate(d);
     setEditError("");
   };
@@ -162,7 +176,7 @@ function MyOrders() {
     // Check 7-day rule on client before submit
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const chosen = new Date(editDate);
+    const chosen = parseLocalDate(editDate);
     const diffDays = Math.round((chosen - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 7) {
@@ -631,4 +645,3 @@ function MyOrders() {
 }
 
 export default MyOrders;
-

@@ -92,14 +92,14 @@ function Login() {
           {/* Quick-Fill Demo Credentials */}
           <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #e2e8f0" }}>
             <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", textAlign: "center" }}>
-              Quick Demo Accounts (Password: password123)
+              Quick Demo Accounts (Password: Password123!)
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center" }}>
               <button
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("admin@kandypack.lk"); setPassword("password123"); setError(""); }}
+                onClick={() => { setEmail("admin@kandypack.local"); setPassword("Password123!"); setError(""); }}
               >
                 👑 Admin
               </button>
@@ -107,7 +107,7 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("dispatcher@kandypack.lk"); setPassword("password123"); setError(""); }}
+                onClick={() => { setEmail("dispatcher@kandypack.local"); setPassword("Password123!"); setError(""); }}
               >
                 📋 Dispatcher
               </button>
@@ -115,7 +115,7 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("kamal.driver@kandypack.lk"); setPassword("password123"); setError(""); }}
+                onClick={() => { setEmail("driver@kandypack.local"); setPassword("Password123!"); setError(""); }}
               >
                 🚚 Driver
               </button>
@@ -123,7 +123,7 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("bandara.asst@kandypack.lk"); setPassword("password123"); setError(""); }}
+                onClick={() => { setEmail("assistant@kandypack.local"); setPassword("Password123!"); setError(""); }}
               >
                 🤝 Assistant
               </button>
@@ -131,7 +131,7 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("suneth.cmb@kandypack.lk"); setPassword("password123"); setError(""); }}
+                onClick={() => { setEmail("manager@kandypack.local"); setPassword("Password123!"); setError(""); }}
               >
                 🏬 Store Mgr
               </button>

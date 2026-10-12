@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
         IconTruck,
         IconBuildingWarehouse,
-        IconCalendarEvent,
         IconPlus,
         IconCheck,
         IconAlertCircle,
@@ -14,10 +14,9 @@ import {
         IconRefresh,
         IconSparkles,
         IconPackage,
-        IconUserCheck
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = apiUrl("/api");
 
 function StoreDailyDispatch() {
         const [stores, setStores] = useState([]);

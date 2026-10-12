@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../db');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
 
@@ -15,17 +16,18 @@ function sendError(res, err) {
     return res.status(500).json({ error: err.message || 'Internal server error' });
 }
 
-// REQ-ORD-02 — 7-day rule calculated using standard SQL DATEDIFF or JS date diff fallback
+// REQ-ORD-02 — 7-day rule calculated by the stored function fn_days_until_delivery
+// (db/02b_orders_procedures.sql); JS date diff is only a fallback if the function is missing.
 async function leadTimeDays(connection, deliveryDate) {
     try {
         const [[row]] = await connection.query(
-            'SELECT DATEDIFF(?, CURDATE()) AS days', [deliveryDate]
+            'SELECT fn_days_until_delivery(CURDATE(), ?) AS days', [deliveryDate]
         );
         if (row && row.days !== null && row.days !== undefined) {
             return Number(row.days);
         }
     } catch (e) {
-        // Fallback to JS calculation if DATEDIFF is unavailable
+        console.warn('fn_days_until_delivery unavailable, using JS fallback:', e.message);
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -73,9 +75,12 @@ router.post('/', async (req, res) => {
         if (customerRows.length === 0) {
             const [userRows] = await connection.query('SELECT user_id FROM user WHERE user_id = ?', [customerId]);
             if (userRows.length > 0) {
+                // customer.phone is UNIQUE, so the placeholder must differ for every customer
+                // (one shared number would make every auto-created customer after the first fail).
+                // The customer can replace it with a real number later.
                 await connection.query(
                     'INSERT IGNORE INTO customer (user_id, phone, address, city_id) VALUES (?, ?, ?, ?)',
-                    [customerId, '0771234567', deliveryAddress, 1]
+                    [customerId, `PENDING-${customerId}`, deliveryAddress, 1]
                 );
                 [customerRows] = await connection.query('SELECT user_id FROM customer WHERE user_id = ?', [customerId]);
             }
@@ -93,9 +98,8 @@ router.post('/', async (req, res) => {
         }
         const routeId = stopRows[0].route_id;
 
-        // Check stock in main_inventory and calculate totals — REQ-ORD-01, REQ-ORD-04
-        let totalValue = 0;
-        let totalVolume = 0;
+        // Check stock in main_inventory — REQ-ORD-01
+        // (prices and volumes are NOT calculated here: the database does that, see REQ-ORD-04 below)
         for (const [productId, quantity] of lines) {
             const [stockRows] = await connection.query(
                 'SELECT quantity_in_stock FROM main_inventory WHERE product_id = ? FOR UPDATE',
@@ -110,23 +114,22 @@ router.post('/', async (req, res) => {
             }
 
             const [productRows] = await connection.query(
-                'SELECT unit_price, space_consumption_rate FROM product WHERE product_id = ?',
+                'SELECT product_id FROM product WHERE product_id = ?',
                 [productId]
             );
             if (productRows.length === 0) {
                 await connection.rollback();
                 return res.status(400).json({ error: `Product #${productId} not found.` });
             }
-            const product = productRows[0];
-            totalValue += Number(product.unit_price) * quantity;
-            totalVolume += Number(product.space_consumption_rate) * quantity;
         }
 
-        // Create the order — REQ-ORD-01, REQ-ORD-04
+        // Create the order — REQ-ORD-01
+        // Totals start at 0 (the columns are NOT NULL) and are filled in by sp_recalc_order_totals below.
+        // The BEFORE INSERT trigger trg_order_before_insert also enforces the 7-day rule here.
         const [orderResult] = await connection.query(
             `INSERT INTO \`order\` (customer_id, route_id, route_stop_id, delivery_address, order_date, requested_delivery_date, total_value, total_volume, status)
-             VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, 'Placed')`,
-            [customerId, routeId, routeStopId, deliveryAddress, deliveryDate, totalValue, totalVolume]
+             VALUES (?, ?, ?, ?, CURDATE(), ?, 0, 0, 'Placed')`,
+            [customerId, routeId, routeStopId, deliveryAddress, deliveryDate]
         );
         const orderId = orderResult.insertId;
 
@@ -142,24 +145,16 @@ router.post('/', async (req, res) => {
             );
         }
 
-        // REQ-ORD-04: Recalculate totals directly in SQL to ensure consistency
-        await connection.query(
-            `UPDATE \`order\` o
-             SET total_value = (
-               SELECT COALESCE(SUM(oi.quantity * p.unit_price), 0)
-               FROM order_item oi
-               JOIN product p ON oi.product_id = p.product_id
-               WHERE oi.order_id = o.order_id
-             ),
-             total_volume = (
-               SELECT COALESCE(SUM(oi.quantity * p.space_consumption_rate), 0)
-               FROM order_item oi
-               JOIN product p ON oi.product_id = p.product_id
-               WHERE oi.order_id = o.order_id
-             )
-             WHERE o.order_id = ?`,
+        // REQ-ORD-04: totals are calculated by the database.
+        // sp_recalc_order_totals uses fn_order_total_value and fn_order_total_volume.
+        await connection.query('CALL sp_recalc_order_totals(?)', [orderId]);
+
+        // Read back the database-calculated total for the audit log
+        const [[totals]] = await connection.query(
+            'SELECT total_value FROM `order` WHERE order_id = ?',
             [orderId]
         );
+        const totalValue = Number(totals.total_value);
 
         // Audit log entry
         await connection.query(
@@ -168,6 +163,21 @@ router.post('/', async (req, res) => {
         );
 
         await connection.commit();
+
+        // Send Real-Time Notifications
+        try {
+            // Notify Customer
+            await createNotification(customerId, 'Order Placed', `Your order #${orderId} has been successfully placed and is awaiting dispatch.`);
+            
+            // Notify Dispatchers
+            const [dispatchers] = await db.query('SELECT user_id FROM `user` WHERE role_id = 2 AND is_active = 1');
+            for (const dispatcher of dispatchers) {
+                await createNotification(dispatcher.user_id, 'New Order', `New order #${orderId} was just placed and needs to be scheduled.`);
+            }
+        } catch (notifErr) {
+            console.error('Failed to send order notifications:', notifErr.message);
+        }
+
         res.status(201).json({ message: 'Order placed successfully', orderId });
     } catch (err) {
         await connection.rollback();
@@ -178,15 +188,12 @@ router.post('/', async (req, res) => {
 });
 
 // Get order history for a customer — REQ-ORD-05
+// Reads from the view v_customer_orders (db/02b_orders_procedures.sql), which already
+// joins route and route_stop; only the customer filter and sort are added here.
 router.get('/customer/:customerId', async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT o.*, r.name AS route_name, rs.stop_name
-             FROM \`order\` o
-             LEFT JOIN route r ON o.route_id = r.route_id
-             LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id
-             WHERE o.customer_id = ?
-             ORDER BY o.order_id DESC`,
+            'SELECT * FROM v_customer_orders WHERE customer_id = ? ORDER BY order_id DESC',
             [req.params.customerId]
         );
         res.json(rows);

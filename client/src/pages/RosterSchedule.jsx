@@ -1,19 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconCalendarEvent,
   IconPlus,
-  IconClock,
-  IconTruck,
-  IconUser,
-  IconRoute,
   IconAlertCircle,
   IconCheck,
   IconAlertTriangle,
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = apiUrl("/api");
 
 function RosterSchedule() {
   const [schedules, setSchedules] = useState([]);
@@ -50,9 +47,11 @@ function RosterSchedule() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem("token") || "";
+      const headers = { Authorization: `Bearer ${token}` };
       const [schedRes, metaRes] = await Promise.all([
-        axios.get(`${API_BASE}/roster`, authHeader),
-        axios.get(`${API_BASE}/roster/metadata`, authHeader),
+        axios.get(`${API_BASE}/roster`, { headers }),
+        axios.get(`${API_BASE}/roster/metadata`, { headers }),
       ]);
       setSchedules(schedRes.data || []);
       setRoutes(metaRes.data?.routes || []);
@@ -60,14 +59,17 @@ function RosterSchedule() {
       setDrivers(metaRes.data?.drivers || []);
       setAssistants(metaRes.data?.assistants || []);
 
-      if (metaRes.data?.routes?.length > 0 && !formData.routeId) {
-        setFormData((prev) => ({
-          ...prev,
-          routeId: metaRes.data.routes[0].route_id,
-          truckId: metaRes.data.trucks[0]?.truck_id || "",
-          driverId: metaRes.data.drivers[0]?.user_id || "",
-          assistantId: metaRes.data.assistants[0]?.user_id || "",
-        }));
+      if (metaRes.data?.routes?.length > 0) {
+        setFormData((prev) => {
+          if (prev.routeId) return prev;
+          return {
+            ...prev,
+            routeId: metaRes.data.routes[0].route_id,
+            truckId: metaRes.data.trucks[0]?.truck_id || "",
+            driverId: metaRes.data.drivers[0]?.user_id || "",
+            assistantId: metaRes.data.assistants[0]?.user_id || "",
+          };
+        });
       }
     } catch (err) {
       console.error("Error loading roster data:", err);
@@ -75,7 +77,7 @@ function RosterSchedule() {
     } finally {
       setLoading(false);
     }
-  }, [formData.routeId]);
+  }, []);
 
   useEffect(() => {
     loadData();

@@ -1,22 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 import {
   IconBuildingWarehouse,
   IconTrain,
   IconCheck,
   IconAlertTriangle,
   IconAlertCircle,
-  IconClock,
   IconBoxSeam,
-  IconNotes,
   IconRefresh,
   IconShieldCheck,
-  IconArrowRight,
   IconFileSpreadsheet
 } from "@tabler/icons-react";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = apiUrl("/api");
 
 function StoreShipmentReceipt() {
   const [stores, setStores] = useState([]);
