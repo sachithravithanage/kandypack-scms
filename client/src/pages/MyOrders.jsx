@@ -19,6 +19,15 @@ import {
 
 const API_BASE = apiUrl("/api");
 
+// Dates are handled in the user's LOCAL time zone. (toISOString() converts to UTC,
+// which in Sri Lanka (UTC+5:30) can show the previous day.)
+const toLocalDateString = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const parseLocalDate = (s) => {
+  const [y, m, d] = String(s).split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
 const STATUS_CONFIG = {
   Placed: {
     badgeClass: "kp-badge-info",
@@ -147,9 +156,12 @@ function MyOrders() {
     setEditingOrder(order);
     setEditAddress(order.delivery_address || "");
     // Format date YYYY-MM-DD
-    const d = order.requested_delivery_date
-      ? new Date(order.requested_delivery_date).toISOString().split("T")[0]
-      : "";
+    const raw = order.requested_delivery_date;
+    const d = !raw
+      ? ""
+      : /^\d{4}-\d{2}-\d{2}$/.test(raw)
+      ? raw
+      : toLocalDateString(new Date(raw));
     setEditDate(d);
     setEditError("");
   };
@@ -162,7 +174,7 @@ function MyOrders() {
     // Check 7-day rule on client before submit
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const chosen = new Date(editDate);
+    const chosen = parseLocalDate(editDate);
     const diffDays = Math.round((chosen - today) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 7) {
