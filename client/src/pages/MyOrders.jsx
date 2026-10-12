@@ -93,7 +93,9 @@ function MyOrders() {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, authHeader);
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, { headers });
       // Sort orders newest first
       const sorted = (res.data || []).sort(
         (a, b) => new Date(b.order_date || 0) - new Date(a.order_date || 0) || b.order_id - a.order_id
