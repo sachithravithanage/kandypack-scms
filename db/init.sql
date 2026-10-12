@@ -110,6 +110,16 @@ CREATE TABLE order_item (
   FOREIGN KEY (product_id) REFERENCES product(product_id)
 );
 
+-- REQ-ORD-05 View: a customer's orders with route and stop names
+CREATE OR REPLACE VIEW v_customer_orders AS
+SELECT o.order_id, o.customer_id, o.route_id, o.route_stop_id,
+       o.delivery_address, o.order_date, o.requested_delivery_date,
+       o.status, o.total_value, o.total_volume, o.delivered_at,
+       r.name AS route_name, rs.stop_name
+  FROM `order` o
+  LEFT JOIN route r ON o.route_id = r.route_id
+  LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id;
+
 -- 03_rail_store_schema.sql
 CREATE TABLE train (
   train_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -227,6 +237,89 @@ CREATE TABLE system_parameter (
 );
 
 INSERT INTO system_parameter VALUES ('driver_min_rest_hours', '2');
+
+-- =========================================================================
+-- VIEW: v_driver_assigned_runs (Member D)
+-- =========================================================================
+CREATE OR REPLACE VIEW v_driver_assigned_runs AS
+SELECT
+    ts.truck_schedule_id,
+    ts.route_id,
+    r.name AS route_name,
+    r.max_delivery_time_minutes,
+    ts.truck_id,
+    tk.plate_number,
+    tk.capacity AS truck_capacity,
+    ts.driver_id,
+    ud.name AS driver_name,
+    ts.assistant_id,
+    ua.name AS assistant_name,
+    DATE_FORMAT(ts.scheduled_date, '%Y-%m-%d') AS scheduled_date,
+    ts.start_time,
+    ts.end_time,
+    ts.status,
+    ts.pickup_confirmed_at,
+    COUNT(ta.truck_allocation_id) AS total_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Delivered' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS delivered_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Attempted' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS attempted_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Failed' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS failed_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Pending' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS pending_stops
+FROM
+    truck_schedule ts
+    JOIN route r ON ts.route_id = r.route_id
+    JOIN truck tk ON ts.truck_id = tk.truck_id
+    JOIN `user` ud ON ts.driver_id = ud.user_id
+    JOIN `user` ua ON ts.assistant_id = ua.user_id
+    LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
+GROUP BY
+    ts.truck_schedule_id,
+    ts.route_id,
+    r.name,
+    r.max_delivery_time_minutes,
+    ts.truck_id,
+    tk.plate_number,
+    tk.capacity,
+    ts.driver_id,
+    ud.name,
+    ts.assistant_id,
+    ua.name,
+    ts.scheduled_date,
+    ts.start_time,
+    ts.end_time,
+    ts.status,
+    ts.pickup_confirmed_at;
 
 -- 05_notifications_schema.sql
 CREATE TABLE notification (
