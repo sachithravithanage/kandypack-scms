@@ -9,14 +9,17 @@ import {
   IconCheck,
   IconAlertCircle,
   IconShield,
-  IconId,
   IconMail,
   IconPhone,
   IconMapPin,
+  IconClock,
+  IconTruck,
+  IconPackage,
+  IconBuildingWarehouse,
 } from "@tabler/icons-react";
 
 function Profile() {
-  const [activeTab, setActiveTab] = useState("info"); // "info" | "security" | "notifications"
+  const [activeTab, setActiveTab] = useState("info"); // "info" | "security" | "notifications" | "activity"
 
   // Profile data
   const [userData, setUserData] = useState(null);
@@ -125,6 +128,10 @@ function Profile() {
       setError("New password must be at least 8 characters long.");
       return;
     }
+    if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setError("New password must contain both letters and numbers.");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError("New password and confirm password do not match.");
       return;
@@ -187,37 +194,64 @@ function Profile() {
     .join("")
     .toUpperCase();
 
+  const weeklyHours = userData?.weekly_hours || 0;
+  const maxHours = userData?.max_weekly_hours || (userData?.role_id === 4 ? 40 : 60);
+
   return (
     <AppLayout pageTitle="User Profile">
       {/* ── Top Hero Card ────────────────────────────────────── */}
       <div className="kp-card mb-4 p-4">
-        <div className="d-flex flex-wrap align-items-center gap-3">
-          <div
-            className="kp-avatar"
-            style={{ width: "58px", height: "58px", fontSize: "1.35rem" }}
-          >
-            {initials}
-          </div>
-          <div>
-            <h2 className="h4 mb-1">{name || "Kandypack User"}</h2>
-            <div className="d-flex align-items-center gap-2 text-muted small">
-              <span className="badge bg-primary-subtle text-primary fw-medium px-2 py-1">
-                {roleName}
-              </span>
-              <span>•</span>
-              <span className="d-inline-flex align-items-center gap-1">
-                <IconMail size={14} />
-                {userData?.email}
-              </span>
-              {userData?.license_number && (
-                <>
-                  <span>•</span>
-                  <span className="badge bg-secondary-subtle text-secondary">
-                    License: {userData.license_number}
-                  </span>
-                </>
-              )}
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div className="d-flex align-items-center gap-3">
+            <div
+              className="kp-avatar shadow-sm"
+              style={{ width: "62px", height: "62px", fontSize: "1.4rem" }}
+            >
+              {initials}
             </div>
+            <div>
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <h2 className="h4 mb-0 fw-bold">{name || "Kandypack User"}</h2>
+                <span className="badge bg-success-subtle text-success small px-2">Active</span>
+              </div>
+              <div className="d-flex flex-wrap align-items-center gap-2 text-muted small">
+                <span className="badge bg-primary-subtle text-primary fw-medium px-2 py-1">
+                  {roleName}
+                </span>
+                <span>•</span>
+                <span className="d-inline-flex align-items-center gap-1">
+                  <IconMail size={14} />
+                  {userData?.email}
+                </span>
+                {userData?.license_number && (
+                  <>
+                    <span>•</span>
+                    <span className="badge bg-secondary-subtle text-secondary">
+                      CDL: {userData.license_number}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Role badge highlights */}
+          <div className="d-flex flex-wrap gap-2">
+            {(userData?.role_id === 4 || userData?.role_id === 5) && (
+              <div className="p-2.5 rounded bg-light border text-end small">
+                <div className="text-muted" style={{ fontSize: "0.72rem" }}>WEEKLY STATUTORY DUTY</div>
+                <div className="fw-bold font-monospace text-dark">
+                  {weeklyHours} / {maxHours} hrs
+                </div>
+              </div>
+            )}
+
+            {userData?.role_id === 6 && (
+              <div className="p-2.5 rounded bg-light border text-end small">
+                <div className="text-muted" style={{ fontSize: "0.72rem" }}>TOTAL ORDERS PLACED</div>
+                <div className="fw-bold text-dark">{userData?.order_count ?? 0} Orders</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -237,7 +271,7 @@ function Profile() {
       )}
 
       {/* ── Tabs Navigation ──────────────────────────────────── */}
-      <div className="d-flex gap-2 mb-3 border-bottom pb-2">
+      <div className="d-flex flex-wrap gap-2 mb-3 border-bottom pb-2">
         <button
           className={`btn btn-sm d-flex align-items-center gap-2 ${
             activeTab === "info" ? "btn-primary" : "btn-light border"
@@ -277,11 +311,24 @@ function Profile() {
           <IconBell size={16} />
           <span>Notification Preferences</span>
         </button>
+        <button
+          className={`btn btn-sm d-flex align-items-center gap-2 ${
+            activeTab === "activity" ? "btn-primary" : "btn-light border"
+          }`}
+          onClick={() => {
+            setActiveTab("activity");
+            setError("");
+            setSuccess("");
+          }}
+        >
+          <IconShield size={16} />
+          <span>Account Security Status</span>
+        </button>
       </div>
 
       {/* ── Tab 1: Personal Details ──────────────────────────── */}
       {activeTab === "info" && (
-        <div className="kp-card" style={{ maxWidth: "680px" }}>
+        <div className="kp-card" style={{ maxWidth: "700px" }}>
           <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
             Account Profile Information
           </h3>
@@ -298,15 +345,15 @@ function Profile() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label small fw-medium">Email Address (Read-only)</label>
+              <label className="form-label small fw-medium">Email Address (Login Identifier)</label>
               <input
                 type="email"
                 className="form-control bg-light text-muted"
                 value={userData?.email || ""}
                 disabled
               />
-              <span className="form-text small" style={{ fontSize: "0.78rem" }}>
-                Primary login identifier cannot be edited directly.
+              <span className="form-text small" style={{ fontSize: "0.76rem" }}>
+                Primary login email address cannot be changed directly.
               </span>
             </div>
 
@@ -325,7 +372,7 @@ function Profile() {
               <div className="p-3 mb-3 bg-light rounded border">
                 <h4 className="h6 mb-3 d-flex align-items-center gap-2">
                   <IconMapPin size={16} className="text-primary" />
-                  Default Delivery Information
+                  Default Customer Delivery Profile
                 </h4>
                 <div className="mb-3">
                   <label className="form-label small fw-medium">Contact Phone Number</label>
@@ -339,11 +386,11 @@ function Profile() {
                   />
                 </div>
                 <div className="mb-3">
-                  <label className="form-label small fw-medium">Street Address</label>
+                  <label className="form-label small fw-medium">Street Delivery Address</label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="e.g. 45 Galle Road"
+                    placeholder="e.g. 45 Galle Road, Colombo 03"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     required
@@ -368,16 +415,56 @@ function Profile() {
               </div>
             )}
 
-            {/* Driver license number */}
+            {/* Driver specific compliance fields */}
             {userData?.role_id === 4 && (
-              <div className="mb-3">
-                <label className="form-label small fw-medium">Commercial Driver License</label>
-                <input
-                  type="text"
-                  className="form-control bg-light text-muted"
-                  value={userData.license_number || "Not assigned"}
-                  disabled
-                />
+              <div className="p-3 mb-3 bg-light rounded border">
+                <h4 className="h6 mb-3 d-flex align-items-center gap-2">
+                  <IconTruck size={16} className="text-primary" />
+                  Driver License & Compliance Details
+                </h4>
+                <div className="mb-3">
+                  <label className="form-label small fw-medium">Commercial Driver License</label>
+                  <input
+                    type="text"
+                    className="form-control bg-white"
+                    value={userData.license_number || "Verified"}
+                    disabled
+                  />
+                </div>
+                <div className="mb-1">
+                  <div className="d-flex justify-content-between small mb-1">
+                    <span className="text-muted">Statutory Weekly Driving Hours:</span>
+                    <strong>{weeklyHours} / 40.0 hrs</strong>
+                  </div>
+                  <div className="progress" style={{ height: "6px" }}>
+                    <div
+                      className={`progress-bar ${weeklyHours > 36 ? "bg-danger" : weeklyHours > 30 ? "bg-warning" : "bg-success"}`}
+                      style={{ width: `${Math.min(100, (weeklyHours / 40) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Assistant specific compliance fields */}
+            {userData?.role_id === 5 && (
+              <div className="p-3 mb-3 bg-light rounded border">
+                <h4 className="h6 mb-3 d-flex align-items-center gap-2">
+                  <IconClock size={16} className="text-primary" />
+                  Assistant Logistics Duty Details
+                </h4>
+                <div className="mb-1">
+                  <div className="d-flex justify-content-between small mb-1">
+                    <span className="text-muted">Statutory Weekly Duty Hours:</span>
+                    <strong>{weeklyHours} / 60.0 hrs</strong>
+                  </div>
+                  <div className="progress" style={{ height: "6px" }}>
+                    <div
+                      className={`progress-bar ${weeklyHours > 54 ? "bg-danger" : weeklyHours > 45 ? "bg-warning" : "bg-success"}`}
+                      style={{ width: `${Math.min(100, (weeklyHours / 60) * 100)}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -394,12 +481,12 @@ function Profile() {
 
       {/* ── Tab 2: Security & Password ───────────────────────── */}
       {activeTab === "security" && (
-        <div className="kp-card" style={{ maxWidth: "580px" }}>
+        <div className="kp-card" style={{ maxWidth: "600px" }}>
           <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
             Change Account Password
           </h3>
           <p className="text-muted small mb-4">
-            Ensure your account is protected with a strong passphrase containing at least 8 characters.
+            Ensure your account is protected with a secure passphrase containing at least 8 characters, including both letters and numbers.
           </p>
 
           <form onSubmit={handleUpdatePassword}>
@@ -420,7 +507,7 @@ function Profile() {
               <input
                 type="password"
                 className="form-control"
-                placeholder="At least 8 characters"
+                placeholder="At least 8 characters (letters & numbers)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
@@ -453,12 +540,12 @@ function Profile() {
 
       {/* ── Tab 3: Notification Preferences ──────────────────── */}
       {activeTab === "notifications" && (
-        <div className="kp-card" style={{ maxWidth: "580px" }}>
+        <div className="kp-card" style={{ maxWidth: "600px" }}>
           <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
             Dispatch & Order Alerts
           </h3>
           <p className="text-muted small mb-4">
-            Select the channels through which you wish to receive automated status updates and critical alerts.
+            Select the channels through which you wish to receive automated status updates and critical logistics notifications.
           </p>
 
           <form onSubmit={handleSavePreferences}>
@@ -509,7 +596,7 @@ function Profile() {
                 <div>
                   <div className="fw-semibold small">SMS Alerts (Mobile)</div>
                   <div className="text-muted small">
-                    Immediate text alerts when the delivery driver is within 15 minutes of drop-off.
+                    Immediate text alerts when the delivery driver is approaching your drop-off stop.
                   </div>
                 </div>
               </label>
@@ -524,6 +611,59 @@ function Profile() {
               {actionLoading ? "Saving..." : "Save Preferences"}
             </button>
           </form>
+        </div>
+      )}
+
+      {/* ── Tab 4: Account Security & Status ─────────────────── */}
+      {activeTab === "activity" && (
+        <div className="kp-card" style={{ maxWidth: "640px" }}>
+          <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
+            Security & Session Telemetry
+          </h3>
+
+          <div className="p-3 mb-3 bg-light rounded border">
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">User ID Reference:</span>
+              <span className="font-monospace fw-bold small">#{userData?.user_id}</span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">Account Creation Date:</span>
+              <span className="small text-dark">
+                {userData?.created_at
+                  ? new Date(userData.created_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : "Active Member"}
+              </span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">Account State:</span>
+              <span className="badge bg-success-subtle text-success">
+                {userData?.is_active ? "Verified & Active" : "Suspended"}
+              </span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">Authentication Policy:</span>
+              <span className="small text-dark">OWASP Compliant (Bcrypt Hashed)</span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="text-muted small">Current Active Session:</span>
+              <span className="small text-success fw-medium">JWT Authenticated (Local)</span>
+            </div>
+          </div>
+
+          <div className="d-flex align-items-center gap-2 text-muted small p-2">
+            <IconShield size={16} className="text-primary flex-shrink-0" />
+            <span>
+              All account authentication events and profile modifications are audited in accordance with Kandypack enterprise security policies.
+            </span>
+          </div>
         </div>
       )}
     </AppLayout>

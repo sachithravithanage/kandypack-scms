@@ -49,8 +49,10 @@ router.get("/", requireAuth, requireRole([1]), async (req, res) => {
 // GET current user's profile — Accessible by any logged-in user
 router.get("/profile", requireAuth, async (req, res) => {
   try {
+    const userId = Number(req.user.userId || req.user.user_id);
     const [rows] = await db.query(
       `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
+              u.created_at, u.is_active,
               u.notification_preferences, c.phone, c.address, c.city_id,
               ci.name AS city_name, d.license_number
        FROM \`user\` u
@@ -59,14 +61,301 @@ router.get("/profile", requireAuth, async (req, res) => {
        LEFT JOIN city ci ON c.city_id = ci.city_id
        LEFT JOIN driver d ON u.user_id = d.user_id
        WHERE u.user_id = ?`,
-      [req.user.userId]
+      [userId]
     );
     if (rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.json(rows[0]);
+    const profile = rows[0];
+
+    // Role-specific enrichments
+    if (profile.role_id === 4) {
+      // Driver statutory weekly hours
+      try {
+        const [[hRow]] = await db.query(
+          "SELECT fn_get_driver_weekly_hours(?, CURDATE()) AS hrs",
+          [userId]
+        );
+        profile.weekly_hours = Number(hRow?.hrs || 0);
+        profile.max_weekly_hours = 40;
+      } catch (e) {
+        profile.weekly_hours = 0;
+        profile.max_weekly_hours = 40;
+      }
+    } else if (profile.role_id === 5) {
+      // Assistant statutory weekly hours
+      try {
+        const [[hRow]] = await db.query(`
+          SELECT COALESCE(SUM(rl.actual_hours_worked), 0) AS hrs
+          FROM truck_schedule ts
+          JOIN roster_log rl ON ts.truck_schedule_id = rl.truck_schedule_id
+          WHERE ts.assistant_id = ?
+            AND ts.scheduled_date >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+            AND ts.scheduled_date <= DATE_ADD(CURDATE(), INTERVAL (6 - WEEKDAY(CURDATE())) DAY)
+        `, [userId]);
+        profile.weekly_hours = Number(hRow?.hrs || 0);
+        profile.max_weekly_hours = 60;
+      } catch (e) {
+        profile.weekly_hours = 0;
+        profile.max_weekly_hours = 60;
+      }
+    } else if (profile.role_id === 6) {
+      // Customer order count & total spend
+      try {
+        const [[oRow]] = await db.query(
+          "SELECT COUNT(*) AS order_count, COALESCE(SUM(total_value), 0) AS total_spend FROM `order` WHERE customer_id = ?",
+          [userId]
+        );
+        profile.order_count = oRow?.order_count || 0;
+        profile.total_spend = Number(oRow?.total_spend || 0);
+      } catch (e) {}
+    }
+
+    res.json(profile);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/users/dashboard-stats — Role-tailored dashboard metrics
+router.get("/dashboard-stats", requireAuth, async (req, res) => {
+  try {
+    const roleId = Number(req.user.roleId || req.user.role_id);
+    const userId = Number(req.user.userId || req.user.user_id);
+
+    if (roleId === 1) {
+      // 👑 Admin Dashboard Stats
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const [[salesTotals]] = await db.query(`
+        SELECT 
+          COUNT(*) AS total_orders,
+          COALESCE(SUM(total_value), 0) AS total_revenue,
+          COALESCE(AVG(total_value), 0) AS avg_order_value
+        FROM \`order\`
+        WHERE YEAR(order_date) = ?
+      `, [currentYear]);
+
+      const [[invStats]] = await db.query(`
+        SELECT 
+          COUNT(*) AS total_skus,
+          COALESCE(SUM(quantity_in_stock), 0) AS total_atp,
+          COALESCE(SUM(quantity_in_stock * p.unit_price), 0) AS total_valuation,
+          COALESCE(SUM(CASE WHEN quantity_in_stock < 100 THEN 1 ELSE 0 END), 0) AS low_stock_count,
+          COALESCE(SUM(CASE WHEN quantity_in_stock <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock_count
+        FROM main_inventory mi
+        JOIN product p ON mi.product_id = p.product_id
+      `);
+
+      const [[railStats]] = await db.query(`
+        SELECT 
+          COUNT(*) AS total_trips,
+          COALESCE(SUM(CASE WHEN status = 'Scheduled' THEN 1 ELSE 0 END), 0) AS scheduled_trips,
+          COALESCE(SUM(CASE WHEN status = 'In Transit' THEN 1 ELSE 0 END), 0) AS in_transit_trips,
+          COALESCE(SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END), 0) AS completed_trips
+        FROM train_trip
+      `);
+
+      const [[fleetStats]] = await db.query(`
+        SELECT 
+          (SELECT COUNT(*) FROM truck) AS total_trucks,
+          (SELECT COUNT(*) FROM truck_schedule WHERE scheduled_date = CURDATE()) AS today_schedules,
+          (SELECT COUNT(*) FROM truck_schedule WHERE status = 'In Progress') AS active_deliveries
+      `);
+
+      const [recentAudit] = await db.query(`
+        SELECT al.log_id, al.action, al.table_affected, al.timestamp, al.details, u.name AS user_name
+        FROM audit_log al
+        LEFT JOIN \`user\` u ON al.user_id = u.user_id
+        ORDER BY al.timestamp DESC
+        LIMIT 6
+      `);
+
+      return res.json({
+        roleId,
+        sales: salesTotals,
+        inventory: invStats,
+        rail: railStats,
+        fleet: fleetStats,
+        recentAudit,
+      });
+    }
+
+    if (roleId === 2) {
+      // 📋 Dispatcher Dashboard Stats
+      const [todayTrips] = await db.query(`
+        SELECT tt.trip_id, t.name AS train_name, c.name AS destination,
+               tt.departure_datetime, tt.arrival_datetime, tt.total_capacity, tt.status,
+               COUNT(ca.cargo_allocation_id) AS total_allocations,
+               COALESCE(SUM(CASE WHEN ca.status = 'Loaded' THEN 1 ELSE 0 END), 0) AS loaded_allocations,
+               COALESCE(SUM(CASE WHEN ca.status = 'Partially Loaded' THEN 1 ELSE 0 END), 0) AS partial_allocations,
+               COALESCE(SUM(CASE WHEN ca.status = 'Not Loaded' THEN 1 ELSE 0 END), 0) AS pending_allocations
+        FROM train_trip tt
+        JOIN train t ON tt.train_id = t.train_id
+        JOIN city c ON tt.destination_city_id = c.city_id
+        LEFT JOIN cargo_allocation ca ON tt.trip_id = ca.trip_id
+        WHERE tt.departure_datetime >= CURDATE()
+        GROUP BY tt.trip_id, t.name, c.name, tt.departure_datetime, tt.arrival_datetime, tt.total_capacity, tt.status
+        ORDER BY tt.departure_datetime ASC
+        LIMIT 5
+      `);
+
+      const [[orderQueue]] = await db.query(`
+        SELECT 
+          COUNT(*) AS orders_in_queue,
+          COALESCE(SUM(total_volume), 0) AS volume_in_queue
+        FROM \`order\`
+        WHERE status IN ('Placed', 'Scheduled')
+      `);
+
+      const [[rosterSummary]] = await db.query(`
+        SELECT 
+          COUNT(*) AS week_schedules,
+          COALESCE(SUM(CASE WHEN scheduled_date = CURDATE() THEN 1 ELSE 0 END), 0) AS today_schedules,
+          COALESCE(SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END), 0) AS in_progress_runs
+        FROM truck_schedule
+        WHERE scheduled_date >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+          AND scheduled_date <= DATE_ADD(CURDATE(), INTERVAL (6 - WEEKDAY(CURDATE())) DAY)
+      `);
+
+      return res.json({
+        roleId,
+        todayTrips,
+        orderQueue,
+        rosterSummary,
+      });
+    }
+
+    if (roleId === 3) {
+      // 🏬 Regional Store Manager Dashboard Stats
+      const [incomingTrips] = await db.query(`
+        SELECT tt.trip_id, t.name AS train_name, c.name AS destination,
+               tt.departure_datetime, tt.arrival_datetime, tt.status,
+               COUNT(ca.cargo_allocation_id) AS cargo_items,
+               COALESCE(SUM(CASE WHEN ca.received_quantity IS NOT NULL THEN 1 ELSE 0 END), 0) AS items_received,
+               COALESCE(SUM(CASE WHEN ca.discrepancy_flag = 1 THEN 1 ELSE 0 END), 0) AS discrepancy_count
+        FROM train_trip tt
+        JOIN train t ON tt.train_id = t.train_id
+        JOIN city c ON tt.destination_city_id = c.city_id
+        LEFT JOIN cargo_allocation ca ON tt.trip_id = ca.trip_id
+        WHERE tt.arrival_datetime >= DATE_SUB(CURDATE(), INTERVAL 2 DAY)
+        GROUP BY tt.trip_id, t.name, c.name, tt.departure_datetime, tt.arrival_datetime, tt.status
+        ORDER BY tt.arrival_datetime ASC
+        LIMIT 6
+      `);
+
+      const [[discrepancies]] = await db.query(`
+        SELECT COUNT(*) AS total_discrepancies
+        FROM cargo_allocation
+        WHERE discrepancy_flag = 1
+      `);
+
+      const [todayRuns] = await db.query(`
+        SELECT ts.truck_schedule_id, r.name AS route_name, tk.plate_number,
+               ud.name AS driver_name, ts.start_time, ts.end_time, ts.status,
+               COUNT(ta.truck_allocation_id) AS assigned_orders
+        FROM truck_schedule ts
+        JOIN route r ON ts.route_id = r.route_id
+        JOIN truck tk ON ts.truck_id = tk.truck_id
+        JOIN \`user\` ud ON ts.driver_id = ud.user_id
+        LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
+        WHERE ts.scheduled_date = CURDATE()
+        GROUP BY ts.truck_schedule_id, r.name, tk.plate_number, ud.name, ts.start_time, ts.end_time, ts.status
+        ORDER BY ts.start_time ASC
+      `);
+
+      return res.json({
+        roleId,
+        incomingTrips,
+        discrepancies: discrepancies.total_discrepancies,
+        todayRuns,
+      });
+    }
+
+    if (roleId === 4 || roleId === 5) {
+      // 🚚 Driver or 🤝 Assistant Dashboard Stats
+      let hoursWorked = 0;
+      try {
+        if (roleId === 4) {
+          const [[hRow]] = await db.query(
+            "SELECT fn_get_driver_weekly_hours(?, CURDATE()) AS hrs",
+            [userId]
+          );
+          hoursWorked = Number(hRow?.hrs || 0);
+        } else {
+          const [[hRow]] = await db.query(`
+            SELECT COALESCE(SUM(rl.actual_hours_worked), 0) AS hrs
+            FROM truck_schedule ts
+            JOIN roster_log rl ON ts.truck_schedule_id = rl.truck_schedule_id
+            WHERE ts.assistant_id = ?
+              AND ts.scheduled_date >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+              AND ts.scheduled_date <= DATE_ADD(CURDATE(), INTERVAL (6 - WEEKDAY(CURDATE())) DAY)
+          `, [userId]);
+          hoursWorked = Number(hRow?.hrs || 0);
+        }
+      } catch (err) {
+        hoursWorked = 0;
+      }
+
+      const userCol = roleId === 4 ? "driver_id" : "assistant_id";
+      const [myRuns] = await db.query(`
+        SELECT *
+        FROM v_driver_assigned_runs
+        WHERE ${userCol} = ? AND scheduled_date >= CURDATE()
+        ORDER BY scheduled_date ASC, start_time ASC
+        LIMIT 5
+      `, [userId]);
+
+      const [[completedRow]] = await db.query(`
+        SELECT COUNT(*) AS total_completed
+        FROM truck_schedule
+        WHERE ${userCol} = ? AND status = 'Completed'
+          AND MONTH(scheduled_date) = MONTH(CURDATE())
+      `, [userId]);
+
+      return res.json({
+        roleId,
+        weeklyHours: hoursWorked,
+        maxWeeklyHours: roleId === 4 ? 40 : 60,
+        assignedRuns: myRuns,
+        completedMonth: completedRow?.total_completed || 0,
+      });
+    }
+
+    if (roleId === 6) {
+      // 🛒 Customer Dashboard Stats
+      const [[custTotals]] = await db.query(`
+        SELECT 
+          COUNT(*) AS total_orders,
+          COALESCE(SUM(total_value), 0) AS total_spend,
+          COALESCE(SUM(CASE WHEN status IN ('Placed', 'Scheduled', 'In Transit') THEN 1 ELSE 0 END), 0) AS active_orders
+        FROM \`order\`
+        WHERE customer_id = ?
+      `, [userId]);
+
+      const [activeOrders] = await db.query(`
+        SELECT o.order_id, o.order_date, o.requested_delivery_date, o.status,
+               o.total_value, o.total_volume, r.name AS route_name, rs.stop_name,
+               o.delivery_address
+        FROM \`order\` o
+        LEFT JOIN route r ON o.route_id = r.route_id
+        LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id
+        WHERE o.customer_id = ?
+        ORDER BY o.order_id DESC
+        LIMIT 5
+      `, [userId]);
+
+      return res.json({
+        roleId,
+        totals: custTotals,
+        activeOrders,
+      });
+    }
+
+    return res.json({ roleId, message: "Dashboard ready" });
+  } catch (err) {
+    console.error("Dashboard stats error:", err);
+    res.status(500).json({ error: "Failed to generate dashboard statistics." });
   }
 });
 

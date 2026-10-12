@@ -39,7 +39,7 @@ const navItems = [
     to: "/dashboard",
     label: "Dashboard",
     Icon: IconLayoutDashboard,
-    allowedRoles: [1, 2, 3],
+    allowedRoles: [1, 2, 3, 4, 5, 6],
   },
   {
     to: "/orders",
