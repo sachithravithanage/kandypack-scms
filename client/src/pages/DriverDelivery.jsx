@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
+import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -14,6 +15,8 @@ import {
   IconSignature,
   IconAlertTriangle,
   IconSend,
+  IconSearch,
+  IconFileSpreadsheet,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -27,6 +30,10 @@ function DriverDelivery() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Stop search and filter state
+  const [stopSearch, setStopSearch] = useState("");
+  const [stopStatusFilter, setStopStatusFilter] = useState("ALL");
 
   // Delivery confirmation modal state
   const [deliveryModalStop, setDeliveryModalStop] = useState(null);
@@ -289,6 +296,50 @@ function DriverDelivery() {
   const failedCount = stops.filter((s) => s.delivery_status === "Failed").length;
   const attemptedCount = stops.filter((s) => s.delivery_status === "Attempted").length;
 
+  // Filtered stops based on search query and status filter
+  const filteredStops = useMemo(() => {
+    return stops.filter((stop) => {
+      if (stopStatusFilter !== "ALL" && stop.delivery_status !== stopStatusFilter) {
+        return false;
+      }
+      if (!stopSearch.trim()) return true;
+      const term = stopSearch.toLowerCase();
+      return (
+        String(stop.stop_order).includes(term) ||
+        String(stop.order_id).includes(term) ||
+        (stop.stop_name && stop.stop_name.toLowerCase().includes(term)) ||
+        (stop.customer_name && stop.customer_name.toLowerCase().includes(term)) ||
+        (stop.customer_phone && stop.customer_phone.toLowerCase().includes(term)) ||
+        (stop.delivery_address && stop.delivery_address.toLowerCase().includes(term)) ||
+        (stop.delivery_note && stop.delivery_note.toLowerCase().includes(term))
+      );
+    });
+  }, [stops, stopStatusFilter, stopSearch]);
+
+  // Export Delivery Run Sheet / Manifest to Excel
+  const exportRunSheetExcel = () => {
+    if (!stops || stops.length === 0 || !activeRun) return;
+    const exportData = stops.map((stop) => ({
+      "Stop #": stop.stop_order,
+      "Stop Name": stop.stop_name,
+      "Order ID": stop.order_id,
+      "Customer": stop.customer_name,
+      "Phone": stop.customer_phone || "N/A",
+      "Delivery Address": stop.delivery_address,
+      "Volume (m³)": stop.total_volume,
+      "Status": stop.delivery_status,
+      "Delivery Notes": stop.delivery_note || "",
+      "Delivered At": stop.delivered_at ? new Date(stop.delivered_at).toLocaleString() : "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Delivery Manifest");
+    XLSX.writeFile(
+      wb,
+      `Delivery_Run_Sheet_Run_${activeRun.truck_schedule_id}_${(activeRun.plate_number || "").replace(/\s+/g, "_")}.xlsx`
+    );
+  };
+
   return (
     <AppLayout pageTitle="Delivery Execution Portal">
       {/* Notifications */}
@@ -518,23 +569,82 @@ function DriverDelivery() {
       {/* Stop Execution Sequence (REQ-DEL-01, REQ-DEL-03, REQ-DEL-04, REQ-DEL-05) */}
       {activeRun && (
         <div className="kp-card">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h3 className="h6 mb-0 d-flex align-items-center">
+          <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h3 className="h6 mb-0 d-flex align-items-center fw-bold">
               <IconMapPin size={18} className="me-2 text-primary" />
               Delivery Sequence (Ordered by Route Stop Order)
             </h3>
             <span className="small text-muted">
-              Total Assigned Deliveries: {stops.length}
+              Showing {filteredStops.length} of {stops.length} assigned deliveries
             </span>
           </div>
+
+          {/* Delivery Stop Filters & Excel Run Sheet Export */}
+          {stops.length > 0 && (
+            <div className="row g-2 align-items-center mb-3 pb-3 border-bottom">
+              <div className="col-md-5">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white border-end-0">
+                    <IconSearch size={16} className="text-muted" />
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control border-start-0"
+                    placeholder="Search stop #, order, customer, phone, or address..."
+                    value={stopSearch}
+                    onChange={(e) => setStopSearch(e.target.value)}
+                  />
+                  {stopSearch && (
+                    <button
+                      className="btn btn-outline-secondary border"
+                      type="button"
+                      onClick={() => setStopSearch("")}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="col-md-3">
+                <select
+                  className="form-select form-select-sm"
+                  value={stopStatusFilter}
+                  onChange={(e) => setStopStatusFilter(e.target.value)}
+                >
+                  <option value="ALL">All Stops ({stops.length})</option>
+                  <option value="Pending">Pending ({pendingCount})</option>
+                  <option value="Delivered">Delivered ({deliveredCount})</option>
+                  <option value="Attempted">Attempted ({attemptedCount})</option>
+                  <option value="Failed">Failed ({failedCount})</option>
+                </select>
+              </div>
+
+              <div className="col-md-4 text-md-end">
+                <button
+                  className="btn btn-outline-success btn-sm fw-bold d-inline-flex align-items-center"
+                  onClick={exportRunSheetExcel}
+                  disabled={stops.length === 0}
+                  title="Export official delivery run sheet to Excel"
+                >
+                  <IconFileSpreadsheet size={16} className="me-1" />
+                  Export Run Sheet (Excel)
+                </button>
+              </div>
+            </div>
+          )}
 
           {stops.length === 0 ? (
             <div className="text-center py-4 text-muted">
               No orders allocated to this truck run yet.
             </div>
+          ) : filteredStops.length === 0 ? (
+            <div className="text-center py-4 text-muted">
+              No delivery stops match your search criteria.
+            </div>
           ) : (
             <div className="d-flex flex-column gap-3">
-              {stops.map((stop) => {
+              {filteredStops.map((stop) => {
                 const isDelivered = stop.delivery_status === "Delivered";
                 const isFailed = stop.delivery_status === "Failed";
                 const isAttempted = stop.delivery_status === "Attempted";
