@@ -319,6 +319,34 @@ router.get('/:storeId/dispatch/today', requireAuth, requireRole([1, 2, 3]), asyn
   } catch (err) { next(err); }
 });
 
+// Available orders waiting for last-mile truck dispatch at this store
+router.get('/:storeId/dispatch/available-orders', requireAuth, requireRole([1, 2, 3]), async (req, res, next) => {
+  try {
+    const storeId = Number(req.params.storeId);
+    const [rows] = await db.query(
+      `SELECT o.order_id,
+              o.order_date,
+              o.requested_delivery_date AS delivery_date,
+              o.status,
+              o.total_value AS total_amount,
+              o.route_stop_id,
+              rs.stop_name,
+              rs.route_id,
+              r.name AS route_name
+       FROM \`order\` o
+       JOIN route_stop rs ON rs.route_stop_id = o.route_stop_id
+       JOIN route r ON r.route_id = rs.route_id
+       WHERE r.store_id = ?
+         AND o.order_id NOT IN (
+           SELECT order_id FROM truck_allocation WHERE order_id IS NOT NULL
+         )
+       ORDER BY o.order_date ASC`,
+      [storeId]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
 // System-suggested daily truck requirements per route — REQ-STORE-04, REQ-STORE-05
 router.get('/:storeId/truck-suggestion', requireAuth, requireRole([1, 2, 3]), async (req, res, next) => {
   try {

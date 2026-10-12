@@ -2,6 +2,7 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../db");
+const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -110,9 +111,13 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const [rows] = await db.query("SELECT * FROM `user` WHERE email = ?", [
-      email,
-    ]);
+    const [rows] = await db.query(
+      `SELECT u.*, r.role_name AS role
+       FROM \`user\` u
+       JOIN role r ON r.role_id = u.role_id
+       WHERE u.email = ?`,
+      [email],
+    );
     if (rows.length === 0)
       return res.status(401).json({ error: "Invalid email or password" });
 
@@ -132,10 +137,9 @@ router.post("/login", async (req, res) => {
         });
     }
 
-    const jwtSecret = process.env.JWT_SECRET || "kandypack_scms_super_secret_jwt_key_2026";
     const token = jwt.sign(
       { userId: user.user_id, roleId: user.role_id },
-      jwtSecret,
+      process.env.JWT_SECRET,
       { expiresIn: "8h" },
     );
     res.json({

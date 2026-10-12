@@ -12,14 +12,19 @@ import {
   IconChartBar,
   IconCalendarEvent,
   IconTruck,
+  IconTrain,
+  IconBoxSeam,
+  IconBuildingWarehouse,
+  IconClipboardCheck,
   IconPackage,
   IconShoppingCart,
-  IconUser,
   IconSettings,
+  IconUser,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";
+import { apiUrl } from "../api";
 
-export const roleNames = {
+const roleNames = {
   1: "Administrator",
   2: "Dispatcher",
   3: "Regional Store Manager",
@@ -33,13 +38,16 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", Icon: IconLayoutDashboard, allowedRoles: [1, 2, 3] },
   { to: "/orders", label: "My Orders", Icon: IconPackage, allowedRoles: [1, 2, 6] },
   { to: "/orders/new", label: "Place Order", Icon: IconShoppingCart, allowedRoles: [1, 6] },
+  { to: "/rail/schedules", label: "Train Schedules", Icon: IconTrain, allowedRoles: [1, 2, 3] },
+  { to: "/rail/loading", label: "Train Loading", Icon: IconBoxSeam, allowedRoles: [1, 2] },
+  { to: "/store/receipt", label: "Store Receipt", Icon: IconBuildingWarehouse, allowedRoles: [1, 3] },
+  { to: "/store/dispatch", label: "Daily Dispatch", Icon: IconClipboardCheck, allowedRoles: [1, 3] },
   { to: "/roster", label: "Roster Schedule", Icon: IconCalendarEvent, allowedRoles: [1, 2] },
   { to: "/delivery", label: "Delivery Runs", Icon: IconTruck, allowedRoles: [1, 2, 3, 4, 5] },
   { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },
-  { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1, 3] },
+  { to: "/admin/inventory", label: "Inventory", Icon: IconBox, allowedRoles: [1] },
   { to: "/reports", label: "Reports", Icon: IconChartBar, allowedRoles: [1, 2, 3] },
   { to: "/notifications", label: "Notifications", Icon: IconBell, allowedRoles: [1, 2, 3, 4, 5, 6] },
-  { to: "/settings", label: "Settings", Icon: IconSettings, allowedRoles: [1, 2, 3, 4, 5, 6] },
   { to: "/profile", label: "Profile", Icon: IconUser, allowedRoles: [1, 2, 3, 4, 5, 6] },
 ];
 
@@ -62,7 +70,7 @@ function AppLayout({ pageTitle, children }) {
     if (!userId) return;
     const fetchUnread = () => {
       axios
-        .get(`http://localhost:5000/api/notifications/${userId}`)
+        .get(apiUrl(`/api/notifications/${userId}`))
         .then((res) => {
           const count = res.data.filter((n) => !n.is_read).length;
           setUnreadCount(count);

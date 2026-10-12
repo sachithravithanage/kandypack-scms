@@ -1,22 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
+import { apiUrl } from "../api";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-const REPORT_TYPES = [
-  { value: "sales",            label: "Quarterly Sales" },
-  { value: "top-products",     label: "Top Selling Products" },
-  { value: "city-breakdown",   label: "City / Store Breakdown" },
-  { value: "staff-hours",      label: "Staff Working Hours" },
-  { value: "truck-utilization",label: "Truck Utilization" },
+const ALL_REPORT_TYPES = [
+  { value: "sales",            label: "Quarterly Sales",           roles: [1] },
+  { value: "top-products",     label: "Top Selling Products",      roles: [1, 3] },
+  { value: "city-breakdown",   label: "City / Store Breakdown",    roles: [1, 3] },
+  { value: "staff-hours",      label: "Staff Working Hours",       roles: [1, 2] },
+  { value: "truck-utilization",label: "Truck Utilization",         roles: [1, 2] },
+  { value: "recent-deliveries",label: "Recent Deliveries Summary", roles: [1, 2] },
+  { value: "system-summary",   label: "Complete System Summary",   roles: [1] },
 ];
 
 function Reports() {
   const [reportType, setReportType] = useState("sales");
   const [startDate, setStartDate]   = useState("2026-01-01");
   const [endDate, setEndDate]       = useState("2026-12-31");
+  const [limit, setLimit]           = useState(10);
   const [rows, setRows]             = useState([]);
   const [columns, setColumns]       = useState([]);
   const [loading, setLoading]       = useState(false);
@@ -24,6 +28,19 @@ function Reports() {
   const [fetched, setFetched]       = useState(false);
 
   const token = localStorage.getItem("token");
+  const userRole = parseInt(localStorage.getItem("roleId") || "0", 10);
+
+  // Filter reports based on the user's role
+  const REPORT_TYPES = useMemo(() => {
+    return ALL_REPORT_TYPES.filter((r) => r.roles.includes(userRole));
+  }, [userRole]);
+
+  // If the currently selected report isn't allowed for this role, default to their first allowed report
+  useEffect(() => {
+    if (REPORT_TYPES.length > 0 && !REPORT_TYPES.find(r => r.value === reportType)) {
+      setReportType(REPORT_TYPES[0].value);
+    }
+  }, [userRole, reportType, REPORT_TYPES]);
 
   const runReport = async () => {
     setLoading(true);
@@ -31,9 +48,9 @@ function Reports() {
     setRows([]);
     setFetched(false);
     try {
-      const params = { startDate, endDate };
+      const params = { startDate, endDate, limit };
       const res = await axios.get(
-        `http://localhost:5000/api/reports/${reportType}`,
+        apiUrl(`/api/reports/${reportType}`),
         { headers: { Authorization: `Bearer ${token}` }, params }
       );
       const data = res.data;
@@ -48,9 +65,9 @@ function Reports() {
   };
 
   const exportCsv = async () => {
-    const params = { startDate, endDate, format: "csv" };
+    const params = { startDate, endDate, limit, format: "csv" };
     const res = await axios.get(
-      `http://localhost:5000/api/reports/${reportType}`,
+      apiUrl(`/api/reports/${reportType}`),
       { headers: { Authorization: `Bearer ${token}` }, params, responseType: "blob" }
     );
     const url  = window.URL.createObjectURL(new Blob([res.data]));
@@ -69,9 +86,9 @@ function Reports() {
     doc.setFontSize(10);
     doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 22);
     
-    const tableData = rows.map((row) => columns.map((col) => row[col] ?? "—"));
+    const tableData = rows.map((row) => columns.map((col) => String(row[col] ?? "—")));
     
-    doc.autoTable({
+    autoTable(doc, {
       head: [columns.map((col) => col.replace(/_/g, " ").toUpperCase())],
       body: tableData,
       startY: 28,
@@ -101,14 +118,24 @@ function Reports() {
               ))}
             </select>
           </div>
-          <div>
-            <label>From</label>
-            <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div>
-            <label>To</label>
-            <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
+          {!(reportType === "system-summary" || reportType === "truck-utilization" || reportType === "city-breakdown" || reportType === "recent-deliveries" || reportType === "top-products") && (
+            <>
+              <div>
+                <label>From</label>
+                <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <label>To</label>
+                <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </>
+          )}
+          {(reportType === "recent-deliveries" || reportType === "top-products" || reportType === "system-summary") && (
+            <div>
+              <label>Limit (Rows)</label>
+              <input type="number" className="form-control" style={{ width: "100px" }} min="1" max="1000" value={limit} onChange={(e) => setLimit(e.target.value)} />
+            </div>
+          )}
           <button className="btn btn-primary" onClick={runReport} disabled={loading}>
             {loading ? "Loading…" : "Run Report"}
           </button>
@@ -156,4 +183,3 @@ function Reports() {
 }
 
 export default Reports;
-

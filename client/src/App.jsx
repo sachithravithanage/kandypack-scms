@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -8,10 +8,13 @@ import Reports from "./pages/Reports";
 import Notifications from "./pages/Notifications";
 import RosterSchedule from "./pages/RosterSchedule";
 import DriverDelivery from "./pages/DriverDelivery";
+import AdminTrainSchedule from "./pages/AdminTrainSchedule";
+import DispatcherTrainLoading from "./pages/DispatcherTrainLoading";
+import StoreShipmentReceipt from "./pages/StoreShipmentReceipt";
+import StoreDailyDispatch from "./pages/StoreDailyDispatch";
 import MyOrders from "./pages/MyOrders";
 import NewOrder from "./pages/NewOrder";
 import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 
@@ -45,6 +48,46 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
               <DriverDelivery />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rail/schedules"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <AdminTrainSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/trains"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <AdminTrainSchedule />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rail/loading"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <DispatcherTrainLoading />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/store/receipt"
+          element={
+            <ProtectedRoute allowedRoles={[1]}>
+              <StoreShipmentReceipt />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/store/dispatch"
+          element={
+            <ProtectedRoute allowedRoles={[1, 3]}>
+              <StoreDailyDispatch />
             </ProtectedRoute>
           }
         />
@@ -109,14 +152,6 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
               <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6]}>
-              <Settings />
             </ProtectedRoute>
           }
         />

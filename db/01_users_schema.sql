@@ -14,10 +14,12 @@ CREATE TABLE `user` (
   user_id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(150) NOT NULL UNIQUE,
+  phone VARCHAR(20),
   password_hash VARCHAR(255) NOT NULL,
   role_id INT NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  notification_preferences VARCHAR(255) NOT NULL DEFAULT '{"sms":true,"email":true,"inApp":true}',
   FOREIGN KEY (role_id) REFERENCES role(role_id)
 );
 

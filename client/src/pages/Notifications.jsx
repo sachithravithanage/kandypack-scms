@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
+import { apiUrl } from "../api";
 
 function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -16,7 +17,7 @@ function Notifications() {
     if (!userId) return;
     setLoading(true);
     axios
-      .get(`http://localhost:5000/api/notifications/${userId}`)
+      .get(apiUrl(`/api/notifications/${userId}`))
       .then((res) => {
         setNotifications(res.data);
         setLoading(false);
@@ -34,7 +35,7 @@ function Notifications() {
   const acknowledge = async (id) => {
     try {
       await axios.put(
-        `http://localhost:5000/api/notifications/${id}/acknowledge`,
+        apiUrl(`/api/notifications/${id}/acknowledge`),
         {},
         authHeader
       );
@@ -52,6 +53,20 @@ function Notifications() {
   };
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const downloadSummaryPDF = (n) => {
+    const doc = new jsPDF();
+    doc.text("Kandypack SCMS - Daily Summary", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Date: ${new Date(n.created_at).toLocaleDateString()}`, 14, 22);
+    
+    // Draw a neat box
+    doc.setDrawColor(15, 23, 42);
+    doc.rect(14, 28, 180, 20);
+    doc.text(n.message, 20, 39);
+    
+    doc.save(`Kandypack-Summary-${new Date(n.created_at).toISOString().split('T')[0]}.pdf`);
+  };
 
   return (
     <AppLayout pageTitle="Notifications">
@@ -124,4 +139,3 @@ function Notifications() {
 }
 
 export default Notifications;
-

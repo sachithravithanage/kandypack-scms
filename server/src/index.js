@@ -3,6 +3,10 @@ const cors = require("cors");
 require("dotenv").config();
 // KandyPack SCMS Server
 
+if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET must be configured before starting the server.");
+}
+
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const inventoryRoutes = require("./routes/inventory");
@@ -22,9 +26,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Base Health Check
+
+
 app.get("/", (req, res) => {
-  res.send("Kandypack API is running.");
+        res.send("Kandypack API is running.");
 });
 
 // Route Modules
@@ -45,13 +50,13 @@ app.use('/api/routes', routesRouter);
 
 // Centralized Error Handling Middleware
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
+        console.error(err);
+        res.status(err.status || 500).json({ error: err.message || "Internal server error" });
 });
 
 require("./cron");
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+        console.log(`Server running on port ${PORT}`);
 });

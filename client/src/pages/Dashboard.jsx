@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
-import { IconPackage, IconTruck, IconAlertTriangle } from "@tabler/icons-react";
+import { apiUrl } from "../api";
+import { IconPackage, IconTruck, IconAlertTriangle, IconCoin } from "@tabler/icons-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -18,6 +19,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 
 function Dashboard() {
   const [totalOrders, setTotalOrders]   = useState("—");
+  const [totalRevenue, setTotalRevenue] = useState("—");
   const [inTransit, setInTransit]       = useState("—");
   const [openAlerts, setOpenAlerts]     = useState("—");
   const [recentNotifs, setRecentNotifs] = useState([]);
@@ -38,22 +40,24 @@ function Dashboard() {
 
     // 1. Total orders from sales report
     axios
-      .get("http://localhost:5000/api/reports/sales", {
+      .get(apiUrl("/api/reports/sales"), {
         ...authH,
         params: { startDate, endDate },
       })
       .then((res) => {
-        const total = res.data.reduce((sum, r) => sum + (r.total_orders || 0), 0);
-        setTotalOrders(total);
+        const totalOrd = res.data.reduce((sum, r) => sum + (r.total_orders || 0), 0);
+        const totalRev = res.data.reduce((sum, r) => sum + (Number(r.total_revenue) || 0), 0);
+        setTotalOrders(totalOrd);
+        setTotalRevenue(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'LKR' }).format(totalRev));
         
         // Setup Sales Bar Chart
         if (res.data.length > 0) {
            setSalesData({
              labels: res.data.map(d => d.period || "Period"),
              datasets: [{
-               label: "Total Orders",
-               data: res.data.map(d => d.total_orders),
-               backgroundColor: "rgba(245, 158, 11, 0.8)", // Amber 500
+               label: "Total Revenue",
+               data: res.data.map(d => d.total_revenue),
+               backgroundColor: "rgba(16, 185, 129, 0.8)", // Emerald 500 for money
                borderRadius: 4
              }]
            });
@@ -63,7 +67,7 @@ function Dashboard() {
 
     // 2. In-transit: count truck schedules from utilization report
     axios
-      .get("http://localhost:5000/api/reports/truck-utilization", authH)
+      .get(apiUrl("/api/reports/truck-utilization"), authH)
       .then((res) => {
         const trips = res.data.reduce(
           (sum, t) => sum + (t.total_trips_assigned || 0), 0
@@ -90,7 +94,7 @@ function Dashboard() {
     // 3. Unread notifications as open alerts
     if (userId) {
       axios
-        .get(`http://localhost:5000/api/notifications/${userId}`)
+        .get(apiUrl(`/api/notifications/${userId}`))
         .then((res) => {
           const unread = res.data.filter((n) => !n.is_read);
           setOpenAlerts(unread.length);
@@ -107,6 +111,14 @@ function Dashboard() {
     <AppLayout pageTitle="Dashboard">
       {/* ── Stat cards ───────────────────────────────────── */}
       <div className="kp-stat-grid">
+        <div className="kp-stat-card">
+          <div className="kp-stat-icon" style={{ background: "var(--color-success-bg)" }}>
+            <IconCoin size={20} stroke={1.75} color="var(--color-success-text)" />
+          </div>
+          <p className="kp-stat-label">Total Revenue this year</p>
+          <p className="kp-stat-value">{loading ? "…" : totalRevenue}</p>
+        </div>
+
         <div className="kp-stat-card">
           <div className="kp-stat-icon" style={{ background: "var(--color-info-bg)" }}>
             <IconPackage size={20} stroke={1.75} color="var(--color-info-text)" />
@@ -198,4 +210,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-
