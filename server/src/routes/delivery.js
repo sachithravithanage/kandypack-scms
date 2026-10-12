@@ -390,7 +390,7 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
  * Queries Database VIEW \`v_driver_assigned_runs\` (CS3043 Intermediate SQL: Views)
  * Returns role-restricted runs assigned to a user or all runs for a date.
  */
-router.get('/driver-runs', requireAuth, async (req, res) => {
+router.get(['/driver-runs', '/assigned-runs'], requireAuth, async (req, res) => {
   try {
     const { driverId, date } = req.query;
     let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
