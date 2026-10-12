@@ -7,6 +7,7 @@ import { apiUrl } from "../api";
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -61,27 +62,53 @@ function Login() {
         </p>
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
-            <label>Email address</label>
+            <label className="form-label" style={{ fontSize: "0.875rem" }}>
+              Email address
+            </label>
             <input
               type="email"
               className="form-control"
+              placeholder="e.g. admin@kandypack.local"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
           <div className="mb-3">
-            <label>Password</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <label className="form-label mb-0" style={{ fontSize: "0.875rem" }}>
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-decoration-none small text-primary fw-medium"
+                style={{ fontSize: "0.8rem" }}
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <div className="input-group">
+              <input
+                type={showPassword ? "text" : "password"}
+                className="form-control"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex="-1"
+                aria-label="Toggle password visibility"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
           {error && (
-            <p className="text-danger" style={{ fontSize: "0.85rem" }}>
+            <p className="text-danger small" style={{ fontSize: "0.85rem" }}>
               {error}
             </p>
           )}
@@ -89,17 +116,44 @@ function Login() {
             Log in
           </button>
 
-          {/* Quick-Fill Demo Credentials */}
-          <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #e2e8f0" }}>
-            <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px", textAlign: "center" }}>
-              Quick Demo Accounts (Password: Password123!)
+          {/* Quick-Fill Demo Credentials for Grading / Evaluation */}
+          <div
+            style={{
+              marginTop: "20px",
+              paddingTop: "16px",
+              borderTop: "1px solid #e2e8f0",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: "#64748b",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                marginBottom: "8px",
+                textAlign: "center",
+              }}
+            >
+              TA Evaluation Credentials (Password: Password123!)
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+                justifyContent: "center",
+              }}
+            >
               <button
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("admin@kandypack.local"); setPassword("Password123!"); setError(""); }}
+                onClick={() => {
+                  setEmail("admin@kandypack.local");
+                  setPassword("Password123!");
+                  setError("");
+                }}
               >
                 👑 Admin
               </button>
@@ -107,7 +161,11 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("dispatcher@kandypack.local"); setPassword("Password123!"); setError(""); }}
+                onClick={() => {
+                  setEmail("dispatcher@kandypack.local");
+                  setPassword("Password123!");
+                  setError("");
+                }}
               >
                 📋 Dispatcher
               </button>
@@ -115,7 +173,11 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("driver@kandypack.local"); setPassword("Password123!"); setError(""); }}
+                onClick={() => {
+                  setEmail("driver@kandypack.local");
+                  setPassword("Password123!");
+                  setError("");
+                }}
               >
                 🚚 Driver
               </button>
@@ -123,7 +185,11 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("assistant@kandypack.local"); setPassword("Password123!"); setError(""); }}
+                onClick={() => {
+                  setEmail("assistant@kandypack.local");
+                  setPassword("Password123!");
+                  setError("");
+                }}
               >
                 🤝 Assistant
               </button>
@@ -131,9 +197,25 @@ function Login() {
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
                 style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => { setEmail("manager@kandypack.local"); setPassword("Password123!"); setError(""); }}
+                onClick={() => {
+                  setEmail("manager@kandypack.local");
+                  setPassword("Password123!");
+                  setError("");
+                }}
               >
                 🏬 Store Mgr
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                onClick={() => {
+                  setEmail("customer1@kandypack.local");
+                  setPassword("Password123!");
+                  setError("");
+                }}
+              >
+                🛒 Customer
               </button>
             </div>
           </div>
