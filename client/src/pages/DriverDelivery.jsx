@@ -56,9 +56,11 @@ function DriverDelivery() {
   const [issueType, setIssueType] = useState("Traffic Delay");
   const [issueDescription, setIssueDescription] = useState("");
 
-  const authHeader = {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
-  };
+  const authHeader = useMemo(() => {
+    return {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    };
+  }, []);
 
   // 1. Load all available runs
   const loadRuns = useCallback(async () => {
@@ -96,7 +98,7 @@ function DriverDelivery() {
     } finally {
       setActionLoading(false);
     }
-  }, [authHeader]);
+  }, []);
 
   useEffect(() => {
     loadRuns();

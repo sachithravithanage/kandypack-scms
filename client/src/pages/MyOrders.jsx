@@ -236,16 +236,16 @@ function MyOrders() {
     return 9;
   })();
   const token = localStorage.getItem("token");
-  const authHeader = token ? {
-    headers: { Authorization: `Bearer ${token}` },
-  } : {};
+  const authHeader = useMemo(() => {
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+  }, [token]);
 
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const currentToken = localStorage.getItem("token");
+      const headers = currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
       const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, { headers });
       // Sort orders newest first
       const sorted = (res.data || []).sort(
@@ -258,7 +258,7 @@ function MyOrders() {
     } finally {
       setLoading(false);
     }
-  }, [customerId, authHeader]);
+  }, [customerId]);
 
   useEffect(() => {
     loadOrders();
