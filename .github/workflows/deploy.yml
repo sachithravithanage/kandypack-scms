@@ -1,0 +1,46 @@
+name: Deploy to Azure VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH to Azure VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            echo "==> Navigating to project directory..."
+            cd ~/kandypack-scms
+
+            # Determine branch to pull
+            TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
+            echo "==> Checking out branch: $TARGET_BRANCH"
+            git fetch origin
+            git checkout "$TARGET_BRANCH"
+            git pull origin "$TARGET_BRANCH"
+
+            # Restart containers with fresh build
+            echo "==> Building and starting containers..."
+            docker compose down
+            docker compose up -d --build
+
+            # Clean dangling images to preserve disk space
+            docker image prune -f
+
+            echo "==> Deployment successful!"
