@@ -55,10 +55,12 @@ function DriverDelivery() {
   const loadRuns = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE}/delivery/driver-runs`, authHeader);
+      const token = localStorage.getItem("token") || "";
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await axios.get(`${API_BASE}/delivery/driver-runs`, { headers });
       setRuns(res.data || []);
-      if (res.data && res.data.length > 0 && !selectedScheduleId) {
-        setSelectedScheduleId(res.data[0].truck_schedule_id);
+      if (res.data && res.data.length > 0) {
+        setSelectedScheduleId((prev) => prev || res.data[0].truck_schedule_id);
       }
     } catch (err) {
       console.error("Error loading delivery runs:", err);
@@ -66,7 +68,7 @@ function DriverDelivery() {
     } finally {
       setLoading(false);
     }
-  }, [selectedScheduleId, authHeader]);
+  }, []);
 
   // 2. Load selected run details & stop sequence (REQ-DEL-01)
   const loadScheduleDetails = useCallback(async (scheduleId) => {
@@ -74,7 +76,9 @@ function DriverDelivery() {
     try {
       setActionLoading(true);
       setError("");
-      const res = await axios.get(`${API_BASE}/delivery/schedule/${scheduleId}/today`, authHeader);
+      const token = localStorage.getItem("token") || "";
+      const headers = { Authorization: `Bearer ${token}` };
+      const res = await axios.get(`${API_BASE}/delivery/schedule/${scheduleId}/today`, { headers });
       setActiveRun(res.data.schedule);
       setStops(res.data.stops || []);
     } catch (err) {
