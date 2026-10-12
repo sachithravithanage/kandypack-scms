@@ -5,10 +5,6 @@ import { apiUrl } from "../api";
 import {
   IconCalendarEvent,
   IconPlus,
-  IconClock,
-  IconTruck,
-  IconUser,
-  IconRoute,
   IconAlertCircle,
   IconCheck,
   IconAlertTriangle,
@@ -76,7 +72,7 @@ function RosterSchedule() {
     } finally {
       setLoading(false);
     }
-  }, [formData.routeId]);
+  }, [formData.routeId, authHeader]);
 
   useEffect(() => {
     loadData();

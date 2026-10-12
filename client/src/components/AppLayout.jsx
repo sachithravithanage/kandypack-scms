@@ -18,7 +18,6 @@ import {
   IconClipboardCheck,
   IconPackage,
   IconShoppingCart,
-  IconSettings,
   IconUser,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";

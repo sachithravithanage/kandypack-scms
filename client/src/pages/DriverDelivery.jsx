@@ -11,10 +11,6 @@ import {
   IconAlertCircle,
   IconPhone,
   IconChecklist,
-  IconArrowRight,
-  IconPackage,
-  IconRotateClockwise,
-  IconNote,
   IconSignature,
   IconAlertTriangle,
   IconSend,
@@ -70,7 +66,7 @@ function DriverDelivery() {
     } finally {
       setLoading(false);
     }
-  }, [selectedScheduleId]);
+  }, [selectedScheduleId, authHeader]);
 
   // 2. Load selected run details & stop sequence (REQ-DEL-01)
   const loadScheduleDetails = useCallback(async (scheduleId) => {
@@ -87,7 +83,7 @@ function DriverDelivery() {
     } finally {
       setActionLoading(false);
     }
-  }, []);
+  }, [authHeader]);
 
   useEffect(() => {
     loadRuns();

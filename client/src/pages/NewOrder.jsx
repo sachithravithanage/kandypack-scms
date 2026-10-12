@@ -44,7 +44,6 @@ function NewOrder() {
   const [productsLoading, setProductsLoading] = useState(true);
 
   // UI States
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -57,7 +56,9 @@ function NewOrder() {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         if (payload && payload.userId) return Number(payload.userId);
-      } catch {}
+      } catch (err) {
+        console.warn("Unable to read the stored customer token.", err);
+      }
     }
     return 9;
   })();
@@ -81,14 +82,11 @@ function NewOrder() {
   useEffect(() => {
     const loadCities = async () => {
       try {
-        setLoading(true);
         const cityRes = await axios.get(`${API_BASE}/cities`);
         setCities(cityRes.data || []);
       } catch (err) {
         console.error("Failed to load cities:", err);
         setError("Could not load delivery cities. Make sure the server is running.");
-      } finally {
-        setLoading(false);
       }
     };
     loadCities();

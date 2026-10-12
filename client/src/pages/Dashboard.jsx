@@ -105,7 +105,7 @@ function Dashboard() {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [authH, userId]);
 
   return (
     <AppLayout pageTitle="Dashboard">

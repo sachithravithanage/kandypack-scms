@@ -6,7 +6,6 @@ import { apiUrl } from "../api";
 import {
   IconPackage,
   IconPlus,
-  IconClock,
   IconCheck,
   IconTruck,
   IconAlertCircle,
@@ -15,9 +14,7 @@ import {
   IconSearch,
   IconMapPin,
   IconCalendar,
-  IconArrowRight,
   IconCircleCheck,
-  IconFilter,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -80,7 +77,9 @@ function MyOrders() {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         if (payload && payload.userId) return Number(payload.userId);
-      } catch {}
+      } catch (err) {
+        console.warn("Unable to read the stored customer token.", err);
+      }
     }
     return 9;
   })();
@@ -105,7 +104,7 @@ function MyOrders() {
     } finally {
       setLoading(false);
     }
-  }, [customerId]);
+  }, [customerId, authHeader]);
 
   useEffect(() => {
     loadOrders();

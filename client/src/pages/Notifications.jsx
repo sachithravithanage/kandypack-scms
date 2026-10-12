@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
@@ -13,7 +13,7 @@ function Notifications() {
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   };
 
-  const loadNotifications = () => {
+  const loadNotifications = useCallback(() => {
     if (!userId) return;
     setLoading(true);
     axios
@@ -26,11 +26,11 @@ function Notifications() {
         setError(err.response?.data?.error || "Could not load notifications");
         setLoading(false);
       });
-  };
+  }, [userId]);
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   const acknowledge = async (id) => {
     try {
@@ -53,20 +53,6 @@ function Notifications() {
   };
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
-
-  const downloadSummaryPDF = (n) => {
-    const doc = new jsPDF();
-    doc.text("Kandypack SCMS - Daily Summary", 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Date: ${new Date(n.created_at).toLocaleDateString()}`, 14, 22);
-    
-    // Draw a neat box
-    doc.setDrawColor(15, 23, 42);
-    doc.rect(14, 28, 180, 20);
-    doc.text(n.message, 20, 39);
-    
-    doc.save(`Kandypack-Summary-${new Date(n.created_at).toISOString().split('T')[0]}.pdf`);
-  };
 
   return (
     <AppLayout pageTitle="Notifications">
