@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
       - name: Validate Compose configuration
         run: docker compose --env-file .env.example config
       - name: Build application images
@@ -43,7 +45,7 @@ jobs:
             # Determine branch to pull
             TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
             echo "==> Checking out branch: $TARGET_BRANCH"
-            git fetch origin "$TARGET_BRANCH"
+            git fetch origin
             git checkout "$TARGET_BRANCH"
             git reset --hard "origin/$TARGET_BRANCH"
 
@@ -53,10 +55,10 @@ jobs:
               cp .env.example .env
             fi
 
-            # Restart containers with fresh build
-            echo "==> Building and starting containers..."
-            docker compose down
-            docker compose up -d --build
+            # Build and replace containers with minimal downtime
+            echo "==> Building and updating containers..."
+            docker compose build
+            docker compose up -d --remove-orphans
 
             # Clean dangling images to preserve disk space
             docker image prune -f
