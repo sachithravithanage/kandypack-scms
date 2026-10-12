@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
+import * as XLSX from "xlsx";
 import {
         IconTrain,
         IconPlus,
@@ -12,6 +13,8 @@ import {
         IconAlertCircle,
         IconFilter,
         IconBox,
+        IconFileSpreadsheet,
+        IconSearch,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -25,6 +28,7 @@ function AdminTrainSchedule() {
         const [success, setSuccess] = useState("");
 
         const [showAddModal, setShowAddModal] = useState(false);
+        const [searchQuery, setSearchQuery] = useState("");
         const [filterCity, setFilterCity] = useState("");
         const [filterStatus, setFilterStatus] = useState("");
 
@@ -156,11 +160,47 @@ function AdminTrainSchedule() {
                 return "var(--color-primary, #3182ce)";
         };
 
-        const filteredTrips = trips.filter((t) => {
-                if (filterCity && String(t.destination_city_id) !== String(filterCity)) return false;
-                if (filterStatus && t.status !== filterStatus) return false;
-                return true;
-        });
+        const filteredTrips = useMemo(() => {
+                return trips.filter((t) => {
+                        if (filterCity && String(t.destination_city_id) !== String(filterCity)) return false;
+                        if (filterStatus && t.status !== filterStatus) return false;
+                        if (searchQuery.trim()) {
+                                const q = searchQuery.toLowerCase().trim();
+                                const tripStr = formatTripId(t.trip_id).toLowerCase();
+                                const rawId = String(t.trip_id);
+                                const trainName = (t.train_name || "").toLowerCase();
+                                const city = (t.destination_city || "").toLowerCase();
+                                if (!tripStr.includes(q) && !rawId.includes(q) && !trainName.includes(q) && !city.includes(q)) {
+                                        return false;
+                                }
+                        }
+                        return true;
+                });
+        }, [trips, filterCity, filterStatus, searchQuery]);
+
+        const exportTripsExcel = () => {
+                const exportData = filteredTrips.map((t) => {
+                        const used = Number(t.used_capacity || 0);
+                        const total = Number(t.total_capacity || 0);
+                        const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                        return {
+                                "Trip ID": formatTripId(t.trip_id),
+                                "Train Name": t.train_name || `Train #${t.train_id}`,
+                                "Destination City": t.destination_city || "—",
+                                "Departure Datetime": formatDateTime(t.departure_datetime),
+                                "Arrival Datetime": formatDateTime(t.arrival_datetime),
+                                "Used Capacity": used,
+                                "Total Capacity": total,
+                                "Utilization %": `${pct}%`,
+                                "Status": t.status || "Scheduled",
+                        };
+                });
+
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Train Trip Schedules");
+                XLSX.writeFile(wb, `Train_Trip_Schedules_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        };
 
         return (
                 <AppLayout pageTitle="Train Schedule Management">
@@ -359,6 +399,18 @@ function AdminTrainSchedule() {
                                                 </span>
                                         </div>
                                         <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                <div className="input-group input-group-sm" style={{ width: "200px" }}>
+                                                        <span className="input-group-text bg-white">
+                                                                <IconSearch size={14} className="text-muted" />
+                                                        </span>
+                                                        <input
+                                                                type="text"
+                                                                className="form-control"
+                                                                placeholder="Search trip / train..."
+                                                                value={searchQuery}
+                                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                        />
+                                                </div>
                                                 <div className="d-flex align-items-center gap-1">
                                                         <IconFilter size={16} className="text-muted" />
                                                         <select
@@ -388,6 +440,15 @@ function AdminTrainSchedule() {
                                                         <option value="In Transit">In Transit</option>
                                                         <option value="Arrived">Arrived</option>
                                                 </select>
+                                                <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-outline-success d-inline-flex align-items-center"
+                                                        onClick={exportTripsExcel}
+                                                        disabled={filteredTrips.length === 0}
+                                                >
+                                                        <IconFileSpreadsheet size={15} className="me-1.5" />
+                                                        Export Excel
+                                                </button>
                                         </div>
                                 </div>
 
