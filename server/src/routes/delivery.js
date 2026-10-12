@@ -10,7 +10,7 @@ const router = express.Router();
  * REQ-DEL-01: Driver & Assistant Daily Run View
  * Retrieves the truck schedule and the ordered delivery stops for a given run.
  */
-router.get('/schedule/:truckScheduleId/today', async (req, res) => {
+router.get('/schedule/:truckScheduleId/today', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const scheduleId = Number(req.params.truckScheduleId);
 
@@ -85,7 +85,7 @@ router.get('/schedule/:truckScheduleId/today', async (req, res) => {
  * REQ-DEL-02: Store Dispatch & Pickup Confirmation
  * The driver/assistant confirms pickup of loaded goods from the store before departure.
  */
-router.put('/schedule/:truckScheduleId/pickup', async (req, res) => {
+router.put('/schedule/:truckScheduleId/pickup', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const scheduleId = Number(req.params.truckScheduleId);
 
@@ -109,6 +109,17 @@ router.put('/schedule/:truckScheduleId/pickup', async (req, res) => {
       [scheduleId]
     );
 
+    const operatorUserId = req.user?.user_id || req.user?.userId || null;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Confirmed store pickup', 'truck_schedule', ?, ?)`,
+      [
+        operatorUserId,
+        scheduleId,
+        `run #${scheduleId} pickup confirmed from store. Status changed to In Progress.`
+      ]
+    );
+
     res.json({
       message: 'Pickup confirmed from store. Delivery run is now In Progress.',
       truckScheduleId: scheduleId,
@@ -128,7 +139,7 @@ router.put('/schedule/:truckScheduleId/pickup', async (req, res) => {
  * - On 'Delivered': Advances `order` and `order_item` status to 'Delivered' (REQ-DEL-05).
  * - On 'Failed': Automatically re-queues order to next scheduled run on same route (REQ-DEL-04).
  */
-router.put('/allocations/:allocationId', async (req, res) => {
+router.put('/allocations/:allocationId', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const allocationId = Number(req.params.allocationId);
     const { deliveryStatus, note } = req.body;
@@ -184,6 +195,13 @@ router.put('/allocations/:allocationId', async (req, res) => {
     await db.query(
       'UPDATE truck_allocation SET delivery_status = ?, delivery_note = ?, delivered_at = NOW() WHERE truck_allocation_id = ?',
       [deliveryStatus, note || null, allocationId]
+    );
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || 1;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Recorded delivery outcome', 'truck_allocation', ?, ?)`,
+      [operatorUserId, allocationId, `Status: ${deliveryStatus}, Order #${alloc.order_id}, Note: ${note || 'None'}`]
     );
 
     let reallocatedScheduleId = null;
@@ -259,7 +277,7 @@ router.put('/allocations/:allocationId', async (req, res) => {
  * REQ-DEL-01 & REQ-SCHED-04: Complete Run & Log Actual Working Hours
  * Marks the truck run as Completed and inserts into roster_log for actual hour tracking.
  */
-router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
+router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const scheduleId = Number(req.params.truckScheduleId);
     let { actualStartTime, actualEndTime } = req.body;
@@ -313,6 +331,13 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
       [scheduleId, actualStartTime, actualEndTime]
     );
 
+    const operatorUserId = req.user?.user_id || req.user?.userId || 1;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Completed truck delivery run', 'truck_schedule', ?, ?)`,
+      [operatorUserId, scheduleId, `Status: Completed, Actual Hours: ${actualStartTime} to ${actualEndTime}`]
+    );
+
     // 3. Notify dispatchers (role_id = 2) that this run has successfully concluded
     try {
       const [dispatchers] = await db.query('SELECT user_id FROM `user` WHERE role_id = 2');
@@ -344,10 +369,10 @@ router.put('/schedule/:truckScheduleId/complete', async (req, res) => {
 
 /**
  * Active / Today's Run Finder for Drivers & Assistants
- * Queries Database VIEW `v_driver_assigned_runs` (CS3043 Intermediate SQL: Views)
+ * Queries Database VIEW \`v_driver_assigned_runs\` (CS3043 Intermediate SQL: Views)
  * Returns role-restricted runs assigned to a user or all runs for a date.
  */
-router.get('/driver-runs', async (req, res) => {
+router.get('/driver-runs', requireAuth, async (req, res) => {
   try {
     const { driverId, date } = req.query;
     let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
