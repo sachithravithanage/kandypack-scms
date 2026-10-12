@@ -13,7 +13,11 @@ const poolConfig = {
   database: process.env.DB_NAME || 'kandypack',
   connectTimeout: 25000,
   waitForConnections: true,
-  connectionLimit: 10
+  connectionLimit: 10,
+  ssl: process.env.DB_SSL === 'true' ? {
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: false
+  } : undefined
 };
 
 pool = mysql.createPool(poolConfig);
