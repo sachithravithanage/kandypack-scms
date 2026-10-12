@@ -43,9 +43,15 @@ jobs:
             # Determine branch to pull
             TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name }}"
             echo "==> Checking out branch: $TARGET_BRANCH"
-            git fetch origin
+            git fetch origin "$TARGET_BRANCH"
             git checkout "$TARGET_BRANCH"
-            git pull origin "$TARGET_BRANCH"
+            git reset --hard "origin/$TARGET_BRANCH"
+
+            # Ensure environment configuration is present
+            if [ ! -f .env ] && [ -f .env.example ]; then
+              echo "==> Initializing .env from template..."
+              cp .env.example .env
+            fi
 
             # Restart containers with fresh build
             echo "==> Building and starting containers..."
