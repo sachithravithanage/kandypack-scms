@@ -271,10 +271,14 @@ function MyOrders() {
       setActionLoading(true);
       setError("");
       const res = await axios.put(`${API_BASE}/orders/${orderId}/confirm-receipt`, {}, authHeader);
-      setSuccessMsg(res.data.message || `Order #${orderId} marked as received and closed.`);
+      const msg = res.data.message || `Order #${orderId} marked as received and closed.`;
+      setSuccessMsg(msg);
       loadOrders();
+      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Could not confirm order receipt.");
+      const errorMsg = err.response?.data?.error || "Could not confirm order receipt.";
+      setError(errorMsg);
+      window.alert(`❌ Confirmation Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }

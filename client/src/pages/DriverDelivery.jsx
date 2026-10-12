@@ -121,11 +121,15 @@ function DriverDelivery() {
         {},
         authHeader
       );
-      setSuccessMsg(res.data.message || "Pickup confirmed! Delivery run started.");
+      const msg = res.data.message || "Pickup confirmed! Delivery run started.";
+      setSuccessMsg(msg);
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to confirm pickup.");
+      const errorMsg = err.response?.data?.error || "Failed to confirm pickup.";
+      setError(errorMsg);
+      window.alert(`❌ Pickup Confirmation Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
@@ -134,30 +138,33 @@ function DriverDelivery() {
   // REQ-DEL-03 & REQ-DEL-05: Record Delivery Success with recipient note / proof
   const handleConfirmDelivery = async () => {
     if (!deliveryModalStop) return;
+    const currentStop = deliveryModalStop;
     try {
       setActionLoading(true);
       setError("");
       const res = await axios.put(
-        `${API_BASE}/delivery/allocations/${deliveryModalStop.truck_allocation_id}`,
+        `${API_BASE}/delivery/allocations/${currentStop.truck_allocation_id}`,
         {
           deliveryStatus: "Delivered",
           note: recipientNote ? `Recipient: ${recipientNote}` : "Delivered directly to customer.",
         },
         authHeader
       );
-      setSuccessMsg(`Order #${deliveryModalStop.order_id} marked as Delivered!`);
+      const successText = res.data?.allStopsFinished
+        ? `Delivery confirmed! All stops completed for Run #${selectedScheduleId}. Click 'Complete Run' to finish your shift.`
+        : `Delivery confirmed! Order #${currentStop.order_id} (Stop #${currentStop.stop_order}) has been marked as Delivered.`;
+
+      setSuccessMsg(successText);
       setDeliveryModalStop(null);
       setRecipientNote("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
 
-      if (res.data?.allStopsFinished) {
-        setSuccessMsg(
-          `All stops completed for Run #${selectedScheduleId}! Click 'Complete Run' below to finish your shift.`
-        );
-      }
+      window.alert(`✅ Success: ${successText}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to record delivery.");
+      const errorText = err.response?.data?.error || "Failed to record delivery.";
+      setError(errorText);
+      window.alert(`❌ Delivery Confirmation Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -166,6 +173,7 @@ function DriverDelivery() {
   // REQ-DEL-04: Record Delivery Failure and Auto Re-queue
   const handleMarkFailed = async () => {
     if (!failureModalStop) return;
+    const currentStop = failureModalStop;
     try {
       setActionLoading(true);
       setError("");
@@ -174,7 +182,7 @@ function DriverDelivery() {
         : failureReason;
 
       const res = await axios.put(
-        `${API_BASE}/delivery/allocations/${failureModalStop.truck_allocation_id}`,
+        `${API_BASE}/delivery/allocations/${currentStop.truck_allocation_id}`,
         {
           deliveryStatus: "Failed",
           note: fullNote,
@@ -182,7 +190,7 @@ function DriverDelivery() {
         authHeader
       );
 
-      let msg = "Delivery marked as Failed.";
+      let msg = `Order #${currentStop.order_id} marked as Failed.`;
       if (res.data.reallocatedScheduleId) {
         msg += ` Automatically re-queued onto next scheduled run #${res.data.reallocatedScheduleId} (REQ-DEL-04).`;
       } else {
@@ -195,8 +203,12 @@ function DriverDelivery() {
       setFailureDetail("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+
+      window.alert(`Delivery Outcome Recorded: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to record delivery failure.");
+      const errorText = err.response?.data?.error || "Failed to record delivery failure.";
+      setError(errorText);
+      window.alert(`❌ Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -205,6 +217,7 @@ function DriverDelivery() {
   // REQ-DEL-03: Record Delivery Attempted (Customer contacted / Door knocked, order stays on truck)
   const handleMarkAttempted = async () => {
     if (!attemptedModalStop) return;
+    const currentStop = attemptedModalStop;
     try {
       setActionLoading(true);
       setError("");
@@ -213,7 +226,7 @@ function DriverDelivery() {
         : attemptedReason;
 
       await axios.put(
-        `${API_BASE}/delivery/allocations/${attemptedModalStop.truck_allocation_id}`,
+        `${API_BASE}/delivery/allocations/${currentStop.truck_allocation_id}`,
         {
           deliveryStatus: "Attempted",
           note: fullNote,
@@ -221,14 +234,19 @@ function DriverDelivery() {
         authHeader
       );
 
-      setSuccessMsg(`Stop #${attemptedModalStop.stop_order} marked as Attempted (Customer notified).`);
+      const msg = `Stop #${currentStop.stop_order} marked as Attempted (Customer notified). Order stays on truck manifest.`;
+      setSuccessMsg(msg);
       setAttemptedModalStop(null);
       setAttemptedReason("Customer phone unanswered / Gate closed");
       setAttemptedDetail("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+
+      window.alert(`Delivery Attempt Recorded: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to record delivery attempt.");
+      const errorText = err.response?.data?.error || "Failed to record delivery attempt.";
+      setError(errorText);
+      window.alert(`❌ Attempt Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -284,11 +302,15 @@ function DriverDelivery() {
         {},
         authHeader
       );
-      setSuccessMsg(res.data.message || "Run marked as Completed! Hours recorded.");
+      const msg = res.data.message || "Run marked as Completed! Hours recorded.";
+      setSuccessMsg(msg);
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to complete run.");
+      const errorMsg = err.response?.data?.error || "Failed to complete run.";
+      setError(errorMsg);
+      window.alert(`❌ Run Completion Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
