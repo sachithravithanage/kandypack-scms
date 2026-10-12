@@ -11,7 +11,7 @@ function AuthLayout({ children }) {
             Rail and road-based supply chain distribution — from Kandy to every
             corner of the island.
 
-            Congrats. Pipeline Works!!!!!!!!!
+            Pipeline eka gammata wada!!!!!
           </p>
         </div>
       </div>
