@@ -19,6 +19,7 @@ import {
   IconPackage,
   IconShoppingCart,
   IconUser,
+  IconHistory,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";
 import { apiUrl } from "../api";
@@ -93,6 +94,12 @@ const navItems = [
     to: "/admin/inventory",
     label: "Inventory",
     Icon: IconBox,
+    allowedRoles: [1],
+  },
+  {
+    to: "/admin/audit-logs",
+    label: "Audit Logs",
+    Icon: IconHistory,
     allowedRoles: [1],
   },
   {
