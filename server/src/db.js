@@ -15,7 +15,11 @@ const poolConfig = {
   ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false },
   connectTimeout: 25000,
   waitForConnections: true,
-  connectionLimit: 10
+  connectionLimit: 10,
+  ssl: process.env.DB_SSL === 'true' ? {
+    minVersion: 'TLSv1.2',
+    rejectUnauthorized: false
+  } : undefined
 };
 
 try {
