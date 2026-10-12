@@ -295,9 +295,6 @@ function StoreDailyDispatch() {
                                                 <h5 className="mb-1" style={{ fontWeight: 600 }}>
                                                         Today&apos;s Scheduled Truck Runs & Loading
                                                 </h5>
-                                                <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
-                                                        Store Managers assign received customer orders to daily truck delivery runs (SRS 3.1.4).
-                                                </p>
                                         </div>
                                 </div>
 
