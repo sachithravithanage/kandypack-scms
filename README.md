@@ -81,17 +81,17 @@ Customer order
 
 ## Technology stack
 
-| Layer | Technology |
-| --- | --- |
-| Frontend | React 19, Vite, React Router, Axios, Bootstrap, Chart.js |
-| Backend | Node.js, Express 5 |
-| Authentication | bcrypt password hashing, JSON Web Tokens |
-| Database | MySQL 8 |
-| Notifications | Database-backed notifications, Nodemailer integration |
-| Scheduling | node-cron |
-| Reporting/export | Chart.js, jsPDF, jsPDF AutoTable, SheetJS |
-| Web serving | Nginx for the production frontend image |
-| Local deployment | Docker and Docker Compose |
+| Layer            | Technology                                               |
+| ---------------- | -------------------------------------------------------- |
+| Frontend         | React 19, Vite, React Router, Axios, Bootstrap, Chart.js |
+| Backend          | Node.js, Express 5                                       |
+| Authentication   | bcrypt password hashing, JSON Web Tokens                 |
+| Database         | MySQL 8                                                  |
+| Notifications    | Database-backed notifications, Nodemailer integration    |
+| Scheduling       | node-cron                                                |
+| Reporting/export | Chart.js, jsPDF, jsPDF AutoTable, SheetJS                |
+| Web serving      | Nginx for the production frontend image                  |
+| Local deployment | Docker and Docker Compose                                |
 
 ## Repository structure
 
@@ -200,13 +200,13 @@ development server normally listens on port `5173`.
 
 ### Useful commands
 
-| Purpose | Command |
-| --- | --- |
-| Start API with hot reload | `cd server && npm run dev` |
-| Start API normally | `cd server && npm start` |
-| Start Vite development server | `cd client && npm run dev` |
-| Build frontend | `cd client && npm run build` |
-| Lint frontend | `cd client && npm run lint` |
+| Purpose                           | Command                        |
+| --------------------------------- | ------------------------------ |
+| Start API with hot reload         | `cd server && npm run dev`     |
+| Start API normally                | `cd server && npm start`       |
+| Start Vite development server     | `cd client && npm run dev`     |
+| Build frontend                    | `cd client && npm run build`   |
+| Lint frontend                     | `cd client && npm run lint`    |
 | Preview production frontend build | `cd client && npm run preview` |
 
 ## Database design
@@ -214,13 +214,13 @@ development server normally listens on port `5173`.
 The database is initialized in dependency order. The primary ownership areas
 are:
 
-| Schema | Tables |
-| --- | --- |
-| Users and master data | `role`, `user`, `employee`, `city`, `audit_log` |
-| Orders | `product`, `route`, `route_stop`, `customer`, `order`, `order_item` |
-| Rail and stores | `train`, `train_trip`, `store`, `cargo_allocation`, `store_inventory` |
-| Rostering and delivery | `driver`, `assistant`, `truck`, `truck_schedule`, `truck_allocation`, `roster_log`, `system_parameter` |
-| Notifications and inventory | `notification`, `main_inventory` |
+| Schema                      | Tables                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Users and master data       | `role`, `user`, `employee`, `city`, `audit_log`                                                        |
+| Orders                      | `product`, `route`, `route_stop`, `customer`, `order`, `order_item`                                    |
+| Rail and stores             | `train`, `train_trip`, `store`, `cargo_allocation`, `store_inventory`                                  |
+| Rostering and delivery      | `driver`, `assistant`, `truck`, `truck_schedule`, `truck_allocation`, `roster_log`, `system_parameter` |
+| Notifications and inventory | `notification`, `main_inventory`                                                                       |
 
 Additional SQL files provide stored procedures, indexes, validation triggers,
 seed data, views, constraints, and window-function reporting. Run
@@ -255,7 +255,7 @@ Kandypack was developed by **Group 18**. The member assignments below document
 the complete contribution areas defined in the project guide. Names are listed
 in the same A-to-E order used by the team’s contributor list.
 
-### Member A — Jayawardhana J.A.R.P. (240297E)
+### Member A — Vithanage V.B.S. (240690D)
 
 **Role:** Auth, user management, master data, inventory, DevOps, and integration
 lead. **Branch:** `feature/auth`
@@ -279,7 +279,7 @@ lead. **Branch:** `feature/auth`
 **Owned tables:** `role`, `user`, `employee`, `city`, `audit_log`,
 `main_inventory`.
 
-### Member B — Kumarasinghe K.H.A.C.P. (240368A)
+### Member B — Jayawardhana J.A.R.P. (240297E)
 
 **Role:** Customer order placement and route-stop management. **Branch:**
 `feature/order-placement`
@@ -300,7 +300,7 @@ lead. **Branch:** `feature/auth`
 **Owned tables:** `product`, `route`, `route_stop`, `customer`, `order`,
 `order_item`.
 
-### Member C — Nanayakkara N.S. (240449A)
+### Member C — Kumarasinghe K.H.A.C.P. (240368A)
 
 **Role:** Rail scheduling, cargo allocation, and regional-store receipt.
 **Branch:** `feature/rail-store`
@@ -320,7 +320,7 @@ lead. **Branch:** `feature/auth`
 **Owned tables:** `train`, `train_trip`, `store`, `cargo_allocation`,
 `store_inventory`.
 
-### Member D — Rajapaksha W.T.D. (240539B)
+### Member D — Nanayakkara N.S. (240449A)
 
 **Role:** Fleet rostering and last-mile delivery execution. **Branch:**
 `feature/roster-delivery`
@@ -342,7 +342,7 @@ lead. **Branch:** `feature/auth`
 **Owned tables:** `driver`, `assistant`, `truck`, `truck_schedule`,
 `truck_allocation`, `roster_log`, `system_parameter`.
 
-### Member E — Vithanage V.B.S. (240690D)
+### Member E — Rajapaksha W.T.D. (240539B)
 
 **Role:** Reporting, notifications, and containerization support. **Branch:**
 `feature/reporting-notifications`
