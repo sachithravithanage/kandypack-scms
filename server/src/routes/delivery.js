@@ -45,6 +45,15 @@ router.get('/schedule/:truckScheduleId/today', requireAuth, requireRole([1, 2, 4
       return res.status(404).json({ error: `Truck schedule #${scheduleId} not found.` });
     }
 
+    const schedule = scheduleRows[0];
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+
+    // Strict access control: Drivers (4) and Assistants (5) can ONLY view schedules they are assigned to
+    if ((roleId === 4 || roleId === 5) && schedule.driver_id !== currentUserId && schedule.assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
+    }
+
     // 2. Fetch all allocations/stops for this run ordered by stop_order ASC
     const [allocations] = await db.query(
       `SELECT ta.truck_allocation_id,
@@ -91,12 +100,18 @@ router.put('/schedule/:truckScheduleId/pickup', requireAuth, requireRole([1, 2, 
 
     // Verify schedule exists
     const [scheduleRows] = await db.query(
-      'SELECT truck_schedule_id, status, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
+      'SELECT truck_schedule_id, status, driver_id, assistant_id, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
       [scheduleId]
     );
 
     if (!scheduleRows || scheduleRows.length === 0) {
       return res.status(404).json({ error: `Truck schedule #${scheduleId} not found.` });
+    }
+
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+    if ((roleId === 4 || roleId === 5) && scheduleRows[0].driver_id !== currentUserId && scheduleRows[0].assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
     }
 
     if (scheduleRows[0].pickup_confirmed_at) {
@@ -150,7 +165,7 @@ router.put('/allocations/:allocationId', requireAuth, requireRole([1, 2, 4, 5]),
 
     // 1. Fetch allocation and verify store pickup confirmation
     const [allocRows] = await db.query(
-      `SELECT ta.*, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status, o.customer_id
+      `SELECT ta.*, ts.driver_id, ts.assistant_id, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status, o.customer_id
        FROM truck_allocation ta
        JOIN truck_schedule ts ON ta.truck_schedule_id = ts.truck_schedule_id
        JOIN \`order\` o ON ta.order_id = o.order_id
@@ -163,6 +178,12 @@ router.put('/allocations/:allocationId', requireAuth, requireRole([1, 2, 4, 5]),
     }
 
     const alloc = allocRows[0];
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+
+    if ((roleId === 4 || roleId === 5) && alloc.driver_id !== currentUserId && alloc.assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
+    }
 
     // REQ-DEL-02 Enforcement: Cannot record deliveries before store pickup
     if (!alloc.pickup_confirmed_at) {
@@ -283,7 +304,7 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
     let { actualStartTime, actualEndTime } = req.body;
 
     const [scheduleRows] = await db.query(
-      'SELECT truck_schedule_id, scheduled_date, start_time, end_time, status, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
+      'SELECT truck_schedule_id, scheduled_date, start_time, end_time, status, driver_id, assistant_id, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
       [scheduleId]
     );
 
@@ -292,6 +313,11 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
     }
 
     const schedule = scheduleRows[0];
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+    if ((roleId === 4 || roleId === 5) && schedule.driver_id !== currentUserId && schedule.assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
+    }
 
     // Cannot complete a run that never confirmed pickup
     if (!schedule.pickup_confirmed_at) {
@@ -396,7 +422,16 @@ router.get(['/driver-runs', '/assigned-runs'], requireAuth, async (req, res) => 
     let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
     const params = [];
 
-    if (driverId) {
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+
+    // Strict role-based isolation:
+    // Drivers (role 4) and Assistants (role 5) can ONLY see runs they are assigned to.
+    if (roleId === 4 || roleId === 5) {
+      sql += ' AND (driver_id = ? OR assistant_id = ?)';
+      params.push(currentUserId, currentUserId);
+    } else if (driverId) {
+      // Admins (1) and Dispatchers (2) can optionally filter by driverId
       sql += ' AND (driver_id = ? OR assistant_id = ?)';
       params.push(driverId, driverId);
     }

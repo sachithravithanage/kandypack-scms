@@ -56,6 +56,9 @@ function DriverDelivery() {
   const [issueType, setIssueType] = useState("Traffic Delay");
   const [issueDescription, setIssueDescription] = useState("");
 
+  const roleId = Number(localStorage.getItem("roleId"));
+  const isDriverOrAssistant = roleId === 4 || roleId === 5;
+
   const authHeader = useMemo(() => {
     return {
       headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
@@ -393,12 +396,16 @@ function DriverDelivery() {
           <div className="kp-card h-100">
             <h3 className="h6 mb-3 d-flex align-items-center">
               <IconTruck className="me-2 text-primary" size={18} />
-              Select Assigned Truck Run
+              {isDriverOrAssistant ? "My Assigned Truck Runs" : "All Fleet Delivery Runs"}
             </h3>
             {loading ? (
               <p className="text-muted">Loading schedules...</p>
             ) : runs.length === 0 ? (
-              <p className="text-muted">No runs scheduled for today.</p>
+              <p className="text-muted">
+                {isDriverOrAssistant
+                  ? "No delivery runs currently assigned to you."
+                  : "No runs scheduled for today."}
+              </p>
             ) : (
               <div className="d-flex flex-column gap-2">
                 {runs.map((r) => {
