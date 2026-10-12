@@ -17,7 +17,7 @@ function Notifications() {
     if (!userId) return;
     setLoading(true);
     axios
-      .get(apiUrl(`/api/notifications/${userId}`))
+      .get(apiUrl(`/api/notifications/${userId}`), authHeader)
       .then((res) => {
         setNotifications(res.data);
         setLoading(false);
@@ -37,10 +37,12 @@ function Notifications() {
       await axios.put(
         apiUrl(`/api/notifications/${id}/acknowledge`),
         {},
-        authHeader
+        authHeader,
       );
       setNotifications((prev) =>
-        prev.map((n) => (n.notification_id === id ? { ...n, is_read: true } : n))
+        prev.map((n) =>
+          n.notification_id === id ? { ...n, is_read: true } : n,
+        ),
       );
     } catch {
       setError("Could not mark as read");
@@ -57,29 +59,48 @@ function Notifications() {
   return (
     <AppLayout pageTitle="Notifications">
       {error && (
-        <div className="kp-card" style={{ marginBottom: "1rem", color: "var(--color-danger-text)" }}>
+        <div
+          className="kp-card"
+          style={{ marginBottom: "1rem", color: "var(--color-danger-text)" }}
+        >
           {error}
         </div>
       )}
 
       <div className="kp-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1rem",
+          }}
+        >
           <p style={{ margin: 0, fontWeight: 600 }}>
             {unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}
           </p>
           {unreadCount > 0 && (
-            <button className="btn btn-sm btn-secondary" onClick={acknowledgeAll}>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={acknowledgeAll}
+            >
               Mark all as read
             </button>
           )}
         </div>
 
         {loading ? (
-          <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>Loading…</p>
+          <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
+            Loading…
+          </p>
         ) : notifications.length === 0 ? (
-          <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>No notifications yet.</p>
+          <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
+            No notifications yet.
+          </p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
+          >
             {notifications.map((n) => (
               <div
                 key={n.notification_id}
@@ -90,7 +111,9 @@ function Notifications() {
                   gap: "1rem",
                   padding: "0.85rem 1rem",
                   borderRadius: "var(--radius-md)",
-                  background: n.is_read ? "var(--color-bg)" : "var(--color-info-bg)",
+                  background: n.is_read
+                    ? "var(--color-bg)"
+                    : "var(--color-info-bg)",
                   border: "1px solid var(--color-border)",
                 }}
               >
@@ -101,8 +124,16 @@ function Notifications() {
                   >
                     {n.type || "Info"}
                   </span>
-                  <p style={{ margin: "0.3rem 0 0.2rem", fontSize: "0.9rem" }}>{n.message}</p>
-                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--color-text-faint)" }}>
+                  <p style={{ margin: "0.3rem 0 0.2rem", fontSize: "0.9rem" }}>
+                    {n.message}
+                  </p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.75rem",
+                      color: "var(--color-text-faint)",
+                    }}
+                  >
                     {new Date(n.created_at).toLocaleString()}
                   </p>
                 </div>

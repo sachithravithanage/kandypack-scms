@@ -68,7 +68,7 @@ Ensure the following tools are installed on your local machine:
     ```
 
     - Once the containers are running, the application will be accessible via your web browser at `http://localhost`.
-    - The database and API ports are bound to localhost only. The browser reaches the API through nginx at `/api`.
+    - The database and API ports are bound to localhost only. The browser reaches the API through nginx at `/api`; the production image deliberately does not inject `VITE_API_URL`, preventing browser requests from bypassing nginx and targeting the private API port.
 
 ### Azure VM deployment
 

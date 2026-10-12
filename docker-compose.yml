@@ -1,5 +1,4 @@
 services:
-
   # ── MySQL Database ──────────────────────────────────────────────────────────
   db:
     image: mysql:8.0
@@ -14,7 +13,17 @@ services:
       - db_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DB_PASSWORD}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -39,18 +48,23 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "127.0.0.1:5000:5000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ── React Client (built + served via nginx) ─────────────────────────────────
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-}
     container_name: kandypack-client
     restart: always
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     ports:
       - "80:80"
 

@@ -7,7 +7,14 @@ const { requireAuth } = require("../middleware/auth");
 const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validateRegistration({ name, email, password, phone, address, cityId }) {
+function validateRegistration({
+  name,
+  email,
+  password,
+  phone,
+  address,
+  cityId,
+}) {
   if (typeof name !== "string" || !name.trim()) {
     return "Name is required.";
   }
@@ -72,7 +79,9 @@ router.post("/register", async (req, res) => {
     );
     if (!customerRole) {
       await connection.rollback();
-      return res.status(500).json({ error: "Customer role is not configured." });
+      return res
+        .status(500)
+        .json({ error: "Customer role is not configured." });
     }
 
     const [[city]] = await connection.query(
@@ -110,7 +119,17 @@ router.post("/register", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email =
+      typeof req.body?.email === "string"
+        ? req.body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof req.body?.password === "string" ? req.body.password : "";
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Email and password are required." });
+    }
     const [rows] = await db.query(
       `SELECT u.*, r.role_name AS role
        FROM \`user\` u
@@ -130,11 +149,9 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
 
     if (!user.is_active) {
-      return res
-        .status(403)
-        .json({
-          error: "This account has been deactivated. Contact an administrator.",
-        });
+      return res.status(403).json({
+        error: "This account has been deactivated. Contact an administrator.",
+      });
     }
 
     const token = jwt.sign(
@@ -144,13 +161,18 @@ router.post("/login", async (req, res) => {
     );
     res.json({
       token,
-      user: { id: user.user_id, name: user.name, roleId: user.role_id, role: user.role, notification_preferences: user.notification_preferences },
+      user: {
+        id: user.user_id,
+        name: user.name,
+        roleId: user.role_id,
+        role: user.role,
+        notification_preferences: user.notification_preferences,
+      },
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
-
 
 // Read notification preferences
 router.get(["/preferences", "/preferences/:userId"], async (req, res) => {
@@ -175,16 +197,30 @@ router.get(["/preferences", "/preferences/:userId"], async (req, res) => {
 // Update notification preferences
 router.put(["/preferences", "/preferences/:userId"], async (req, res) => {
   try {
-    const userId = req.params.userId || req.body.userId || (req.user ? req.user.userId : null);
+    const userId =
+      req.params.userId ||
+      req.body.userId ||
+      (req.user ? req.user.userId : null);
     const { preferences } = req.body;
     if (!userId || preferences === undefined) {
-      return res.status(400).json({ error: "userId and preferences are required" });
+      return res
+        .status(400)
+        .json({ error: "userId and preferences are required" });
     }
 
-    const prefsString = typeof preferences === "string" ? preferences : JSON.stringify(preferences);
+    const prefsString =
+      typeof preferences === "string"
+        ? preferences
+        : JSON.stringify(preferences);
 
-    await db.query("UPDATE `user` SET notification_preferences = ? WHERE user_id = ?", [prefsString, userId]);
-    res.json({ message: "Notification preferences updated successfully", preferences: prefsString });
+    await db.query(
+      "UPDATE `user` SET notification_preferences = ? WHERE user_id = ?",
+      [prefsString, userId],
+    );
+    res.json({
+      message: "Notification preferences updated successfully",
+      preferences: prefsString,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
