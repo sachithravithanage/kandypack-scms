@@ -6,6 +6,9 @@
 USE kandypack;
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- Ensure all columns exist before inserting
+ALTER TABLE `order` ADD COLUMN IF NOT EXISTS delivered_at DATETIME NULL;
+
 -- ------------------------------------------------------------
 -- Table: `role` (6 rows)
 -- ------------------------------------------------------------

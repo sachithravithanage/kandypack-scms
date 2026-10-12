@@ -19,6 +19,8 @@ async function exportDatabase() {
   sql += '-- ================================================================\n\n';
   sql += 'USE kandypack;\n';
   sql += 'SET FOREIGN_KEY_CHECKS = 0;\n\n';
+  sql += '-- Ensure all schema alterations exist\n';
+  sql += 'ALTER TABLE `order` ADD COLUMN IF NOT EXISTS delivered_at DATETIME NULL;\n\n';
 
   let totalRows = 0;
 
