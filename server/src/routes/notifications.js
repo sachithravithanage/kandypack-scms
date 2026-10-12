@@ -16,7 +16,22 @@ async function createNotification(userId, type, message) {
   }
 }
 
-// GET /api/notifications/:userId - Fetch all notifications for a user
+// GET /api/notifications - Fetch notifications for the authenticated user
+router.get('/', requireAuth, async (req, res) => {
+  try {
+    const requesterId = req.user.userId || req.user.user_id;
+    const [rows] = await db.query(
+      'SELECT * FROM notification WHERE user_id = ? ORDER BY created_at DESC',
+      [requesterId]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error('Error fetching notifications:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch notifications.' });
+  }
+});
+
+// GET /api/notifications/:userId - Fetch all notifications for a specific user (Admins or self)
 router.get('/:userId', requireAuth, async (req, res) => {
   try {
     const requesterId = req.user.userId || req.user.user_id;

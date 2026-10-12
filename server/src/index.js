@@ -23,7 +23,12 @@ const productsRouter = require("./routes/products");
 const routesRouter = require("./routes/routes");
 
 const app = express();
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    frameguard: { action: "deny" },
+  })
+);
 app.use(cors());
 app.use(express.json());
 

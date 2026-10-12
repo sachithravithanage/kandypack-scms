@@ -196,7 +196,7 @@ router.get('/recent-deliveries', requireAuth, requireRole([1, 2, 3]), async (req
 });
 
 // 8. Complete System Summary (Admin Only)
-router.get('/system-summary', requireAuth, requireRole([1]), async (req, res) => {
+router.get(['/system-summary', '/complete-summary'], requireAuth, requireRole([1]), async (req, res) => {
   try {
     const { limit = 10, format } = req.query;
     const [rows] = await db.query(
@@ -207,6 +207,34 @@ router.get('/system-summary', requireAuth, requireRole([1]), async (req, res) =>
   } catch (err) {
     console.error('Error generating complete system summary:', err);
     res.status(500).json({ error: err.message || 'Failed to generate system summary.' });
+  }
+});
+
+// 9. Macro System KPIs for Dashboards & Performance Monitoring
+router.get('/kpis', requireAuth, requireRole([1, 2, 3]), async (_req, res) => {
+  try {
+    const [[sales]] = await db.query(
+      "SELECT COUNT(*) AS total_orders, COALESCE(SUM(total_value), 0) AS total_revenue FROM `order`"
+    );
+    const [[deliveries]] = await db.query(
+      "SELECT COUNT(*) AS total_delivered FROM truck_allocation WHERE delivery_status = 'Delivered'"
+    );
+    const [[inTransit]] = await db.query(
+      "SELECT COUNT(*) AS active_runs FROM truck_schedule WHERE status IN ('Scheduled', 'In Progress')"
+    );
+    const [[lowStock]] = await db.query(
+      "SELECT COUNT(*) AS low_stock_count FROM main_inventory WHERE quantity_in_stock < 100"
+    );
+    res.json({
+      totalOrders: Number(sales.total_orders) || 0,
+      totalRevenue: Number(sales.total_revenue) || 0,
+      totalDelivered: Number(deliveries.total_delivered) || 0,
+      activeRuns: Number(inTransit.active_runs) || 0,
+      lowStockCount: Number(lowStock.low_stock_count) || 0,
+    });
+  } catch (err) {
+    console.error('Error fetching KPIs:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch KPIs.' });
   }
 });
 
