@@ -96,13 +96,7 @@ function Login() {
               <label className="form-label mb-0" style={{ fontSize: "0.875rem" }}>
                 Password
               </label>
-              <Link
-                to="/forgot-password"
-                className="text-decoration-none small text-primary fw-medium"
-                style={{ fontSize: "0.8rem" }}
-              >
-                Forgot password?
-              </Link>
+              
             </div>
             <div className="input-group">
               <input
@@ -113,6 +107,8 @@ function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+
+              
               <button
                 type="button"
                 className="btn btn-outline-secondary"
@@ -122,6 +118,17 @@ function Login() {
               >
                 {showPassword ? "Hide" : "Show"}
               </button>
+
+            </div>
+
+            <div className="text-end mt-1">
+              <Link
+                to="/forgot-password"
+                className="text-decoration-none small text-primary fw-medium"
+                style={{ fontSize: "0.8rem" }}
+              >
+                Forgot password?
+              </Link>
             </div>
           </div>
           {error && (
