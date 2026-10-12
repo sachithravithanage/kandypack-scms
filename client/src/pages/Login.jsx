@@ -1,14 +1,20 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
 import { apiUrl } from "../api";
 
 function Login() {
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const [email, setEmail] = useState(location.state?.registeredEmail || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [successInfo, setSuccessInfo] = useState(
+    location.state?.registeredSuccess
+      ? "Account registered successfully! Please sign in with your credentials."
+      : ""
+  );
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
@@ -21,15 +27,18 @@ function Login() {
     }
   }, [navigate]);
 
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
+  const handleSubmit = async (e, overrideEmail, overridePassword) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     setError("");
+    setSuccessInfo("");
+    const targetEmail = overrideEmail || email;
+    const targetPassword = overridePassword || password;
     try {
       const res = await axios.post(apiUrl("/api/auth/login"), {
-        email,
-        password,
+        email: targetEmail,
+        password: targetPassword,
       });
       const user = res.data.user;
       localStorage.setItem("token", res.data.token);
@@ -56,6 +65,22 @@ function Login() {
     }
   };
 
+  const testAccounts = [
+    { label: "👑 Admin", email: "admin@kandypack.local" },
+    { label: "📋 Dispatcher", email: "dispatcher@kandypack.local" },
+    { label: "🚚 Driver", email: "driver@kandypack.local" },
+    { label: "🤝 Assistant", email: "assistant@kandypack.local" },
+    { label: "🏬 Store Mgr", email: "manager@kandypack.local" },
+    { label: "🛒 Customer", email: "customer1@kandypack.local" },
+  ];
+
+  const handleSelectTestAccount = (accEmail) => {
+    setEmail(accEmail);
+    setPassword("Password123!");
+    setError("");
+    setSuccessInfo("");
+  };
+
   return (
     <AuthLayout>
       <div className="kp-auth-card">
@@ -63,6 +88,13 @@ function Login() {
         <p className="text-muted mb-4" style={{ fontSize: "0.9rem" }}>
           Welcome back to Kandypack.
         </p>
+
+        {successInfo && (
+          <div className="alert alert-success p-2 small mb-3">
+            {successInfo}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label" style={{ fontSize: "0.875rem" }}>
@@ -82,7 +114,6 @@ function Login() {
               <label className="form-label mb-0" style={{ fontSize: "0.875rem" }}>
                 Password
               </label>
-              
             </div>
             <div className="input-group">
               <input
@@ -93,8 +124,6 @@ function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
-
-              
               <button
                 type="button"
                 className="btn btn-outline-secondary"
@@ -104,7 +133,6 @@ function Login() {
               >
                 {showPassword ? "Hide" : "Show"}
               </button>
-
             </div>
 
             <div className="text-end mt-1">
@@ -123,7 +151,7 @@ function Login() {
             </p>
           )}
           <button type="submit" className="btn btn-primary w-100 mt-2" disabled={submitting}>
-            {submitting ? "Signing in..." : "Log in"}
+            {submitting ? "Signing in..." : "Sign in"}
           </button>
 
           {/* Quick-Fill Demo Credentials for Grading / Evaluation */}
@@ -136,7 +164,7 @@ function Login() {
           >
             <p
               style={{
-                fontSize: "0.72rem",
+                fontSize: "0.75rem",
                 fontWeight: 700,
                 color: "#64748b",
                 textTransform: "uppercase",
@@ -145,7 +173,7 @@ function Login() {
                 textAlign: "center",
               }}
             >
-              TA Evaluation Credentials (Password: Password123!)
+              Test Accounts
             </p>
             <div
               style={{
@@ -155,78 +183,30 @@ function Login() {
                 justifyContent: "center",
               }}
             >
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => {
-                  setEmail("admin@kandypack.local");
-                  setPassword("Password123!");
-                  setError("");
-                }}
-              >
-                👑 Admin
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => {
-                  setEmail("dispatcher@kandypack.local");
-                  setPassword("Password123!");
-                  setError("");
-                }}
-              >
-                📋 Dispatcher
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => {
-                  setEmail("driver@kandypack.local");
-                  setPassword("Password123!");
-                  setError("");
-                }}
-              >
-                🚚 Driver
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => {
-                  setEmail("assistant@kandypack.local");
-                  setPassword("Password123!");
-                  setError("");
-                }}
-              >
-                🤝 Assistant
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => {
-                  setEmail("manager@kandypack.local");
-                  setPassword("Password123!");
-                  setError("");
-                }}
-              >
-                🏬 Store Mgr
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                onClick={() => {
-                  setEmail("customer1@kandypack.local");
-                  setPassword("Password123!");
-                  setError("");
-                }}
-              >
-                🛒 Customer
-              </button>
+              {testAccounts.map((acc) => {
+                const isSelected = email === acc.email;
+                return (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    className={`btn btn-sm ${
+                      isSelected
+                        ? "btn-primary shadow-sm"
+                        : "btn-outline-secondary"
+                    }`}
+                    style={{
+                      fontSize: "0.75rem",
+                      padding: "4px 10px",
+                      borderRadius: "20px",
+                      fontWeight: isSelected ? 600 : 500,
+                      transition: "all 0.15s ease-in-out",
+                    }}
+                    onClick={() => handleSelectTestAccount(acc.email)}
+                  >
+                    {acc.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
