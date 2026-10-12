@@ -3,6 +3,14 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
+const { ensureAzureTunnel } = require('./tunnel');
+
+if (process.env.DB_SSH_TUNNEL === 'true') {
+  ensureAzureTunnel().catch((err) => {
+    console.warn('[DB] Azure tunnel warning:', err.message);
+  });
+}
+
 let pool = null;
 
 const poolConfig = {
