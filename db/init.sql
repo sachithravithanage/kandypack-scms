@@ -266,11 +266,11 @@ INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES
   (6, 900), (7, 1100), (8, 950), (9, 1000), (10, 750);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id) VALUES
-  (1, 'System Administrator', 'admin@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 1),
-  (2, 'Dispatch Controller', 'dispatcher@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 2),
-  (3, 'Colombo Store Manager', 'manager@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 3),
-  (4, 'Nimal Perera', 'driver@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 4),
-  (5, 'Kamal Silva', 'assistant@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 5);
+  (1, 'System Administrator', 'admin@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 1),
+  (2, 'Dispatch Controller', 'dispatcher@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 2),
+  (3, 'Colombo Store Manager', 'manager@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 3),
+  (4, 'Nimal Perera', 'driver@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 4),
+  (5, 'Kamal Silva', 'assistant@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 5);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id)
 WITH RECURSIVE customer_numbers AS (
@@ -284,7 +284,7 @@ SELECT
   customer_number + 6,
   CONCAT('Sample Customer ', customer_number),
   CONCAT('customer', customer_number, '@kandypack.local'),
-  '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy',
+  '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e',
   6
 FROM customer_numbers;
 
@@ -595,3 +595,16 @@ BEGIN
 END//
 
 DELIMITER ;
+
+-- 08_password_reset.sql
+CREATE TABLE IF NOT EXISTS password_reset (
+  reset_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash VARCHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_token_hash (token_hash),
+  INDEX idx_user_id (user_id),
+  FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
