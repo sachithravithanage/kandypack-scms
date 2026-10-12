@@ -33,8 +33,12 @@ function StoreShipmentReceipt() {
   const [storeStock, setStoreStock] = useState([]);
   const [activeTab, setActiveTab] = useState("manifest"); // "manifest" | "inventory"
 
-  const [manifestSearch, setManifestSearch] = useState("");
-  const [inventorySearch, setInventorySearch] = useState("");
+  const [manifestSearch, setManifestSearch] = useState(
+    () => new URLSearchParams(window.location.search).get("search") || ""
+  );
+  const [inventorySearch, setInventorySearch] = useState(
+    () => new URLSearchParams(window.location.search).get("search") || ""
+  );
 
   const [loading, setLoading] = useState(true);
   const [loadingManifest, setLoadingManifest] = useState(false);

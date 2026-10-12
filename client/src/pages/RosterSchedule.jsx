@@ -34,7 +34,9 @@ function RosterSchedule() {
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Filters & search
-  const [searchFilter, setSearchFilter] = useState("");
+  const [searchFilter, setSearchFilter] = useState(
+    () => new URLSearchParams(window.location.search).get("search") || ""
+  );
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   // Form state

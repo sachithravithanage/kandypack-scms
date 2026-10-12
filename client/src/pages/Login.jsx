@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import AuthLayout from "../components/AuthLayout";
@@ -10,6 +10,23 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  // If already logged in, navigate straight to role home
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const roleId = Number(localStorage.getItem("roleId"));
+    if (token && roleId) {
+      if (roleId === 4 || roleId === 5) {
+        navigate("/delivery");
+      } else if (roleId === 2) {
+        navigate("/roster");
+      } else if (roleId === 6) {
+        navigate("/orders");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,8 +59,8 @@ function Login() {
         // Dispatcher -> Land directly in Roster Schedule portal
         navigate("/roster");
       } else if (user.roleId === 6) {
-        // Customer -> Land directly in Profile
-        navigate("/profile");
+        // Customer -> Land directly in My Orders portal
+        navigate("/orders");
       } else {
         // Admin or Store Manager -> Dashboard
         navigate("/dashboard");

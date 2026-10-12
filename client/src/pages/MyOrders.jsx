@@ -76,7 +76,9 @@ function MyOrders() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(
+    () => new URLSearchParams(window.location.search).get("search") || ""
+  );
   const [expandedOrders, setExpandedOrders] = useState({});
 
   // Edit Modal State

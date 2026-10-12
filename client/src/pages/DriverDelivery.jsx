@@ -32,7 +32,9 @@ function DriverDelivery() {
   const [successMsg, setSuccessMsg] = useState("");
 
   // Stop search and filter state
-  const [stopSearch, setStopSearch] = useState("");
+  const [stopSearch, setStopSearch] = useState(
+    () => new URLSearchParams(window.location.search).get("search") || ""
+  );
   const [stopStatusFilter, setStopStatusFilter] = useState("ALL");
 
   // Delivery confirmation modal state

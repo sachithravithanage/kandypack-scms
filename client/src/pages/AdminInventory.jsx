@@ -20,7 +20,9 @@ import * as XLSX from "xlsx";
 function AdminInventory() {
   const [stock, setStock] = useState([]);
   const [history, setHistory] = useState([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(
+    () => new URLSearchParams(window.location.search).get("search") || ""
+  );
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | IN_STOCK | LOW_STOCK | OUT_OF_STOCK
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
