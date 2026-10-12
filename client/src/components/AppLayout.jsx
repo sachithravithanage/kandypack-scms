@@ -238,7 +238,8 @@ function AppLayout({ pageTitle, children }) {
     }
   };
 
-  const initials = storedName
+  const currentUserName = storedName === "System Administrator" ? "Nimal Perera" : storedName;
+  const initials = currentUserName
     .split(" ")
     .map((w) => w[0])
     .slice(0, 2)
@@ -292,17 +293,46 @@ function AppLayout({ pageTitle, children }) {
 
       <div className="kp-main">
         <header className="kp-topbar">
-          <button
-            className="kp-menu-btn"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-          >
-            <IconMenu2 size={22} />
-          </button>
-          <h1>{pageTitle}</h1>
+          <div className="kp-topbar-left">
+            <button
+              className="kp-menu-btn"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              <IconMenu2 size={22} />
+            </button>
+            <div className="kp-breadcrumb">
+              <span className="kp-breadcrumb-portal">Kandypack SCMS / {storedRoleName}</span>
+              <h1 className="kp-page-title">{pageTitle}</h1>
+            </div>
+          </div>
+
           <div className="kp-topbar-actions">
+            {/* Live Operational Status Pill */}
+            <div
+              className="d-none d-xl-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+              style={{
+                background: "rgba(16, 185, 129, 0.08)",
+                border: "1px solid rgba(16, 185, 129, 0.2)",
+                fontSize: "0.75rem",
+                color: "#047857",
+                fontWeight: 600,
+              }}
+            >
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "50%",
+                  background: "#10b981",
+                  boxShadow: "0 0 0 2px rgba(16, 185, 129, 0.25)",
+                }}
+              ></span>
+              <span>Rail & Fleet Network Live</span>
+            </div>
+
             <div className="kp-search" style={{ position: "relative" }}>
-              <IconSearch size={16} stroke={1.75} />
+              <IconSearch size={15} stroke={1.75} />
               <input
                 type="text"
                 placeholder="Search..."
@@ -311,6 +341,12 @@ function AppLayout({ pageTitle, children }) {
                 onChange={(e) => setGlobalSearch(e.target.value)}
                 onKeyDown={handleGlobalSearch}
               />
+              <span
+                className="d-none d-md-inline-block text-muted px-1.5 py-0.5 rounded"
+                style={{ fontSize: "0.65rem", background: "rgba(0,0,0,0.06)", fontWeight: 600, letterSpacing: "0.2px" }}
+              >
+                Ctrl K
+              </span>
               {globalSearch && (
                 <button
                   type="button"
@@ -338,21 +374,26 @@ function AppLayout({ pageTitle, children }) {
                 </button>
               )}
             </div>
+
             <button
               onClick={() => navigate("/notifications")}
               style={{
                 position: "relative",
-                background: "none",
-                border: "none",
-                padding: "2px",
+                background: "rgba(0,0,0,0.03)",
+                border: "1px solid rgba(0,0,0,0.06)",
+                borderRadius: "10px",
+                width: "36px",
+                height: "36px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.15s ease",
               }}
               aria-label="Notifications"
             >
               <IconBell
-                size={19}
+                size={18}
                 stroke={1.75}
                 color="var(--color-text-muted)"
               />
@@ -360,44 +401,65 @@ function AppLayout({ pageTitle, children }) {
                 <span
                   style={{
                     position: "absolute",
-                    top: "-4px",
-                    right: "-4px",
-                    background: "var(--color-danger-text)",
+                    top: "-3px",
+                    right: "-3px",
+                    background: "#ef4444",
                     color: "#fff",
                     fontSize: "0.6rem",
                     fontWeight: 700,
                     borderRadius: "999px",
-                    minWidth: "15px",
-                    height: "15px",
+                    minWidth: "16px",
+                    height: "16px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     padding: "0 3px",
+                    boxShadow: "0 2px 4px rgba(239, 68, 68, 0.4)",
                   }}
                 >
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </button>
-            <div className="d-flex align-items-center gap-2 ms-2">
-              <div className="text-end d-none d-md-block">
+
+            <div
+              className="d-flex align-items-center gap-2.5 px-2 py-1 rounded-pill"
+              style={{
+                background: "rgba(0,0,0,0.02)",
+                border: "1px solid rgba(0,0,0,0.06)",
+                cursor: "pointer",
+                transition: "background 0.15s ease",
+              }}
+              onClick={() => navigate("/profile")}
+              title="View account profile"
+            >
+              <div
+                className="kp-avatar"
+                style={{
+                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                  boxShadow: "0 2px 6px rgba(37, 99, 235, 0.25)",
+                }}
+              >
+                {initials}
+              </div>
+              <div className="text-start d-none d-md-block pe-1">
                 <div
                   style={{
                     fontWeight: 600,
-                    fontSize: "0.85rem",
+                    fontSize: "0.82rem",
                     lineHeight: 1.2,
+                    color: "#0f172a",
                   }}
                 >
-                  {storedName}
+                  {currentUserName}
                 </div>
                 <div
                   className="badge bg-secondary-subtle text-secondary"
-                  style={{ fontSize: "0.7rem", padding: "2px 6px" }}
+                  style={{ fontSize: "0.68rem", padding: "1px 6px", fontWeight: 500 }}
                 >
                   {storedRoleName}
                 </div>
               </div>
-              <div className="kp-avatar">{initials}</div>
             </div>
           </div>
         </header>
