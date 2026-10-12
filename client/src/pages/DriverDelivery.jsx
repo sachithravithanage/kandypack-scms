@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
@@ -32,9 +33,24 @@ function DriverDelivery() {
   const [successMsg, setSuccessMsg] = useState("");
 
   // Stop search and filter state
-  const [stopSearch, setStopSearch] = useState(
-    () => new URLSearchParams(window.location.search).get("search") || ""
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [stopSearch, setStopSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setStopSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleStopSearchChange = (val) => {
+    setStopSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [stopStatusFilter, setStopStatusFilter] = useState("ALL");
 
   // Delivery confirmation modal state
@@ -625,13 +641,13 @@ function DriverDelivery() {
                     className="form-control border-start-0"
                     placeholder="Search stop #, order, customer, phone, or address..."
                     value={stopSearch}
-                    onChange={(e) => setStopSearch(e.target.value)}
+                    onChange={(e) => handleStopSearchChange(e.target.value)}
                   />
                   {stopSearch && (
                     <button
                       className="btn btn-outline-secondary border"
                       type="button"
-                      onClick={() => setStopSearch("")}
+                      onClick={() => handleStopSearchChange("")}
                     >
                       ✕
                     </button>

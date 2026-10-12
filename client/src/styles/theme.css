@@ -626,6 +626,22 @@ label {
 
 .kp-content {
   flex: 1;
+  animation: kpPageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes kpPageFadeIn {
+  from {
+    opacity: 0.88;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.btn, .nav-link, .kp-stat-card, .kp-badge {
+  transition: all 0.15s ease-in-out;
 }
 
 /* ---- Responsive: sidebar becomes a sliding drawer below 860px ---- */
@@ -673,3 +689,139 @@ label {
     padding: 0 var(--shell-gap) var(--shell-gap);
   }
 }
+
+/* ==========================================================================
+   Real-World Mass-Level Logistics Polish: Pulsing Dots, Stepper & Shimmers
+   ========================================================================== */
+
+/* Top sleek loading bar (replaces whole-page white flash) */
+.kp-top-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 99999;
+  background: transparent;
+  pointer-events: none;
+}
+.kp-top-loader-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #f59e0b, #10b981, #2563eb);
+  animation: kpLoaderProgress 1s ease-in-out infinite;
+}
+@keyframes kpLoaderProgress {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Pulsing operational status dots */
+@keyframes kpPulseDotGreen {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes kpPulseDotAmber {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.kp-dot-pulse-green {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #10b981;
+  border-radius: 50%;
+  animation: kpPulseDotGreen 2s infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.kp-dot-pulse-amber {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #f59e0b;
+  border-radius: 50%;
+  animation: kpPulseDotAmber 2s infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+/* Skeleton Loading Shimmer */
+@keyframes kpShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.kp-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: kpShimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+/* 5-Stage Supply Chain Stepper */
+.kp-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  margin: 1.5rem 0;
+}
+.kp-stepper::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: 20px;
+  right: 20px;
+  height: 3px;
+  background: var(--color-border);
+  z-index: 1;
+}
+.kp-step-node {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+}
+.kp-step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin: 0 auto 6px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  transition: all 0.25s ease;
+}
+.kp-step-done .kp-step-circle {
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff;
+}
+.kp-step-active .kp-step-circle {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+.kp-step-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.kp-step-done .kp-step-label,
+.kp-step-active .kp-step-label {
+  color: var(--color-text);
+}
+

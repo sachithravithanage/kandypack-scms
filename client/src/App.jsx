@@ -28,7 +28,11 @@ function App() {
   return (
     <BrowserRouter>
       <Suspense
-        fallback={<div className="kp-page-loading">Loading Kandypack…</div>}
+        fallback={
+          <div className="kp-top-loader">
+            <div className="kp-top-loader-bar"></div>
+          </div>
+        }
       >
         <Routes>
           {/* Public authentication routes */}
@@ -121,7 +125,7 @@ function App() {
           <Route
             path="/admin/inventory"
             element={
-              <ProtectedRoute allowedRoles={[1, 3]}>
+              <ProtectedRoute allowedRoles={[1]}>
                 <AdminInventory />
               </ProtectedRoute>
             }
@@ -145,7 +149,7 @@ function App() {
           <Route
             path="/orders"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 6]}>
+              <ProtectedRoute allowedRoles={[1, 6]}>
                 <MyOrders />
               </ProtectedRoute>
             }
@@ -153,7 +157,7 @@ function App() {
           <Route
             path="/my-orders"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 6]}>
+              <ProtectedRoute allowedRoles={[1, 6]}>
                 <MyOrders />
               </ProtectedRoute>
             }

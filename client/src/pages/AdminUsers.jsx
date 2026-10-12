@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -35,7 +35,24 @@ const creatableRoles = {
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [search, setSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [selectedRoleFilter, setSelectedRoleFilter] = useState("ALL");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -359,8 +376,17 @@ function AdminUsers() {
                 className="form-control"
                 placeholder="Search by user name or email..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
+              {search && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => handleSearchChange("")}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
           <div className="col-12 col-md-4">

@@ -9,27 +9,23 @@ function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  // If already logged in, navigate straight to role home
+  // If already logged in, navigate straight to dashboard
   useEffect(() => {
     const token = localStorage.getItem("token");
     const roleId = Number(localStorage.getItem("roleId"));
     if (token && roleId) {
-      if (roleId === 4 || roleId === 5) {
-        navigate("/delivery");
-      } else if (roleId === 2) {
-        navigate("/roster");
-      } else if (roleId === 6) {
-        navigate("/orders");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/dashboard", { replace: true });
     }
   }, [navigate]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setError("");
     try {
       const res = await axios.post(apiUrl("/api/auth/login"), {
         email,
@@ -51,22 +47,12 @@ function Login() {
       };
       localStorage.setItem("roleName", user.role || roleMap[user.roleId] || "Staff");
 
-      // Smart role-based landing redirection
-      if (user.roleId === 4 || user.roleId === 5) {
-        // Driver or Assistant -> Land directly in Delivery Runs portal
-        navigate("/delivery");
-      } else if (user.roleId === 2) {
-        // Dispatcher -> Land directly in Roster Schedule portal
-        navigate("/roster");
-      } else if (user.roleId === 6) {
-        // Customer -> Land directly in My Orders portal
-        navigate("/orders");
-      } else {
-        // Admin or Store Manager -> Dashboard
-        navigate("/dashboard");
-      }
+      // Immediate role-tailored dashboard loading for ANY role
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -136,8 +122,8 @@ function Login() {
               {error}
             </p>
           )}
-          <button type="submit" className="btn btn-primary w-100 mt-2">
-            Log in
+          <button type="submit" className="btn btn-primary w-100 mt-2" disabled={submitting}>
+            {submitting ? "Signing in..." : "Log in"}
           </button>
 
           {/* Quick-Fill Demo Credentials for Grading / Evaluation */}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -14,8 +14,24 @@ import {
 } from "@tabler/icons-react";
 
 function AdminAuditLog() {
-  const [logs, setLogs] = useState([]);
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [search, setSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -103,8 +119,17 @@ function AdminAuditLog() {
                 className="form-control"
                 placeholder="Search by action, table, user, or details..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
+              {search && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => handleSearchChange("")}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           </div>
         </div>

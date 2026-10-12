@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
@@ -34,9 +35,24 @@ function RosterSchedule() {
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Filters & search
-  const [searchFilter, setSearchFilter] = useState(
-    () => new URLSearchParams(window.location.search).get("search") || ""
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [searchFilter, setSearchFilter] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearchFilter(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchFilterChange = (val) => {
+    setSearchFilter(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   // Form state
@@ -440,13 +456,13 @@ function RosterSchedule() {
                 className="form-control border-start-0"
                 placeholder="Search schedule #, route, store, truck, or driver..."
                 value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
+                onChange={(e) => handleSearchFilterChange(e.target.value)}
               />
               {searchFilter && (
                 <button
                   className="btn btn-outline-secondary border"
                   type="button"
-                  onClick={() => setSearchFilter("")}
+                  onClick={() => handleSearchFilterChange("")}
                 >
                   ✕
                 </button>

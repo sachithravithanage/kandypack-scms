@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
@@ -33,12 +34,37 @@ function StoreShipmentReceipt() {
   const [storeStock, setStoreStock] = useState([]);
   const [activeTab, setActiveTab] = useState("manifest"); // "manifest" | "inventory"
 
-  const [manifestSearch, setManifestSearch] = useState(
-    () => new URLSearchParams(window.location.search).get("search") || ""
-  );
-  const [inventorySearch, setInventorySearch] = useState(
-    () => new URLSearchParams(window.location.search).get("search") || ""
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [manifestSearch, setManifestSearch] = useState(urlSearch);
+  const [inventorySearch, setInventorySearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setManifestSearch(urlSearch);
+    setInventorySearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleManifestSearchChange = (val) => {
+    setManifestSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleInventorySearchChange = (val) => {
+    setInventorySearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const [loading, setLoading] = useState(true);
   const [loadingManifest, setLoadingManifest] = useState(false);
@@ -489,9 +515,18 @@ function StoreShipmentReceipt() {
                     className="form-control"
                     placeholder="Search manifest..."
                     value={manifestSearch}
-                    onChange={(e) => setManifestSearch(e.target.value)}
+                    onChange={(e) => handleManifestSearchChange(e.target.value)}
                     disabled={manifest.length === 0}
                   />
+                  {manifestSearch && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => handleManifestSearchChange("")}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
                 {manifest.length > 0 && (
                   <>
@@ -535,7 +570,7 @@ function StoreShipmentReceipt() {
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setManifestSearch("")}
+                  onClick={() => handleManifestSearchChange("")}
                 >
                   Clear Search
                 </button>
@@ -691,9 +726,18 @@ function StoreShipmentReceipt() {
                   className="form-control"
                   placeholder="Search ledger..."
                   value={inventorySearch}
-                  onChange={(e) => setInventorySearch(e.target.value)}
+                  onChange={(e) => handleInventorySearchChange(e.target.value)}
                   disabled={storeStock.length === 0}
                 />
+                {inventorySearch && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => handleInventorySearchChange("")}
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
               <button
                 type="button"
@@ -727,7 +771,7 @@ function StoreShipmentReceipt() {
               <button
                 type="button"
                 className="btn btn-sm btn-outline-secondary"
-                onClick={() => setInventorySearch("")}
+                onClick={() => handleInventorySearchChange("")}
               >
                 Clear Search
               </button>

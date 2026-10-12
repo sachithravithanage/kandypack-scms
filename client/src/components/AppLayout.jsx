@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   IconLayoutDashboard,
@@ -20,6 +20,7 @@ import {
   IconShoppingCart,
   IconUser,
   IconHistory,
+  IconX,
 } from "@tabler/icons-react";
 import logo from "../assets/logo.png";
 import { apiUrl } from "../api";
@@ -45,7 +46,7 @@ const navItems = [
     to: "/orders",
     label: "My Orders",
     Icon: IconPackage,
-    allowedRoles: [1, 2, 6],
+    allowedRoles: [1, 6],
   },
   {
     to: "/orders/new",
@@ -125,8 +126,16 @@ const navItems = [
 function AppLayout({ pageTitle, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [globalSearch, setGlobalSearch] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const urlSearchTerm = new URLSearchParams(location.search).get("search") || "";
+  const [globalSearch, setGlobalSearch] = useState(urlSearchTerm);
+
+  // Keep search box synchronized with URL changes (e.g., in-page filter changes or back/forward)
+  useEffect(() => {
+    setGlobalSearch(urlSearchTerm);
+  }, [urlSearchTerm]);
 
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
   const storedRoleName =
@@ -134,18 +143,46 @@ function AppLayout({ pageTitle, children }) {
   const storedName = localStorage.getItem("name") || "User";
 
   const handleGlobalSearch = (e) => {
-    if (e.key === "Enter" && globalSearch.trim()) {
-      const term = encodeURIComponent(globalSearch.trim());
-      if (storedRoleId === 1) {
-        navigate(`/admin/inventory?search=${term}`);
-      } else if (storedRoleId === 2) {
-        navigate(`/roster?search=${term}`);
-      } else if (storedRoleId === 3) {
-        navigate(`/store/receipt?search=${term}`);
-      } else if (storedRoleId === 4 || storedRoleId === 5) {
-        navigate(`/delivery?search=${term}`);
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const term = globalSearch.trim();
+      const currentPath = location.pathname;
+
+      const searchableRoutes = [
+        "/orders",
+        "/my-orders",
+        "/admin/inventory",
+        "/delivery",
+        "/roster",
+        "/store/receipt",
+        "/store/dispatch",
+        "/rail/schedules",
+        "/admin/trains",
+        "/rail/loading",
+        "/admin/users",
+        "/admin/audit-logs",
+        "/reports",
+      ];
+      const isCurrentSearchable = searchableRoutes.some((r) =>
+        currentPath.startsWith(r)
+      );
+
+      const targetPath = isCurrentSearchable
+        ? currentPath
+        : storedRoleId === 1
+        ? "/admin/inventory"
+        : storedRoleId === 2
+        ? "/roster"
+        : storedRoleId === 3
+        ? "/store/receipt"
+        : storedRoleId === 4 || storedRoleId === 5
+        ? "/delivery"
+        : "/orders";
+
+      if (term) {
+        navigate(`${targetPath}?search=${encodeURIComponent(term)}`);
       } else {
-        navigate(`/orders?search=${term}`);
+        navigate(targetPath);
       }
     }
   };
@@ -177,6 +214,9 @@ function AppLayout({ pageTitle, children }) {
   }, []);
 
   const handleLogout = async () => {
+    if (!window.confirm("Are you sure you want to log out of Kandypack SCMS?")) {
+      return;
+    }
     try {
       const token = localStorage.getItem("token");
       if (token) {
@@ -194,7 +234,7 @@ function AppLayout({ pageTitle, children }) {
       localStorage.removeItem("name");
       localStorage.removeItem("roleId");
       localStorage.removeItem("roleName");
-      navigate("/");
+      navigate("/", { replace: true });
     }
   };
 
@@ -261,15 +301,42 @@ function AppLayout({ pageTitle, children }) {
           </button>
           <h1>{pageTitle}</h1>
           <div className="kp-topbar-actions">
-            <div className="kp-search">
+            <div className="kp-search" style={{ position: "relative" }}>
               <IconSearch size={16} stroke={1.75} />
               <input
                 type="text"
-                placeholder="Search anything (Press Enter)..."
+                placeholder="Search..."
+                aria-label="Search"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
                 onKeyDown={handleGlobalSearch}
               />
+              {globalSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGlobalSearch("");
+                    const nextParams = new URLSearchParams(location.search);
+                    if (nextParams.has("search")) {
+                      nextParams.delete("search");
+                      const remaining = nextParams.toString();
+                      navigate(remaining ? `${location.pathname}?${remaining}` : location.pathname);
+                    }
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: "0 2px",
+                    cursor: "pointer",
+                    color: "var(--color-text-muted)",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  aria-label="Clear search"
+                >
+                  <IconX size={14} />
+                </button>
+              )}
             </div>
             <button
               onClick={() => navigate("/notifications")}

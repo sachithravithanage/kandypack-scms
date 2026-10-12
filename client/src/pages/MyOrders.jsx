@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import AppLayout from "../components/AppLayout";
@@ -21,6 +21,7 @@ import {
   IconChevronUp,
   IconFileText,
   IconRefresh,
+  IconX,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -76,9 +77,24 @@ function MyOrders() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const [searchQuery, setSearchQuery] = useState(
-    () => new URLSearchParams(window.location.search).get("search") || ""
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearchQuery(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [expandedOrders, setExpandedOrders] = useState({});
 
   // Edit Modal State
@@ -464,14 +480,32 @@ function MyOrders() {
             ))}
           </div>
 
-          <div className="kp-search" style={{ width: 260 }}>
+          <div className="kp-search" style={{ width: 260, position: "relative" }}>
             <IconSearch size={16} stroke={1.75} />
             <input
               type="text"
               placeholder="Search by order ID or address..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange("")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "0 2px",
+                  cursor: "pointer",
+                  color: "var(--color-text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                aria-label="Clear search"
+              >
+                <IconX size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>

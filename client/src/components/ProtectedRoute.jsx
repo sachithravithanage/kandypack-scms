@@ -1,8 +1,9 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import { IconShieldLock, IconArrowLeft } from "@tabler/icons-react";
 
 export default function ProtectedRoute({ allowedRoles, children }) {
+  const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const roleId = Number(localStorage.getItem("roleId")) || 0;
 
@@ -33,15 +34,15 @@ export default function ProtectedRoute({ allowedRoles, children }) {
               className="btn btn-primary btn-sm px-4 fw-bold"
               onClick={() => {
                 if (roleId === 4 || roleId === 5) {
-                  window.location.href = "/delivery";
+                  navigate("/delivery", { replace: true });
                 } else if (roleId === 2) {
-                  window.location.href = "/roster";
+                  navigate("/roster", { replace: true });
                 } else if (roleId === 3) {
-                  window.location.href = "/store/receipt";
+                  navigate("/store/receipt", { replace: true });
                 } else if (roleId === 6) {
-                  window.location.href = "/orders";
+                  navigate("/orders", { replace: true });
                 } else {
-                  window.location.href = "/dashboard";
+                  navigate("/dashboard", { replace: true });
                 }
               }}
             >
