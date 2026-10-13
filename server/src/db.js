@@ -30,11 +30,18 @@ async function ensureReady() {
 
 let pool = null;
 
+const host = process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com';
+const isTiDb = host.includes('tidbcloud.com');
+let password = process.env.DB_PASSWORD;
+if (isTiDb && (!password || password === 'KandyPackLocalDb2026!')) {
+  password = 'CA1C4000fIE7agjV';
+}
+
 const poolConfig = {
-  host: process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+  host,
   port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 4000,
   user: process.env.DB_USER || '3RMV7RtvWn5FFds.root',
-  password: process.env.DB_PASSWORD || 'CA1C4000fIE7agjV',
+  password: password || 'CA1C4000fIE7agjV',
   database: process.env.DB_NAME || 'kandypack',
   connectTimeout: 25000,
   waitForConnections: true,
