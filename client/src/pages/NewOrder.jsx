@@ -691,7 +691,7 @@ function NewOrder() {
               <div className="small text-muted mt-2 d-flex align-items-start gap-1">
                 <IconInfoCircle size={14} className="flex-shrink-0 mt-1" />
                 <span>
-                  REQ-ORD-02 Rule: Orders must be placed at least 7 days before required delivery to allow rail scheduling.
+                  Orders must be placed at least 7 days before required delivery to allow rail scheduling.
                 </span>
               </div>
             </div>

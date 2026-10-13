@@ -359,10 +359,10 @@ INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES
   (6, 900), (7, 1100), (8, 950), (9, 1000), (10, 750);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id) VALUES
-  (1, 'System Administrator', 'admin@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 1),
+  (1, 'Nimal Perera', 'admin@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 1),
   (2, 'Dispatch Controller', 'dispatcher@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 2),
   (3, 'Colombo Store Manager', 'manager@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 3),
-  (4, 'Nimal Perera', 'driver@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 4),
+  (4, 'Sunil Jayawardena', 'driver@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 4),
   (5, 'Kamal Silva', 'assistant@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 5);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id)

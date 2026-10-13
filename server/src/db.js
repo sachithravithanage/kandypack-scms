@@ -5,10 +5,27 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const { ensureAzureTunnel } = require('./tunnel');
 
-if (process.env.DB_SSH_TUNNEL === 'true') {
-  ensureAzureTunnel().catch((err) => {
-    console.warn('[DB] Azure tunnel warning:', err.message);
-  });
+let tunnelPromise = null;
+function getTunnelPromise() {
+  if (process.env.DB_SSH_TUNNEL === 'true') {
+    if (!tunnelPromise) {
+      tunnelPromise = ensureAzureTunnel().catch((err) => {
+        console.warn('[DB] Azure tunnel warning:', err.message);
+        return false;
+      });
+    }
+    return tunnelPromise;
+  }
+  return Promise.resolve(true);
+}
+
+// Start tunnel immediately in background on module load
+getTunnelPromise();
+
+async function ensureReady() {
+  if (process.env.DB_SSH_TUNNEL === 'true') {
+    await getTunnelPromise();
+  }
 }
 
 let pool = null;
@@ -35,7 +52,7 @@ const defaultPasswordHash = '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVE
 
 const mockDb = {
   users: [
-    { user_id: 1, name: 'Kasun Perera', email: 'admin@kandypack.lk', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 1, name: 'Nimal Perera', email: 'admin@kandypack.local', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 2, name: 'Nimal Fernando', email: 'dispatcher@kandypack.lk', phone: '0712222222', role_id: 2, role: 'Dispatcher', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 3, name: 'Suneth Silva', email: 'suneth.cmb@kandypack.lk', phone: '0713333333', role_id: 3, role: 'Regional Store Manager', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 5, name: 'Kamal Gunaratne', email: 'kamal.driver@kandypack.lk', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
@@ -908,14 +925,34 @@ function executeMockQuery(sql, params = []) {
   return [[]];
 }
 
-module.exports = {
-        query: async (sql, params = []) => {
-                return pool.query(sql, params);
-        },
-        execute: async (sql, params) => {
-                return module.exports.query(sql, params);
-        },
-        getConnection: async () => {
-                return pool.getConnection();
-        }
+const dbExport = {
+  query: async (sql, params = []) => {
+    await ensureReady();
+    return pool.query(sql, params);
+  },
+  execute: async (sql, params) => {
+    await ensureReady();
+    return pool.query(sql, params);
+  },
+  getConnection: async () => {
+    await ensureReady();
+    return pool.getConnection();
+  },
+  pool,
+  ensureReady
 };
+
+module.exports = new Proxy(dbExport, {
+  get(target, prop) {
+    if (prop in target) {
+      return target[prop];
+    }
+    if (pool && typeof pool[prop] === 'function') {
+      return async (...args) => {
+        await ensureReady();
+        return pool[prop](...args);
+      };
+    }
+    return pool ? pool[prop] : undefined;
+  }
+});

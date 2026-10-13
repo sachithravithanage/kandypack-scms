@@ -7,10 +7,7 @@ import {
   IconHistory,
   IconSearch,
   IconRefresh,
-  IconShieldLock,
   IconUsers,
-  IconClock,
-  IconFileText,
 } from "@tabler/icons-react";
 
 function AdminAuditLog() {
@@ -32,6 +29,7 @@ function AdminAuditLog() {
     }
     setSearchParams(nextParams, { replace: true });
   };
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -84,10 +82,7 @@ function AdminAuditLog() {
               <IconHistory size={24} />
             </div>
             <div>
-              <h2 className="h5 mb-1">System Audit Trail (REQ-USR-05)</h2>
-              <p className="text-muted small mb-0">
-                Immutable chronological log of administrative operations, staff updates, logins, and inventory adjustments.
-              </p>
+              <h2 className="h5 mb-0 fw-bold">System Audit Trail</h2>
             </div>
           </div>
 

@@ -553,38 +553,64 @@ label {
 }
 
 .kp-topbar {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: var(--radius-xl);
-  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.8rem 1.5rem;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 0.75rem 1.5rem;
   position: sticky;
   top: 0;
   z-index: 20;
 }
-.kp-topbar h1 {
-  flex: 1;
-} /* pushes everything after it to the right edge, as one group */
+.kp-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+.kp-breadcrumb-portal {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.kp-page-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
 .kp-topbar-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   flex-shrink: 0;
 }
 .kp-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--color-bg);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-pill);
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.9rem;
   color: var(--color-text-faint);
-  width: 230px;
+  width: 260px;
+  transition: all 0.2s ease;
+}
+.kp-search:focus-within {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 .kp-search input {
   border: none;
@@ -595,24 +621,19 @@ label {
   color: var(--color-text);
   font-family: var(--font-sans);
 }
-.kp-topbar h1 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0;
-  white-space: nowrap;
-}
 .kp-avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: var(--color-navy-800);
-  color: #f5f6f8;
-  font-size: 0.72rem;
-  font-weight: 600;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  letter-spacing: 0.5px;
 }
 .kp-menu-btn {
   display: none;

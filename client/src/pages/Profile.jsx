@@ -10,12 +10,9 @@ import {
   IconAlertCircle,
   IconShield,
   IconMail,
-  IconPhone,
   IconMapPin,
   IconClock,
   IconTruck,
-  IconPackage,
-  IconBuildingWarehouse,
 } from "@tabler/icons-react";
 
 function Profile() {
@@ -103,6 +100,8 @@ function Profile() {
         authHeader
       );
       localStorage.setItem("name", name.trim());
+      setUserData((prev) => (prev ? { ...prev, name: name.trim() } : prev));
+      window.dispatchEvent(new Event("user-updated"));
       setSuccess("Personal details updated successfully.");
       loadProfile();
     } catch (err) {
@@ -320,43 +319,45 @@ function Profile() {
 
       {/* ── Tab 1: Personal Details ──────────────────────────── */}
       {activeTab === "info" && (
-        <div className="kp-card" style={{ maxWidth: "700px" }}>
+        <div className="kp-card">
           <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
             Account Profile Information
           </h3>
           <form onSubmit={handleUpdateInfo}>
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Full Name</label>
-              <input
-                type="text"
-                className="form-control"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+            <div className="row g-3 mb-3">
+              <div className="col-12 col-md-6">
+                <label className="form-label small fw-medium">Full Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Email Address (Login Identifier)</label>
-              <input
-                type="email"
-                className="form-control bg-light text-muted"
-                value={userData?.email || ""}
-                disabled
-              />
-              <span className="form-text small" style={{ fontSize: "0.76rem" }}>
-                Primary login email address cannot be changed directly.
-              </span>
-            </div>
+              <div className="col-12 col-md-6">
+                <label className="form-label small fw-medium">Email Address (Login Identifier)</label>
+                <input
+                  type="email"
+                  className="form-control bg-light text-muted"
+                  value={userData?.email || ""}
+                  disabled
+                />
+                <span className="form-text small" style={{ fontSize: "0.76rem" }}>
+                  Primary login email address cannot be changed directly.
+                </span>
+              </div>
 
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Assigned System Role</label>
-              <input
-                type="text"
-                className="form-control bg-light text-muted"
-                value={roleName}
-                disabled
-              />
+              <div className="col-12 col-md-6">
+                <label className="form-label small fw-medium">Assigned System Role</label>
+                <input
+                  type="text"
+                  className="form-control bg-light text-muted"
+                  value={roleName}
+                  disabled
+                />
+              </div>
             </div>
 
             {/* Customer specific delivery profile fields */}
@@ -366,43 +367,45 @@ function Profile() {
                   <IconMapPin size={16} className="text-primary" />
                   Default Customer Delivery Profile
                 </h4>
-                <div className="mb-3">
-                  <label className="form-label small fw-medium">Contact Phone Number</label>
-                  <input
-                    type="tel"
-                    className="form-control"
-                    placeholder="07X-XXXXXXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label small fw-medium">Street Delivery Address</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. 45 Galle Road, Colombo 03"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="mb-2">
-                  <label className="form-label small fw-medium">Registered Delivery City</label>
-                  <select
-                    className="form-select"
-                    value={cityId}
-                    onChange={(e) => setCityId(e.target.value)}
-                    required
-                  >
-                    <option value="">Select City</option>
-                    {cities.map((c) => (
-                      <option key={c.city_id} value={c.city_id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="row g-3">
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small fw-medium">Contact Phone Number</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      placeholder="07X-XXXXXXX"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small fw-medium">Street Delivery Address</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 45 Galle Road, Colombo 03"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small fw-medium">Registered Delivery City</label>
+                    <select
+                      className="form-select"
+                      value={cityId}
+                      onChange={(e) => setCityId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select City</option>
+                      {cities.map((c) => (
+                        <option key={c.city_id} value={c.city_id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
@@ -414,25 +417,27 @@ function Profile() {
                   <IconTruck size={16} className="text-primary" />
                   Driver License & Compliance Details
                 </h4>
-                <div className="mb-3">
-                  <label className="form-label small fw-medium">Commercial Driver License</label>
-                  <input
-                    type="text"
-                    className="form-control bg-white"
-                    value={userData.license_number || "Verified"}
-                    disabled
-                  />
-                </div>
-                <div className="mb-1">
-                  <div className="d-flex justify-content-between small mb-1">
-                    <span className="text-muted">Statutory Weekly Driving Hours:</span>
-                    <strong>{weeklyHours} / 40.0 hrs</strong>
-                  </div>
-                  <div className="progress" style={{ height: "6px" }}>
-                    <div
-                      className={`progress-bar ${weeklyHours > 36 ? "bg-danger" : weeklyHours > 30 ? "bg-warning" : "bg-success"}`}
-                      style={{ width: `${Math.min(100, (weeklyHours / 40) * 100)}%` }}
+                <div className="row g-3 align-items-center">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label small fw-medium">Commercial Driver License</label>
+                    <input
+                      type="text"
+                      className="form-control bg-white"
+                      value={userData.license_number || "Verified"}
+                      disabled
                     />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span className="text-muted">Statutory Weekly Driving Hours:</span>
+                      <strong>{weeklyHours} / 40.0 hrs</strong>
+                    </div>
+                    <div className="progress" style={{ height: "6px" }}>
+                      <div
+                        className={`progress-bar ${weeklyHours > 36 ? "bg-danger" : weeklyHours > 30 ? "bg-warning" : "bg-success"}`}
+                        style={{ width: `${Math.min(100, (weeklyHours / 40) * 100)}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -473,7 +478,7 @@ function Profile() {
 
       {/* ── Tab 2: Security & Password ───────────────────────── */}
       {activeTab === "security" && (
-        <div className="kp-card" style={{ maxWidth: "600px" }}>
+        <div className="kp-card">
           <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
             Change Account Password
           </h3>
@@ -482,40 +487,42 @@ function Profile() {
           </p>
 
           <form onSubmit={handleUpdatePassword}>
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Current Password</label>
-              <input
-                type="password"
-                className="form-control"
-                placeholder="Enter current password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </div>
+            <div className="row g-3 mb-3">
+              <div className="col-12 col-md-4">
+                <label className="form-label small fw-medium">Current Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Enter current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="mb-3">
-              <label className="form-label small fw-medium">New Password</label>
-              <input
-                type="password"
-                className="form-control"
-                placeholder="At least 8 characters (letters & numbers)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
-            </div>
+              <div className="col-12 col-md-4">
+                <label className="form-label small fw-medium">New Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="At least 8 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Confirm New Password</label>
-              <input
-                type="password"
-                className="form-control"
-                placeholder="Re-enter new password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
+              <div className="col-12 col-md-4">
+                <label className="form-label small fw-medium">Confirm New Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             <button
@@ -661,7 +668,7 @@ function Profile() {
 
       {/* ── Tab 4: Account Security & Status ─────────────────── */}
       {activeTab === "activity" && (
-        <div className="kp-card" style={{ maxWidth: "640px" }}>
+        <div className="kp-card">
           <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
             Security & Session Telemetry
           </h3>

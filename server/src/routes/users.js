@@ -4,7 +4,7 @@ const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
-const VALID_ROLE_IDS = new Set([1, 2, 3, 4, 5]);
+const VALID_ROLE_IDS = new Set([1, 2, 3, 4, 5, 6]);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validateUserFields({ name, email, password, roleId, licenseNumber }) {
@@ -24,7 +24,7 @@ function validateUserFields({ name, email, password, roleId, licenseNumber }) {
     return "Password must be at least 8 characters.";
   }
   if (!Number.isInteger(roleId) || !VALID_ROLE_IDS.has(roleId)) {
-    return "A valid staff role is required.";
+    return "A valid system role is required.";
   }
   if (roleId === 4 && (typeof licenseNumber !== "string" || !licenseNumber.trim())) {
     return "License number is required for drivers.";
@@ -38,9 +38,9 @@ function validateUserFields({ name, email, password, roleId, licenseNumber }) {
 // GET all users — Admin only (role_id 1)
 router.get("/", requireAuth, requireRole([1]), async (req, res) => {
   const [rows] = await db.query(
-    `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role, u.is_active, u.created_at
+    `SELECT u.user_id, u.name, u.email, u.role_id, COALESCE(r.role_name, 'User') AS role, u.is_active, u.created_at
      FROM \`user\` u
-     JOIN role r ON r.role_id = u.role_id
+     LEFT JOIN role r ON r.role_id = u.role_id
      ORDER BY u.user_id ASC`,
   );
   res.json(rows);
@@ -122,19 +122,19 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
   try {
     const roleId = Number(req.user.roleId || req.user.role_id);
     const userId = Number(req.user.userId || req.user.user_id);
+    const [[userRecord]] = await db.query('SELECT name FROM `user` WHERE user_id = ?', [userId]);
+    const userName = userRecord?.name || req.user.name || "User";
 
     if (roleId === 1) {
       // 👑 Admin Dashboard Stats
-      const now = new Date();
-      const currentYear = now.getFullYear();
       const [[salesTotals]] = await db.query(`
         SELECT 
           COUNT(*) AS total_orders,
           COALESCE(SUM(total_value), 0) AS total_revenue,
-          COALESCE(AVG(total_value), 0) AS avg_order_value
+          COALESCE(AVG(total_value), 0) AS avg_order_value,
+          COALESCE(SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END), 0) AS fulfilled_orders
         FROM \`order\`
-        WHERE YEAR(order_date) = ?
-      `, [currentYear]);
+      `);
 
       const [[invStats]] = await db.query(`
         SELECT 
@@ -172,6 +172,7 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
       `);
 
       return res.json({
+        userName,
         roleId,
         sales: salesTotals,
         inventory: invStats,

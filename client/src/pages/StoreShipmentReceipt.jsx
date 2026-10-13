@@ -498,12 +498,9 @@ function StoreShipmentReceipt() {
           <div className="kp-card">
             <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
               <div>
-                <h5 className="mb-1" style={{ fontWeight: 600 }}>
+                <h5 className="mb-0 fw-bold">
                   Incoming Manifest Verification
                 </h5>
-                <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
-                  Verify arriving quantities against the rail cargo manifest. Shortfalls will flag an automatic discrepancy.
-                </p>
               </div>
               <div className="d-flex flex-wrap align-items-center gap-2">
                 <div className="input-group input-group-sm" style={{ width: "240px" }}>
@@ -709,12 +706,9 @@ function StoreShipmentReceipt() {
         <div className="kp-card">
           <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
             <div>
-              <h5 className="mb-1" style={{ fontWeight: 600 }}>
+              <h5 className="mb-0 fw-bold">
                 Store Inventory On-Hand Ledger
               </h5>
-              <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
-                Current stock aggregated from the store&apos;s append-only shipment receipts ledger (REQ-STORE-03).
-              </p>
             </div>
             <div className="d-flex flex-wrap align-items-center gap-2">
               <div className="input-group input-group-sm" style={{ width: "240px" }}>

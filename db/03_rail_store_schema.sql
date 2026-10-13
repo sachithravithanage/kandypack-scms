@@ -34,6 +34,8 @@ create table cargo_allocation (
   received_quantity int,
   discrepancy_flag boolean default FALSE,
   discrepancy_note text,
+  is_overflow boolean default FALSE,
+  parent_allocation_id int,
   foreign key (order_item_id) references order_item(order_item_id),
   foreign key (trip_id) references train_trip(trip_id)
 );

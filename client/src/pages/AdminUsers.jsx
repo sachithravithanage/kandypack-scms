@@ -10,10 +10,8 @@ import {
   IconKey,
   IconHistory,
   IconEdit,
-  IconUserX,
   IconCheck,
   IconAlertCircle,
-  IconX,
 } from "@tabler/icons-react";
 
 const roleNames = {
@@ -240,10 +238,7 @@ function AdminUsers() {
               <IconUsers size={24} />
             </div>
             <div>
-              <h2 className="h5 mb-1">User & Staff Management (REQ-USR-03)</h2>
-              <p className="text-muted small mb-0">
-                Provision staff accounts, adjust roles, enforce access rules, and reset passwords.
-              </p>
+              <h2 className="h5 mb-0 fw-bold">User & Staff Management</h2>
             </div>
           </div>
 
@@ -365,8 +360,8 @@ function AdminUsers() {
         )}
 
         {/* ── Search & Filter Bar ──────────────────────────────── */}
-        <div className="row g-2 mb-3">
-          <div className="col-12 col-md-5">
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <div style={{ minWidth: "260px", maxWidth: "400px", flex: 1 }}>
             <div className="input-group input-group-sm">
               <span className="input-group-text bg-white">
                 <IconSearch size={15} className="text-muted" />
@@ -389,19 +384,32 @@ function AdminUsers() {
               )}
             </div>
           </div>
-          <div className="col-12 col-md-4">
-            <select
-              className="form-select form-select-sm"
-              value={selectedRoleFilter}
-              onChange={(e) => setSelectedRoleFilter(e.target.value)}
+
+          <div className="d-flex flex-wrap gap-1">
+            <button
+              type="button"
+              className={`btn btn-sm ${
+                selectedRoleFilter === "ALL" ? "btn-primary" : "btn-light border"
+              }`}
+              onClick={() => setSelectedRoleFilter("ALL")}
             >
-              <option value="ALL">All Roles ({users.length})</option>
-              {Object.entries(roleNames).map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              All Roles ({users.length})
+            </button>
+            {Object.entries(roleNames).map(([id, label]) => {
+              const count = users.filter((u) => String(u.role_id) === id).length;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={`btn btn-sm ${
+                    selectedRoleFilter === id ? "btn-primary" : "btn-light border"
+                  }`}
+                  onClick={() => setSelectedRoleFilter(id)}
+                >
+                  {label} ({count})
+                </button>
+              );
+            })}
           </div>
         </div>
 

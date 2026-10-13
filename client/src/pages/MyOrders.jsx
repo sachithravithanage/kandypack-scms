@@ -414,8 +414,7 @@ function MyOrders() {
       {/* Top Banner / Actions */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
-          <h2 className="h4 mb-0">Customer Order Portal</h2>
-          <p className="text-muted small mb-0">Track and manage your supply chain distribution orders</p>
+          <h2 className="h4 mb-0 fw-bold">Customer Order Portal</h2>
         </div>
         <Link to="/orders/new" className="btn btn-primary d-inline-flex align-items-center gap-2">
           <IconPlus size={18} stroke={2} />
@@ -887,7 +886,7 @@ function MyOrders() {
                       required
                     />
                     <div className="form-text small text-muted">
-                      Per supply chain policy (REQ-ORD-02), modifications must maintain at least a 7-day advance notice.
+                      Per supply chain policy, modifications must maintain at least a 7-day advance notice.
                     </div>
                   </div>
                 </div>
