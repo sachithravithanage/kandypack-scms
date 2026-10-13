@@ -44,8 +44,8 @@ router.get('/sales', requireAuth, requireRole([1, 2]), async (req, res) => {
   }
 });
 
-// 2. REQ-RPT-02: Top Selling Products (Admins, Dispatchers, Store Managers)
-router.get('/top-products', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
+// 2. REQ-RPT-02: Top Selling Products (Admins & Dispatchers)
+router.get('/top-products', requireAuth, requireRole([1, 2]), async (req, res) => {
   try {
     const { limit = 10, format } = req.query;
     const [rows] = await db.query(
@@ -59,8 +59,8 @@ router.get('/top-products', requireAuth, requireRole([1, 2, 3]), async (req, res
   }
 });
 
-// 3. REQ-RPT-03: City/Store Breakdown (Admins, Dispatchers, Store Managers)
-router.get('/city-breakdown', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
+// 3. REQ-RPT-03: City/Store Breakdown (Admins & Dispatchers)
+router.get('/city-breakdown', requireAuth, requireRole([1, 2]), async (req, res) => {
   try {
     const { format } = req.query;
     const [rows] = await db.query(
@@ -166,8 +166,8 @@ router.get('/customer/:customerId', requireAuth, async (req, res) => {
   }
 });
 
-// 7. Recent Deliveries Summary (Admins, Dispatchers, Store Managers)
-router.get('/recent-deliveries', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
+// 7. Recent Deliveries Summary (Admins & Dispatchers)
+router.get('/recent-deliveries', requireAuth, requireRole([1, 2]), async (req, res) => {
   try {
     const { limit = 10, format } = req.query;
     const [rows] = await db.query(

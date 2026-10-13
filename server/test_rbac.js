@@ -96,10 +96,10 @@ async function testRBAC() {
   await check('Customer BLOCKED from viewing other customer orders (/orders/customer/999)', () => fetch(`${BASE}/orders/customer/999`, { headers: authHeader(customer.token) }), 403);
   await check('Driver BLOCKED from viewing customer orders', () => fetch(`${BASE}/orders/customer/${custId}`, { headers: authHeader(driver.token) }), 403);
 
-  console.log('\n--- Test 8: Reports Access (Admin, Dispatcher, Store Mgr Only) ---');
+  console.log('\n--- Test 8: Reports Access (Admin & Dispatcher Only - Roles 1, 2) ---');
   await check('Admin can get /reports/sales', () => fetch(`${BASE}/reports/sales`, { headers: authHeader(admin.token) }), 200);
   await check('Dispatcher can get /reports/sales', () => fetch(`${BASE}/reports/sales`, { headers: authHeader(dispatcher.token) }), 200);
-  await check('Store Manager can get /reports/sales', () => fetch(`${BASE}/reports/sales`, { headers: authHeader(storeMgr.token) }), 200);
+  await check('Store Manager BLOCKED from /reports/sales', () => fetch(`${BASE}/reports/sales`, { headers: authHeader(storeMgr.token) }), 403);
   await check('Customer BLOCKED from /reports/sales', () => fetch(`${BASE}/reports/sales`, { headers: authHeader(customer.token) }), 403);
   await check('Driver BLOCKED from /reports/sales', () => fetch(`${BASE}/reports/sales`, { headers: authHeader(driver.token) }), 403);
   await check('Dispatcher BLOCKED from /reports/system-summary (Admin only)', () => fetch(`${BASE}/reports/system-summary`, { headers: authHeader(dispatcher.token) }), 403);
