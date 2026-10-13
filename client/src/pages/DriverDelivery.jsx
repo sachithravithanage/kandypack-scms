@@ -77,6 +77,17 @@ function DriverDelivery() {
   const roleId = Number(localStorage.getItem("roleId"));
   const isDriverOrAssistant = roleId === 4 || roleId === 5;
 
+  const canExecuteActions = useMemo(() => {
+    // Admin (1) and Dispatcher (2) have management privileges
+    if (roleId === 1 || roleId === 2) return true;
+    if (!activeRun) return false;
+    // Driver (4) and Assistant (5) can execute if assigned to this run
+    return (
+      Number(currentUserId) === Number(activeRun.driver_id) ||
+      Number(currentUserId) === Number(activeRun.assistant_id)
+    );
+  }, [roleId, currentUserId, activeRun]);
+
   const authHeader = useMemo(() => {
     return {
       headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
