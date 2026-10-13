@@ -126,6 +126,7 @@ const navItems = [
 function AppLayout({ pageTitle, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -140,7 +141,37 @@ function AppLayout({ pageTitle, children }) {
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
   const storedRoleName =
     localStorage.getItem("roleName") || roleNames[storedRoleId] || "Staff";
-  const storedName = localStorage.getItem("name") || "User";
+  const [currentUserName, setCurrentUserName] = useState(
+    localStorage.getItem("name") || "User"
+  );
+
+  // Synchronize user profile in real-time from backend & custom events
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    axios
+      .get(apiUrl("/api/users/profile"), {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        if (res.data?.name) {
+          setCurrentUserName(res.data.name);
+          localStorage.setItem("name", res.data.name);
+        }
+      })
+      .catch(() => {});
+
+    const syncUser = () => {
+      const n = localStorage.getItem("name");
+      if (n) setCurrentUserName(n);
+    };
+    window.addEventListener("user-updated", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("user-updated", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   const handleGlobalSearch = (e) => {
     if (e.key === "Enter") {
@@ -213,10 +244,13 @@ function AppLayout({ pageTitle, children }) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = async () => {
-    if (!window.confirm("Are you sure you want to log out of Kandypack SCMS?")) {
-      return;
-    }
+  const handleLogout = () => {
+    setMenuOpen(false);
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
     try {
       const token = localStorage.getItem("token");
       if (token) {
@@ -238,7 +272,6 @@ function AppLayout({ pageTitle, children }) {
     }
   };
 
-  const currentUserName = storedName === "System Administrator" ? "Nimal Perera" : storedName;
   const initials = currentUserName
     .split(" ")
     .map((w) => w[0])
@@ -341,12 +374,6 @@ function AppLayout({ pageTitle, children }) {
                 onChange={(e) => setGlobalSearch(e.target.value)}
                 onKeyDown={handleGlobalSearch}
               />
-              <span
-                className="d-none d-md-inline-block text-muted px-1.5 py-0.5 rounded"
-                style={{ fontSize: "0.65rem", background: "rgba(0,0,0,0.06)", fontWeight: 600, letterSpacing: "0.2px" }}
-              >
-                Ctrl K
-              </span>
               {globalSearch && (
                 <button
                   type="button"
@@ -465,6 +492,72 @@ function AppLayout({ pageTitle, children }) {
         </header>
         <main className="kp-content">{children}</main>
       </div>
+
+      {/* ── Custom Enterprise Logout Modal ───────────────────────── */}
+      {showLogoutModal && (
+        <div
+          className="modal d-block"
+          tabIndex="-1"
+          style={{
+            backgroundColor: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            zIndex: 1060,
+          }}
+          onClick={() => setShowLogoutModal(false)}
+        >
+          <div
+            className="modal-dialog modal-dialog-centered"
+            style={{ maxWidth: "420px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="modal-content shadow-lg border-0"
+              style={{ borderRadius: "18px", overflow: "hidden" }}
+            >
+              <div className="p-4 text-center">
+                <div
+                  className="d-inline-flex align-items-center justify-content-center mb-3"
+                  style={{
+                    width: "58px",
+                    height: "58px",
+                    borderRadius: "50%",
+                    background: "rgba(239, 68, 68, 0.12)",
+                    color: "#dc2626",
+                  }}
+                >
+                  <IconLogout size={26} stroke={1.75} />
+                </div>
+                <h5 className="fw-bold mb-2 text-dark" style={{ letterSpacing: "-0.01em" }}>
+                  Confirm Sign Out
+                </h5>
+                <p className="text-muted small mb-4" style={{ lineHeight: 1.5 }}>
+                  Are you sure you want to log out of Kandypack SCMS? You will need to enter your credentials again to resume work.
+                </p>
+                <div className="d-flex justify-content-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-light border px-4 py-2 fw-medium"
+                    style={{ borderRadius: "10px", minWidth: "110px" }}
+                    onClick={() => setShowLogoutModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger px-4 py-2 fw-medium d-inline-flex align-items-center gap-1.5"
+                    style={{ borderRadius: "10px", background: "#dc2626", minWidth: "130px" }}
+                    onClick={confirmLogout}
+                  >
+                    <IconLogout size={16} />
+                    <span>Yes, Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

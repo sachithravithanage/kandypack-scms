@@ -211,7 +211,7 @@ function DriverDelivery() {
 
       let msg = `Order #${currentStop.order_id} marked as Failed.`;
       if (res.data.reallocatedScheduleId) {
-        msg += ` Automatically re-queued onto next scheduled run #${res.data.reallocatedScheduleId} (REQ-DEL-04).`;
+        msg += ` Automatically re-queued onto next scheduled run #${res.data.reallocatedScheduleId}.`;
       } else {
         msg += " Flagged for Dispatcher re-routing review.";
       }
@@ -939,7 +939,7 @@ function DriverDelivery() {
               </div>
               <div className="modal-body">
                 <p className="small text-muted mb-3">
-                  Under <strong>REQ-DEL-04</strong>, marking this delivery as Failed will
+                  Marking this delivery as Failed will
                   record the incident and <strong>automatically re-queue</strong> Order #
                   {failureModalStop.order_id} onto the next available truck schedule on{" "}
                   <strong>{activeRun.route_name}</strong>.
@@ -1023,7 +1023,7 @@ function DriverDelivery() {
               </div>
               <div className="modal-body">
                 <p className="small text-muted mb-3">
-                  Under <strong>REQ-DEL-03</strong>, marking a stop as <strong>Attempted</strong> logs that delivery was attempted but not completed (e.g., premises closed). The order is <strong>kept on the vehicle manifest</strong> for re-attempt or dispatcher advice without immediately failing the consignment.
+                  Marking a stop as <strong>Attempted</strong> logs that delivery was attempted but not completed (e.g., premises closed). The order is <strong>kept on the vehicle manifest</strong> for re-attempt or dispatcher advice without immediately failing the consignment.
                 </p>
 
                 <div className="mb-3">

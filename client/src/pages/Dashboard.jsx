@@ -51,10 +51,10 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const token = localStorage.getItem("token");
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
-  const storedName = localStorage.getItem("name") || "User";
-  const displayName = storedName === "System Administrator" ? "Nimal Perera" : storedName;
+  const [currentName, setCurrentName] = useState(
+    localStorage.getItem("name") || "User"
+  );
   const storedUserId = localStorage.getItem("userId");
 
   const authHeader = useMemo(
@@ -62,17 +62,32 @@ function Dashboard() {
     [token]
   );
 
+  // Sync currentName when user updates their profile
+  useEffect(() => {
+    const syncUser = () => {
+      const n = localStorage.getItem("name");
+      if (n) setCurrentName(n);
+    };
+    window.addEventListener("user-updated", syncUser);
+    window.addEventListener("storage", syncUser);
+    return () => {
+      window.removeEventListener("user-updated", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
 
-    const loadData = async () => {
+    const loadData = async (silent = false) => {
+      if (!silent) setLoading(true);
       try {
         // Fetch role-tailored dashboard stats
         const res = await axios.get(apiUrl("/api/users/dashboard-stats"), authHeader);
         if (isMounted) {
           setStats(res.data);
-          if (res.data?.userName && res.data.userName !== storedName) {
+          if (res.data?.userName) {
+            setCurrentName(res.data.userName);
             localStorage.setItem("name", res.data.userName);
           }
         }
@@ -154,8 +169,13 @@ function Dashboard() {
     };
 
     loadData();
+    const interval = setInterval(() => loadData(true), 20000);
+    const onFocus = () => loadData(true);
+    window.addEventListener("focus", onFocus);
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
     };
   }, [authHeader, storedRoleId, storedUserId]);
 
@@ -215,7 +235,7 @@ function Dashboard() {
             </div>
 
             <h1 className="h4 fw-bold mb-1 text-white" style={{ letterSpacing: "-0.02em" }}>
-              Welcome back, {displayName}!
+              Welcome back, {currentName}!
             </h1>
             <p className="small mb-0" style={{ color: "#94a3b8", fontSize: "0.85rem", maxWidth: "680px" }}>
               {getRoleSubtitle(storedRoleId)}
@@ -291,7 +311,7 @@ function Dashboard() {
                     borderRadius: "6px",
                   }}
                 >
-                  +14.2% YTD
+                  Live Gross
                 </span>
               </div>
               <p className="kp-stat-label">Annual Revenue (LKR)</p>
@@ -323,7 +343,9 @@ function Dashboard() {
                     borderRadius: "6px",
                   }}
                 >
-                  100% Fulfilled
+                  {stats?.sales?.total_orders > 0
+                    ? `${Math.round(((stats?.sales?.fulfilled_orders || 0) / stats.sales.total_orders) * 100)}% Fulfilled`
+                    : "100% Fulfilled"}
                 </span>
               </div>
               <p className="kp-stat-label">Orders Processed</p>
@@ -374,15 +396,15 @@ function Dashboard() {
                 </div>
                 <span
                   style={{
-                    background: "rgba(245, 158, 11, 0.1)",
-                    color: "#d97706",
+                    background: (stats?.rail?.in_transit_trips > 0) ? "rgba(37, 99, 235, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                    color: (stats?.rail?.in_transit_trips > 0) ? "#2563eb" : "#d97706",
                     fontSize: "0.7rem",
                     fontWeight: 600,
                     padding: "2px 6px",
                     borderRadius: "6px",
                   }}
                 >
-                  On Schedule
+                  {stats?.rail?.in_transit_trips > 0 ? "Active In-Transit" : "On Schedule"}
                 </span>
               </div>
               <p className="kp-stat-label">Rail Freight Trips</p>

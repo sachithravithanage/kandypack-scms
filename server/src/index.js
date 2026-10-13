@@ -87,6 +87,15 @@ app.use((err, req, res, next) => {
 require("./cron");
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    const db = require("./db");
+    await db.query(
+      "UPDATE `user` SET name = 'Nimal Perera' WHERE (user_id = 1 OR email = 'admin@kandypack.local') AND name = 'System Administrator'"
+    );
+    console.log("[DB] Administrator name synchronized to Nimal Perera");
+  } catch (err) {
+    console.warn("[DB] Startup user sync note:", err.message);
+  }
 });

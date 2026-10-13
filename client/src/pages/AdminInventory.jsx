@@ -86,20 +86,27 @@ function AdminInventory() {
   const token = localStorage.getItem("token");
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
 
-  const loadStock = useCallback(async () => {
+  const loadStock = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await axios.get(apiUrl("/api/inventory"), authHeader);
       setStock(res.data || []);
     } catch (err) {
-      setError(err.response?.data?.error || "Could not load inventory records.");
+      if (!silent) setError(err.response?.data?.error || "Could not load inventory records.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadStock();
+    const interval = setInterval(() => loadStock(true), 15000);
+    const onFocus = () => loadStock(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadStock]);
 
   const loadHistory = async () => {
@@ -554,10 +561,7 @@ function AdminInventory() {
         {/* ── Action Header ─────────────────────────────────────── */}
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
           <div>
-            <h2 className="h5 mb-1 fw-bold">Central Warehouse Inventory Control</h2>
-            <p className="text-muted small mb-0">
-              Manage product SKUs, atomic Available-to-Promise (ATP) reservations, factory restocks, and warehouse audit adjustments.
-            </p>
+            <h2 className="h5 mb-0 fw-bold">Central Warehouse Inventory Control</h2>
           </div>
 
           <div className="d-flex flex-wrap align-items-center gap-2">

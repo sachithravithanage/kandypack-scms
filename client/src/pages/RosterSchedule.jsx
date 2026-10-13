@@ -273,13 +273,9 @@ function RosterSchedule() {
         </div>
       )}
 
-      {/* Header with Add Button */}
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h2 className="h5 mb-1 fw-bold">Truck Run Roster</h2>
-          <p className="text-muted small mb-0">
-            Schedule truck runs, enforce 7-day advance booking, prevent double-bookings, and track weekly 40h/60h limits.
-          </p>
+          <h2 className="h5 mb-0 fw-bold">Truck Run Roster</h2>
         </div>
         <div className="d-flex align-items-center gap-2">
           <button
@@ -616,7 +612,7 @@ function RosterSchedule() {
               <div className="modal-header">
                 <h5 className="modal-title d-flex align-items-center text-warning fw-bold">
                   <IconAlertTriangle size={20} className="me-2" />
-                  Dispatcher Override (REQ-SCHED-05)
+                  Dispatcher Override
                 </h5>
                 <button
                   type="button"
@@ -626,7 +622,7 @@ function RosterSchedule() {
               </div>
               <div className="modal-body">
                 <p className="small text-muted">
-                  Under <strong>REQ-SCHED-05</strong>, dispatchers may override validation rules
+                  Dispatchers may override validation rules
                   in emergency situations. A mandatory written justification is required and will
                   be stored permanently in the <code>audit_log</code> table.
                 </p>
