@@ -361,6 +361,11 @@ function executeMockQuery(sql, params = []) {
     return [[]]; // SPs usually return arrays of result sets
   }
 
+  // Rail Allocation Mocks: Member C Stored Procedures
+  if (s.includes('CALL SP_ALLOCATE_CARGO') || s.includes('CALL SP_OVERFLOW_ALLOCATE')) {
+    return [[]];
+  }
+
   // Dashboard: Total orders (reports/sales)
   if (s.includes('AS TOTAL_ORDERS') && s.includes('FROM `ORDER`')) {
     return [[{ period: '2026-10', total_orders: 1450, total_revenue: 2500000, total_volume: 120 }]];

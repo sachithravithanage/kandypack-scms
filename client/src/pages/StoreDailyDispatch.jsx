@@ -583,7 +583,7 @@ function StoreDailyDispatch() {
                                                                                 >
                                                                                         <option value="">Choose an order ({filteredAvailableOrders.length} available)...</option>
                                                                                         {filteredAvailableOrders.map((ord) => (
-                                                                                                 <option key={ord.order_id} value={ord.order_id}>
+                                                                                                <option key={ord.order_id} value={ord.order_id}>
                                                                                                         Order #{ord.order_id} — {ord.stop_name || ord.route_name} (LKR {Number(ord.total_amount).toLocaleString()})
                                                                                                 </option>
                                                                                         ))}
