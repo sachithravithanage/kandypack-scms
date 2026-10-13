@@ -10,10 +10,8 @@ import {
   IconKey,
   IconHistory,
   IconEdit,
-  IconUserX,
   IconCheck,
   IconAlertCircle,
-  IconX,
 } from "@tabler/icons-react";
 
 const roleNames = {

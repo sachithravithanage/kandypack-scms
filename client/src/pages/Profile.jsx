@@ -10,12 +10,9 @@ import {
   IconAlertCircle,
   IconShield,
   IconMail,
-  IconPhone,
   IconMapPin,
   IconClock,
   IconTruck,
-  IconPackage,
-  IconBuildingWarehouse,
 } from "@tabler/icons-react";
 
 function Profile() {

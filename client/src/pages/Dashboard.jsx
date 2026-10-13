@@ -51,6 +51,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const token = localStorage.getItem("token");
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
   const [currentName, setCurrentName] = useState(
     localStorage.getItem("name") || "User"

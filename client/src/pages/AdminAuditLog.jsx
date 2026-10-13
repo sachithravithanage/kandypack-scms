@@ -7,10 +7,7 @@ import {
   IconHistory,
   IconSearch,
   IconRefresh,
-  IconShieldLock,
   IconUsers,
-  IconClock,
-  IconFileText,
 } from "@tabler/icons-react";
 
 function AdminAuditLog() {
