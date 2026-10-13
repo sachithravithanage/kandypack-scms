@@ -220,6 +220,7 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
       `);
 
       return res.json({
+        userName,
         roleId,
         todayTrips,
         orderQueue,

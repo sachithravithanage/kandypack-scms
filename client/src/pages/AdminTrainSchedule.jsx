@@ -64,8 +64,8 @@ function AdminTrainSchedule() {
                 return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         };
 
-        const loadData = useCallback(async () => {
-                setLoading(true);
+        const loadData = useCallback(async (silent = false) => {
+                if (!silent) setLoading(true);
                 setError("");
                 try {
                         const [tripsRes, trainsRes, citiesRes] = await Promise.all([
@@ -79,12 +79,19 @@ function AdminTrainSchedule() {
                 } catch (err) {
                         setError(err.response?.data?.error || "Failed to load train schedules");
                 } finally {
-                        setLoading(false);
+                        if (!silent) setLoading(false);
                 }
         }, []);
 
         useEffect(() => {
                 loadData();
+                const interval = setInterval(() => loadData(true), 20000);
+                const onFocus = () => loadData(true);
+                window.addEventListener("focus", onFocus);
+                return () => {
+                        clearInterval(interval);
+                        window.removeEventListener("focus", onFocus);
+                };
         }, [loadData]);
 
         const handleCreateTrip = async (e) => {
@@ -224,12 +231,9 @@ function AdminTrainSchedule() {
                 <AppLayout pageTitle="Train Schedule Management">
                         <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                                 <div>
-                                        <h2 className="mb-1" style={{ fontWeight: 600, fontSize: "1.5rem" }}>
+                                        <h2 className="mb-0" style={{ fontWeight: 600, fontSize: "1.5rem" }}>
                                                 Train Schedule Management
                                         </h2>
-                                        <p className="text-muted mb-0" style={{ fontSize: "0.9rem" }}>
-                                                Manage Kandy hub outbound rail schedules, destinations, and capacities
-                                        </p>
                                 </div>
                                 <button
                                         className="btn btn-primary d-inline-flex align-items-center gap-2"

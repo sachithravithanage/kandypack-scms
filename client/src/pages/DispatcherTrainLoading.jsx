@@ -134,6 +134,20 @@ function DispatcherTrainLoading() {
 			setError("");
 			loadTripDetail(selectedTripId);
 			loadAllotableOrders(selectedTripId);
+
+			const interval = setInterval(() => {
+				loadTripDetail(selectedTripId);
+				loadAllotableOrders(selectedTripId);
+			}, 15000);
+			const onFocus = () => {
+				loadTripDetail(selectedTripId);
+				loadAllotableOrders(selectedTripId);
+			};
+			window.addEventListener("focus", onFocus);
+			return () => {
+				clearInterval(interval);
+				window.removeEventListener("focus", onFocus);
+			};
 		}
 	}, [selectedTripId, loadTripDetail, loadAllotableOrders]);
 

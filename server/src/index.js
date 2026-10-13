@@ -92,9 +92,12 @@ app.listen(PORT, async () => {
   try {
     const db = require("./db");
     await db.query(
-      "UPDATE `user` SET name = 'Nimal Perera' WHERE (user_id = 1 OR email = 'admin@kandypack.local') AND name = 'System Administrator'"
+      "UPDATE `user` SET name = 'Nimal Perera' WHERE (user_id = 1 OR email = 'admin@kandypack.local') AND name IN ('System Administrator', 'Administrator')"
     );
-    console.log("[DB] Administrator name synchronized to Nimal Perera");
+    await db.query(
+      "UPDATE `user` SET name = 'Kavinda Fernando' WHERE (user_id = 2 OR email = 'dispatcher@kandypack.local') AND name IN ('Dispatch Controller', 'Dispatcher')"
+    );
+    console.log("[DB] Administrator & Dispatcher names synchronized");
   } catch (err) {
     console.warn("[DB] Startup user sync note:", err.message);
   }
