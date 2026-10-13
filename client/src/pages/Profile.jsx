@@ -41,6 +41,13 @@ function Profile() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Email verification modal state
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyMessage, setVerifyMessage] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+
   const token = localStorage.getItem("token");
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -81,6 +88,52 @@ function Profile() {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(""), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  const handleOpenVerifyModal = async () => {
+    setVerifyError("");
+    setVerifyMessage("");
+    setShowVerifyModal(true);
+    try {
+      const res = await axios.post(apiUrl("/api/users/send-verification"), {}, authHeader);
+      setVerifyMessage(res.data?.message || "Verification code dispatched.");
+      if (res.data?.demoCode) {
+        setVerifyCode(res.data.demoCode);
+      }
+    } catch (err) {
+      setVerifyError(err.response?.data?.error || "Could not dispatch verification code.");
+    }
+  };
+
+  const handleConfirmVerify = async (e) => {
+    e.preventDefault();
+    if (!verifyCode.trim()) {
+      setVerifyError("Please enter the verification code.");
+      return;
+    }
+    setVerifying(true);
+    setVerifyError("");
+    try {
+      const res = await axios.post(
+        apiUrl("/api/users/verify-email"),
+        { code: verifyCode.trim() },
+        authHeader
+      );
+      setSuccess(res.data?.message || "Email address verified successfully!");
+      setUserData((prev) => (prev ? { ...prev, email_verified: 1 } : prev));
+      setShowVerifyModal(false);
+    } catch (err) {
+      setVerifyError(err.response?.data?.error || "Invalid or expired verification code.");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
@@ -337,7 +390,25 @@ function Profile() {
               </div>
 
               <div className="col-12 col-md-6">
-                <label className="form-label small fw-medium">Email Address (Login Identifier)</label>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <label className="form-label small fw-medium mb-0">Email Address (Login Identifier)</label>
+                  {userData?.email_verified ? (
+                    <span className="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style={{ fontSize: "0.72rem" }}>
+                      <IconCheck size={12} />
+                      Verified
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
+                      style={{ fontSize: "0.74rem" }}
+                      onClick={handleOpenVerifyModal}
+                    >
+                      <IconMail size={12} />
+                      <span>Verify Email</span>
+                    </button>
+                  )}
+                </div>
                 <input
                   type="email"
                   className="form-control bg-light text-muted"
@@ -700,13 +771,33 @@ function Profile() {
             </div>
 
             <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <span className="text-muted small">Authentication Policy:</span>
-              <span className="small text-dark">OWASP Compliant (Bcrypt Hashed)</span>
+              <span className="text-muted small">Email Address Verification:</span>
+              <div className="d-flex align-items-center gap-2">
+                {userData?.email_verified ? (
+                  <span className="badge bg-success-subtle text-success border border-success-subtle d-inline-flex align-items-center gap-1 px-2 py-0.5" style={{ fontSize: "0.74rem" }}>
+                    <IconCheck size={12} />
+                    Verified
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
+                    style={{ fontSize: "0.74rem" }}
+                    onClick={handleOpenVerifyModal}
+                  >
+                    <IconMail size={12} />
+                    <span>Verify Email</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="d-flex justify-content-between align-items-center">
-              <span className="text-muted small">Current Active Session:</span>
-              <span className="small text-success fw-medium">JWT Authenticated (Local)</span>
+              <span className="text-muted small">Account Security Status:</span>
+              <span className="small text-success fw-medium d-inline-flex align-items-center gap-1">
+                <IconCheck size={14} />
+                Encrypted & Active
+              </span>
             </div>
           </div>
 
@@ -715,6 +806,88 @@ function Profile() {
             <span>
               All account authentication events and profile modifications are audited in accordance with Kandypack enterprise security policies.
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Email Verification Modal (Standard Verification Flow) ── */}
+      {showVerifyModal && (
+        <div
+          className="modal d-block"
+          tabIndex="-1"
+          style={{ backgroundColor: "rgba(15, 23, 42, 0.55)" }}
+        >
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "460px" }}>
+            <div className="modal-content shadow border-0">
+              <div className="modal-header">
+                <h5 className="modal-title h6 fw-bold d-flex align-items-center gap-2 mb-0">
+                  <IconMail size={18} className="text-primary" />
+                  Verify Email Address
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowVerifyModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={handleConfirmVerify}>
+                <div className="modal-body">
+                  <p className="text-muted small mb-3">
+                    A confirmation request has been prepared for <strong>{userData?.email}</strong>. Please enter the 6-digit verification code below to verify your email address.
+                  </p>
+
+                  {verifyMessage && (
+                    <div className="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+                      <IconCheck size={16} className="text-info flex-shrink-0" />
+                      <span>{verifyMessage}</span>
+                    </div>
+                  )}
+
+                  {verifyError && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3 d-flex align-items-center gap-2">
+                      <IconAlertCircle size={16} className="text-danger flex-shrink-0" />
+                      <span>{verifyError}</span>
+                    </div>
+                  )}
+
+                  <div className="mb-3">
+                    <label className="form-label small fw-medium">
+                      6-Digit Verification Code <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control text-center font-monospace fw-bold fs-5 tracking-widest"
+                      maxLength={6}
+                      placeholder="849201"
+                      value={verifyCode}
+                      onChange={(e) => setVerifyCode(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                    <div className="form-text small text-muted">
+                      Standard industry email verification code.
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-light border"
+                    onClick={() => setShowVerifyModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
+                    disabled={verifying}
+                  >
+                    <IconCheck size={16} />
+                    <span>{verifying ? "Verifying..." : "Confirm & Verify"}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

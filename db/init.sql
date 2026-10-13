@@ -352,11 +352,16 @@ INSERT INTO product (product_id, name, unit_price, space_consumption_rate) VALUE
   (7, 'Wheat Flour 1kg', 310.00, 1.10),
   (8, 'Soap Pack', 540.00, 0.80),
   (9, 'Biscuits Family Pack', 460.00, 0.70),
-  (10, 'Milk Powder 400g', 1250.00, 0.60);
+  (10, 'Milk Powder 400g', 1250.00, 0.60),
+  (105, 'Kandypack Roasted Coffee 200g', 650.00, 0.40),
+  (106, 'Kandypack Dhal 1kg', 320.00, 0.90),
+  (107, 'Kandypack Coconut Milk 400ml', 380.00, 0.50),
+  (108, 'Kandypack White Basmati Rice 5kg', 1850.00, 3.50);
 
 INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES
   (1, 1000), (2, 1200), (3, 1200), (4, 800), (5, 700),
-  (6, 900), (7, 1100), (8, 950), (9, 1000), (10, 750);
+  (6, 900), (7, 1100), (8, 950), (9, 1000), (10, 750),
+  (105, 45), (106, 18), (107, 0), (108, 0);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id) VALUES
   (1, 'Nimal Perera', 'admin@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 1),
@@ -375,8 +380,14 @@ WITH RECURSIVE customer_numbers AS (
 )
 SELECT
   customer_number + 6,
-  CONCAT('Sample Customer ', customer_number),
-  CONCAT('customer', customer_number, '@kandypack.local'),
+  ELT(MOD(customer_number - 1, 10) + 1,
+    'Waruni Rathnayake', 'Dilshan Wickramasinghe', 'Saman Kumara', 'Anura Jayasinghe',
+    'Nirosha Perera', 'Chathura Senanayake', 'Malini Fonseka', 'Rohan De Silva',
+    'Kavindi Dissanayake', 'Tharindu Wijesinghe'),
+  CONCAT(ELT(MOD(customer_number - 1, 10) + 1,
+    'waruni.rathnayake', 'dilshan.wickramasinghe', 'saman.kumara', 'anura.jayasinghe',
+    'nirosha.perera', 'chathura.senanayake', 'malini.fonseka', 'rohan.desilva',
+    'kavindi.dissanayake', 'tharindu.wijesinghe'), customer_number, '@kandypack.lk'),
   '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e',
   6
 FROM customer_numbers;
@@ -396,7 +407,9 @@ WITH RECURSIVE customer_numbers AS (
 SELECT
   customer_number + 6,
   CONCAT('077100', LPAD(customer_number, 4, '0')),
-  CONCAT(customer_number, ' Sample Customer Lane'),
+  CONCAT(customer_number, ' ', ELT(MOD(customer_number - 1, 6) + 1,
+    'Flower Road, Colombo 07', 'Galle Road, Mount Lavinia', 'Kandy Road, Negombo',
+    'Fort Main Street, Galle', 'Station Road, Matara', 'Hospital Road, Jaffna')),
   MOD(customer_number - 1, 6) + 1
 FROM customer_numbers;
 
@@ -463,8 +476,9 @@ SELECT
   order_number,
   order_number + 6,
   FLOOR((order_number - 1) / 4) + 1,
-  ((FLOOR((order_number - 1) / 4)) * 2) + MOD(order_number - 1, 2) + 1,
-  CONCAT(order_number, ' Sample Customer Lane'),
+  CONCAT(order_number, ' ', ELT(MOD(order_number - 1, 6) + 1,
+    'Flower Road, Colombo 07', 'Galle Road, Mount Lavinia', 'Kandy Road, Negombo',
+    'Fort Main Street, Galle', 'Station Road, Matara', 'Hospital Road, Jaffna')),
   '2026-11-01',
   DATE_ADD('2026-11-01', INTERVAL MOD(order_number, 10) DAY),
   CASE

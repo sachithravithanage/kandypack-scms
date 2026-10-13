@@ -90,6 +90,13 @@ function AdminUsers() {
     loadUsers();
   }, [loadUsers]);
 
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(""), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   const handleAddUser = async (e) => {
     e.preventDefault();
     setError("");
@@ -496,35 +503,40 @@ function AdminUsers() {
                           {u.is_active ? "Active" : "Deactivated"}
                         </span>
                       </td>
-                      <td>
+                      <td style={{ whiteSpace: "nowrap", width: "1%" }}>
                         {isEditing ? (
-                          <div className="d-flex gap-1">
+                          <div className="d-flex gap-1.5 align-items-center">
                             <button
-                              className="btn btn-sm btn-success py-1 px-2"
+                              className="btn btn-sm btn-success py-1 px-2.5 d-inline-flex align-items-center gap-1 rounded-2 fw-medium"
+                              style={{ fontSize: "0.8rem", height: "30px" }}
                               onClick={() => saveEdit(u.user_id)}
                             >
-                              Save
+                              <IconCheck size={14} />
+                              <span>Save</span>
                             </button>
                             <button
-                              className="btn btn-sm btn-light border py-1 px-2"
+                              className="btn btn-sm btn-light border py-1 px-2.5 d-inline-flex align-items-center gap-1 rounded-2"
+                              style={{ fontSize: "0.8rem", height: "30px" }}
                               onClick={cancelEdit}
                             >
                               Cancel
                             </button>
                           </div>
                         ) : (
-                          <div className="d-flex align-items-center gap-1">
+                          <div className="d-flex align-items-center gap-1.5">
                             <button
-                              className="btn btn-sm btn-light border py-1 px-2 d-flex align-items-center gap-1"
-                              title="Edit user"
+                              className="btn btn-sm btn-outline-secondary py-1 px-2.5 d-inline-flex align-items-center gap-1.5 rounded-2 fw-medium text-nowrap"
+                              style={{ fontSize: "0.8rem", height: "30px" }}
+                              title="Edit user details"
                               onClick={() => startEdit(u)}
                             >
                               <IconEdit size={14} />
                               <span>Edit</span>
                             </button>
                             <button
-                              className="btn btn-sm btn-light border py-1 px-2 d-flex align-items-center gap-1 text-primary"
-                              title="Reset Password"
+                              className="btn btn-sm btn-outline-primary py-1 px-2.5 d-inline-flex align-items-center gap-1.5 rounded-2 fw-medium text-nowrap"
+                              style={{ fontSize: "0.8rem", height: "30px" }}
+                              title="Reset account password"
                               onClick={() => {
                                 setResetModalUser(u);
                                 setTempPassword("Password123!");
@@ -533,18 +545,21 @@ function AdminUsers() {
                               }}
                             >
                               <IconKey size={14} />
-                              <span>Reset Pwd</span>
+                              <span>Reset Password</span>
                             </button>
                             {u.is_active ? (
                               <button
-                                className="btn btn-sm btn-outline-danger py-1 px-2"
-                                title="Deactivate Account"
+                                className="btn btn-sm btn-outline-danger py-1 px-2.5 d-inline-flex align-items-center gap-1.5 rounded-2 fw-medium text-nowrap"
+                                style={{ fontSize: "0.8rem", height: "30px" }}
+                                title="Deactivate user account"
                                 onClick={() => handleDeactivate(u.user_id)}
                               >
-                                Deactivate
+                                <span>Deactivate</span>
                               </button>
                             ) : (
-                              <span className="text-muted small ps-1">—</span>
+                              <span className="badge bg-secondary-subtle text-secondary px-2 py-1" style={{ fontSize: "0.75rem" }}>
+                                Inactive
+                              </span>
                             )}
                           </div>
                         )}

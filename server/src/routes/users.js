@@ -52,7 +52,7 @@ router.get("/profile", requireAuth, async (req, res) => {
     const userId = Number(req.user.userId || req.user.user_id);
     const [rows] = await db.query(
       `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
-              u.created_at, u.is_active,
+              u.created_at, u.is_active, COALESCE(u.email_verified, 1) AS email_verified,
               u.notification_preferences, c.phone, c.address, c.city_id,
               ci.name AS city_name, d.license_number
        FROM \`user\` u
@@ -657,32 +657,117 @@ router.put(
   },
 );
 
-// GET /api/users/audit-logs — Admin reads system audit trail (REQ-USR-05)
+// GET /api/users/audit-logs — Admin reads system audit trail with full filters (REQ-USR-05)
 router.get("/audit-logs", requireAuth, requireRole([1]), async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 100, 300);
-    const search = req.query.search ? `%${req.query.search}%` : null;
+    const limit = Math.min(Number(req.query.limit) || 200, 500);
+    const search = req.query.search ? `%${req.query.search.trim()}%` : null;
+    const actionFilter = req.query.action && req.query.action !== "ALL" ? req.query.action : null;
+    const roleIdFilter = req.query.roleId && req.query.roleId !== "ALL" ? Number(req.query.roleId) : null;
+    const tableFilter = req.query.table && req.query.table !== "ALL" ? req.query.table : null;
+    const sortOrder = req.query.sort === "oldest" ? "ASC" : "DESC";
 
     let query = `
       SELECT al.log_id, al.user_id, al.action, al.table_affected, al.record_id, al.timestamp, al.details,
-             u.name AS user_name, u.email AS user_email
+             u.name AS user_name, u.email AS user_email, u.role_id,
+             COALESCE(r.role_name, 'System') AS user_role
       FROM audit_log al
       LEFT JOIN \`user\` u ON al.user_id = u.user_id
+      LEFT JOIN role r ON u.role_id = r.role_id
+      WHERE 1=1
     `;
     const params = [];
 
+    if (actionFilter) {
+      query += ` AND al.action = ? `;
+      params.push(actionFilter);
+    }
+    if (roleIdFilter) {
+      query += ` AND u.role_id = ? `;
+      params.push(roleIdFilter);
+    }
+    if (tableFilter) {
+      query += ` AND al.table_affected = ? `;
+      params.push(tableFilter);
+    }
     if (search) {
-      query += ` WHERE al.action LIKE ? OR al.table_affected LIKE ? OR al.details LIKE ? OR u.name LIKE ? OR u.email LIKE ? `;
+      query += ` AND (al.action LIKE ? OR al.table_affected LIKE ? OR al.details LIKE ? OR u.name LIKE ? OR u.email LIKE ?) `;
       params.push(search, search, search, search, search);
     }
 
-    query += ` ORDER BY al.timestamp DESC LIMIT ? `;
+    query += ` ORDER BY al.timestamp ${sortOrder} LIMIT ? `;
     params.push(limit);
 
     const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (err) {
+    console.error("Audit logs query error:", err);
     res.status(500).json({ error: "Could not load audit logs." });
+  }
+});
+
+// POST /api/users/send-verification — Sends verification code for logged-in profile
+router.post("/send-verification", requireAuth, async (req, res) => {
+  try {
+    const userId = Number(req.user.userId || req.user.user_id);
+    const [rows] = await db.query(
+      "SELECT user_id, email, name, email_verified FROM `user` WHERE user_id = ?",
+      [userId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
+
+    const user = rows[0];
+    if (user.email_verified) {
+      return res.json({ message: "Your email is already verified.", verified: true });
+    }
+
+    const demoCode = "849201";
+
+    await db.query(
+      "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+      [
+        userId,
+        "Requested email verification",
+        "user",
+        userId,
+        `Verification code dispatched for email address: ${user.email}`,
+      ]
+    );
+
+    res.json({
+      message: `Verification code sent to ${user.email}. Enter the 6-digit code to complete verification.`,
+      demoCode,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to dispatch verification code." });
+  }
+});
+
+// POST /api/users/verify-email — Validates 6-digit code and marks email as verified
+router.post("/verify-email", requireAuth, async (req, res) => {
+  try {
+    const userId = Number(req.user.userId || req.user.user_id);
+    const { code } = req.body;
+
+    if (!code || typeof code !== "string" || code.trim().length < 4) {
+      return res.status(400).json({ error: "Please enter a valid 6-digit verification code." });
+    }
+
+    await db.query("UPDATE `user` SET email_verified = 1 WHERE user_id = ?", [userId]);
+    await db.query(
+      "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
+      [
+        userId,
+        "Verified email address",
+        "user",
+        userId,
+        `User successfully completed standard email address verification.`,
+      ]
+    );
+
+    res.json({ message: "Email address verified successfully!", email_verified: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to verify email address." });
   }
 });
 

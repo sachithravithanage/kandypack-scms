@@ -21,6 +21,9 @@ import {
 	IconArrowsSplit,
 	IconSearch,
 	IconEye,
+	IconUser,
+	IconBuildingStore,
+	IconPlus,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -40,6 +43,16 @@ function DispatcherTrainLoading() {
 
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
+
+	// Auto-dismiss success notification
+	useEffect(() => {
+		if (success) {
+			const timer = setTimeout(() => {
+				setSuccess("");
+			}, 4000);
+			return () => clearTimeout(timer);
+		}
+	}, [success]);
 
 	// Search filter for allotable orders
 	const [searchAllotable, setSearchAllotable] = useState("");
@@ -513,429 +526,437 @@ function DispatcherTrainLoading() {
 				</div>
 			)}
 
-			<div className="row g-4">
-				{/* COLUMN 1: SELECT TRIP & TRIP CAPACITY OVERVIEW (col-xl-3 col-lg-4) */}
-				<div className="col-12 col-xl-3 col-lg-4">
-					<div className="kp-card mb-4">
-						<div className="d-flex justify-content-between align-items-center mb-3">
-							<h5 className="mb-0" style={{ fontWeight: 600, fontSize: "1.05rem" }}>
-								<IconTrain size={20} className="me-2 text-primary" />
-								Train Trips
-							</h5>
-							<span className="badge bg-light text-muted border">{filteredTrips.length} scheduled</span>
-						</div>
+			{/* SECTION 1: SCHEDULED TRAIN DEPARTURES FLEET BOARD */}
+			<div className="kp-card mb-4 p-3">
+				<div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+					<div className="d-flex align-items-center gap-2">
+						<h5 className="mb-0 fw-bold" style={{ fontSize: "1.05rem" }}>
+							<IconTrain size={20} className="me-2 text-primary" />
+							Scheduled Rail Departures
+						</h5>
+						<span className="badge bg-light text-muted border">{filteredTrips.length} active trips</span>
+					</div>
 
-						<div className="mb-3">
-							<label className="form-label text-muted" style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase" }}>
-								Filter Destination City
-							</label>
-							<select
-								className="form-select form-select-sm"
-								value={selectedCityId}
-								onChange={(e) => setSelectedCityId(e.target.value)}
-							>
-								<option value="">All Destinations ({cities.length})</option>
-								{cities.map((c) => (
-									<option key={c.city_id} value={c.city_id}>
-										{c.name}
-									</option>
-								))}
-							</select>
-						</div>
-
-						<div
-							className="list-group"
-							style={{ maxHeight: "560px", overflowY: "auto", gap: "0.5rem" }}
+					<div className="d-flex align-items-center gap-2">
+						<span className="text-muted" style={{ fontSize: "0.82rem", fontWeight: 600 }}>Destination:</span>
+						<select
+							className="form-select form-select-sm"
+							style={{ minWidth: "180px", width: "auto" }}
+							value={selectedCityId}
+							onChange={(e) => setSelectedCityId(e.target.value)}
 						>
-							{loadingTrips ? (
-								<div className="text-center py-4 text-muted">
-									<div className="spinner-border spinner-border-sm me-2" role="status" />
-									Loading train trips...
-								</div>
-							) : filteredTrips.length === 0 ? (
-								<p className="text-muted text-center py-4 mb-0" style={{ fontSize: "0.9rem" }}>
-									No scheduled train trips for this filter.
-								</p>
-							) : (
-								filteredTrips.map((t) => {
-									const isSelected = t.trip_id === selectedTripId;
-									const tripUsed = Number(t.used_capacity || 0);
-									const tripTotal = Number(t.total_capacity || 1);
-									const tripPct = Math.min(100, Math.round((tripUsed / tripTotal) * 100));
-
-									return (
-										<button
-											key={t.trip_id}
-											type="button"
-											className={`list-group-item list-group-item-action p-3 rounded border text-start ${
-												isSelected ? "active" : ""
-											}`}
-											style={{
-												backgroundColor: isSelected ? "var(--color-primary-bg, #eff6ff)" : undefined,
-												borderColor: isSelected ? "var(--color-primary, #3b82f6)" : "#e2e8f0",
-											}}
-											onClick={() => setSelectedTripId(t.trip_id)}
-										>
-											<div className="d-flex justify-content-between align-items-center mb-1">
-												<span
-													className="font-monospace"
-													style={{
-														fontWeight: 700,
-														fontSize: "0.9rem",
-														color: isSelected ? "#1d4ed8" : undefined,
-													}}
-												>
-													{formatTripId(t.trip_id)}
-												</span>
-												<span
-													className={`badge ${
-														t.status === "Loaded"
-															? "bg-success"
-															: t.status === "Loading"
-															? "bg-warning text-dark"
-															: "bg-info text-dark"
-													}`}
-													style={{ fontSize: "0.72rem" }}
-												>
-													{t.status || "Scheduled"}
-												</span>
-											</div>
-
-											<div className="d-flex align-items-center gap-1 mb-1" style={{ fontSize: "0.85rem" }}>
-												<IconMapPin size={15} className="text-muted" />
-												<strong style={{ color: isSelected ? "#1e3a8a" : "#1e293b" }}>
-													{t.destination_city}
-												</strong>
-												<span className="text-muted ms-1" style={{ fontSize: "0.78rem" }}>
-													({t.train_name})
-												</span>
-											</div>
-
-											<div className="d-flex align-items-center gap-1 text-muted mb-2" style={{ fontSize: "0.78rem" }}>
-												<IconClock size={13} />
-												<span>Dep: {formatDateTime(t.departure_datetime)}</span>
-											</div>
-
-											{/* Capacity mini bar */}
-											<div style={{ fontSize: "0.72rem" }} className="d-flex justify-content-between text-muted mb-1">
-												<span>Capacity: {tripUsed}/{tripTotal}</span>
-												<span>{tripPct}%</span>
-											</div>
-											<div className="progress" style={{ height: "4px" }}>
-												<div
-													className="progress-bar"
-													style={{
-														width: `${tripPct}%`,
-														backgroundColor: tripPct >= 90 ? "#ef4444" : "#3b82f6",
-													}}
-												/>
-											</div>
-										</button>
-									);
-								})
-							)}
-						</div>
+							<option value="">All Destinations ({cities.length})</option>
+							{cities.map((c) => (
+								<option key={c.city_id} value={c.city_id}>
+									{c.name}
+								</option>
+							))}
+						</select>
 					</div>
 				</div>
 
-				{/* COLUMN 2: ALLOTABLE ORDERS MATCHING THIS DELIVERY PATH (col-xl-4 col-lg-4) */}
-				<div className="col-12 col-xl-4 col-lg-4">
-					<div className="kp-card h-100 d-flex flex-column" style={{ minHeight: "680px" }}>
-						<div className="d-flex justify-content-between align-items-start mb-2">
-							<div>
-								<h5 className="mb-1" style={{ fontWeight: 600, fontSize: "1.05rem" }}>
-									<IconBoxSeam size={20} className="me-2 text-indigo text-primary" />
-									Allotable Orders
-								</h5>
-								<p className="text-muted mb-0" style={{ fontSize: "0.8rem" }}>
-									Orders destined for <strong>{tripDetail?.destination_city || "Selected Route"}</strong>
-								</p>
-							</div>
-							<span className="badge bg-primary rounded-pill px-2 py-1">
-								{filteredAllotable.length} Available
-							</span>
-						</div>
-
-						{/* Search & Auto-Allocate All */}
-						<div className="mt-2 mb-3">
-							<div className="input-group input-group-sm mb-2">
-								<span className="input-group-text bg-white border-end-0">
-									<IconSearch size={14} className="text-muted" />
-								</span>
-								<input
-									type="text"
-									className="form-control border-start-0"
-									placeholder="Search by Order ID, customer, product..."
-									value={searchAllotable}
-									onChange={(e) => setSearchAllotable(e.target.value)}
-								/>
-								{searchAllotable && (
-									<button
-										className="btn btn-outline-secondary"
-										type="button"
-										onClick={() => setSearchAllotable("")}
-									>
-										✕
-									</button>
-								)}
-							</div>
-
-							<button
-								type="button"
-								className="btn btn-sm btn-outline-primary w-100 d-inline-flex align-items-center justify-content-center gap-2"
-								onClick={handleAutoAllocateAll}
-								disabled={allocating || !filteredAllotable.length}
-								title="Sequentially allocate all orders, automatically scheduling excess to subsequent trips"
-							>
-								<IconBolt size={16} />
-								<span>Auto-Allocate All with Overflow</span>
-							</button>
-						</div>
-
-						{/* Scrollable list of allotable orders */}
-						<div
-							className="flex-grow-1 overflow-auto pe-1"
-							style={{ maxHeight: "600px", display: "flex", flexDirection: "column", gap: "0.75rem" }}
-						>
-							{loadingAllotable ? (
-								<div className="text-center py-5 text-muted">
-									<div className="spinner-border spinner-border-sm me-2" role="status" />
-									Searching delivery path orders...
-								</div>
-							) : filteredAllotable.length === 0 ? (
-								<div className="text-center py-5 text-muted bg-light rounded p-4">
-									<IconPackage size={36} className="text-muted mb-2" stroke={1.5} />
-									<p className="mb-1" style={{ fontWeight: 600 }}>
-										No Unallocated Orders
-									</p>
-									<p className="mb-0" style={{ fontSize: "0.8rem" }}>
-										All orders destined for {tripDetail?.destination_city || "this city"} are currently allocated!
-									</p>
-								</div>
-							) : (
-								filteredAllotable.map((item) => {
-									const isBeingDragged = draggingItem?.order_item_id === item.order_item_id;
-									const hasPartialSplit = (item.existing_allocations || []).length > 0;
-
-									return (
-										<div
-											key={item.order_item_id}
-											draggable={true}
-											onDragStart={(e) => handleDragStart(e, item)}
-											onDragEnd={handleDragEnd}
-											className="draggable-order-card p-3"
-											style={{
-												opacity: isBeingDragged ? 0.5 : 1,
-												borderLeft: hasPartialSplit ? "4px solid #f59e0b" : "4px solid #3b82f6",
-											}}
-										>
-											<div className="d-flex justify-content-between align-items-center mb-1">
-												<div className="d-flex align-items-center gap-1">
-													<span title="Drag to load into trip loading bay" className="text-muted">
-														<IconGripVertical size={16} />
-													</span>
-													<span className="font-monospace fw-bold text-dark" style={{ fontSize: "0.88rem" }}>
-														#ORD-{item.order_id}
-													</span>
-												</div>
-												<span className="badge bg-light text-dark border font-monospace" style={{ fontSize: "0.72rem" }}>
-													Item #{item.order_item_id}
-												</span>
-											</div>
-
-											<div className="mb-1">
-												<span className="fw-semibold text-primary" style={{ fontSize: "0.9rem" }}>
-													{item.product_name}
-												</span>
-											</div>
-
-											<div className="text-muted mb-2" style={{ fontSize: "0.78rem" }}>
-												<div>
-													👤 <strong>{item.customer_name}</strong> | 🏬 {item.store_name} ({item.route_name})
-												</div>
-												<div>📍 {item.delivery_address}</div>
-											</div>
-
-											{/* Existing split alert badge */}
-											{hasPartialSplit && (
-												<div
-													className="alert alert-warning py-1 px-2 mb-2 d-flex align-items-center gap-1"
-													style={{ fontSize: "0.74rem" }}
-												>
-													<IconArrowsSplit size={14} />
-													<span>
-														<strong>Split Order:</strong> {item.allocated_quantity} units already on TRP-
-														{item.existing_allocations.map((a) => a.trip_id).join(", ")}
-													</span>
-												</div>
-											)}
-
-											<div className="d-flex justify-content-between align-items-center pt-2 border-top">
-												<div>
-													<span className="fw-bold fs-6 text-dark">{item.unallocated_quantity}</span>
-													<span className="text-muted" style={{ fontSize: "0.8rem" }}>
-														{" "}
-														units ({item.unallocated_volume} m³)
-													</span>
-												</div>
-												<div className="d-flex gap-1">
-													<button
-														type="button"
-														className="btn btn-sm btn-primary py-1 px-2"
-														style={{ fontSize: "0.78rem" }}
-														onClick={() => executeAllocation(item, false)}
-														disabled={allocating}
-														title="Load directly into currently selected trip"
-													>
-														➕ Load
-													</button>
-													<button
-														type="button"
-														className="btn btn-sm btn-outline-warning py-1 px-2"
-														style={{ fontSize: "0.78rem" }}
-														onClick={() => executeAllocation(item, true)}
-														disabled={allocating}
-														title="Load available space and automatically overflow the remainder to subsequent trips"
-													>
-														⚡ Overflow
-													</button>
-												</div>
-											</div>
-										</div>
-									);
-								})
-							)}
-						</div>
-					</div>
-				</div>
-
-				{/* COLUMN 3: TRIP MANIFEST & DROP LOADING BAY (col-xl-5 col-lg-4) */}
-				<div className="col-12 col-xl-5 col-lg-4">
-					{loadingDetail ? (
-						<div className="kp-card text-center py-5 text-muted">
+				{/* Horizontal Train Board / Selector */}
+				<div className="d-flex gap-3 overflow-auto pb-2 pt-1" style={{ scrollbarWidth: "thin" }}>
+					{loadingTrips ? (
+						<div className="text-center py-3 text-muted w-100">
 							<div className="spinner-border spinner-border-sm me-2" role="status" />
-							Loading trip loading bay...
+							Loading scheduled rail trips...
 						</div>
-					) : !tripDetail ? (
-						<div className="kp-card text-center py-5 text-muted">
-							<IconTrain size={48} className="mb-2 text-muted" stroke={1.5} />
-							<p>Select a trip from the left sidebar to view its loading status.</p>
+					) : filteredTrips.length === 0 ? (
+						<div className="text-muted text-center py-3 w-100" style={{ fontSize: "0.9rem" }}>
+							No train trips scheduled for this destination filter.
 						</div>
 					) : (
-						<>
-							{/* TRIP CAPACITY SUMMARY */}
-							<div className="kp-card mb-4">
-								<div className="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
-									<div>
-										<h4 className="mb-1" style={{ fontWeight: 700 }}>
-											{formatTripId(tripDetail.trip_id)} — {tripDetail.destination_city}
-										</h4>
-										<p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
-											Train: <strong>{tripDetail.train_name}</strong> | Departure: {formatDateTime(tripDetail.departure_datetime)}
-										</p>
-									</div>
-									<span
-										className={`badge ${
-											tripDetail.status === "Loaded"
-												? "bg-success"
-												: tripDetail.status === "Loading"
-												? "bg-warning text-dark"
-												: "bg-info text-dark"
-										}`}
-										style={{ fontSize: "0.85rem", padding: "0.45rem 0.8rem" }}
-									>
-										{tripDetail.status || "Scheduled"}
-									</span>
-								</div>
+						filteredTrips.map((t) => {
+							const isSelected = t.trip_id === selectedTripId;
+							const tripUsed = Number(t.used_capacity || 0);
+							const tripTotal = Number(t.total_capacity || 1);
+							const tripPct = Math.min(100, Math.round((tripUsed / tripTotal) * 100));
 
-								{/* Capacity Bar */}
-								<div className="mt-3">
+							return (
+								<div
+									key={t.trip_id}
+									className={`trip-pill-card p-3 ${isSelected ? "active-trip" : ""}`}
+									onClick={() => setSelectedTripId(t.trip_id)}
+									role="button"
+									tabIndex={0}
+								>
 									<div className="d-flex justify-content-between align-items-center mb-1">
-										<span style={{ fontSize: "0.85rem", fontWeight: 600 }}>Allocated Cargo Capacity</span>
-										<span style={{ fontSize: "0.85rem", fontWeight: 700 }}>
-											{usedCap} / {totalCap} units ({capPct}%)
+										<span
+											className="font-monospace fw-bold"
+											style={{
+												fontSize: "0.92rem",
+												color: isSelected ? "#1d4ed8" : "#1e293b",
+											}}
+										>
+											{formatTripId(t.trip_id)}
+										</span>
+										<span
+											className={`badge ${
+												t.status === "Loaded"
+													? "bg-success"
+													: t.status === "Loading"
+													? "bg-warning text-dark"
+													: "bg-info text-dark"
+											}`}
+											style={{ fontSize: "0.72rem" }}
+										>
+											{t.status || "Scheduled"}
 										</span>
 									</div>
-									<div className="progress" style={{ height: "12px", borderRadius: "6px" }}>
+
+									<div className="d-flex align-items-center gap-1 mb-1" style={{ fontSize: "0.85rem" }}>
+										<IconMapPin size={15} className="text-primary flex-shrink-0" />
+										<strong className="text-truncate" style={{ color: isSelected ? "#1e3a8a" : "#1e293b" }}>
+											{t.destination_city}
+										</strong>
+										<span className="text-muted ms-1 text-truncate" style={{ fontSize: "0.78rem" }}>
+											({t.train_name})
+										</span>
+									</div>
+
+									<div className="d-flex align-items-center gap-1 text-muted mb-2" style={{ fontSize: "0.78rem" }}>
+										<IconClock size={13} className="flex-shrink-0" />
+										<span>Dep: {formatDateTime(t.departure_datetime)}</span>
+									</div>
+
+									{/* Mini Capacity Indicator */}
+									<div className="d-flex justify-content-between text-muted mb-1" style={{ fontSize: "0.72rem" }}>
+										<span>Load: {tripUsed}/{tripTotal} units</span>
+										<span className="fw-semibold">{tripPct}%</span>
+									</div>
+									<div className="progress" style={{ height: "4px" }}>
 										<div
 											className="progress-bar"
-											role="progressbar"
 											style={{
-												width: `${capPct}%`,
-												backgroundColor: isNearCapacity ? "#ef4444" : capPct > 60 ? "#3b82f6" : "#10b981",
-												transition: "width 0.3s ease",
+												width: `${tripPct}%`,
+												backgroundColor: tripPct >= 90 ? "#ef4444" : "#3b82f6",
 											}}
 										/>
 									</div>
-
-									<div className="d-flex justify-content-between align-items-center mt-2" style={{ fontSize: "0.8rem" }}>
-										<span className={isNearCapacity ? "text-danger fw-bold" : "text-muted"}>
-											Remaining Space: <strong>{remainingCap}</strong> units
-										</span>
-										{isNearCapacity && (
-											<span className="badge bg-danger d-inline-flex align-items-center gap-1">
-												<IconAlertTriangle size={13} /> Near Capacity
-											</span>
-										)}
-									</div>
 								</div>
-							</div>
+							);
+						})
+					)}
+				</div>
+			</div>
 
-							{/* TRIP MANIFEST / DROP BAY ZONE */}
-							<div
-								onDragOver={handleDragOver}
-								onDragLeave={handleDragLeave}
-								onDrop={handleDrop}
-								className={`kp-card drop-zone-bay mb-4 ${isDragOver ? "drop-zone-active" : ""}`}
-								style={{ padding: 0, overflow: "hidden" }}
-							>
-								{/* Drop Banner when hovering */}
-								{isDragOver && (
-									<div
-										className="p-3 text-center bg-primary text-white d-flex align-items-center justify-content-center gap-2"
-										style={{ fontWeight: 600, fontSize: "0.95rem" }}
-									>
-										<IconTransferIn size={22} />
-										<span>Drop order item here to allocate to Trip #{formatTripId(tripDetail.trip_id)}</span>
-									</div>
-								)}
-
-								<div
-									className="d-flex justify-content-between align-items-center p-3 border-bottom flex-wrap gap-2"
-									style={{ background: "#f8fafc" }}
+			{/* SECTION 2: ACTIVE TRIP COMMAND BAR & TELEMETRY */}
+			{loadingDetail ? (
+				<div className="kp-card text-center py-4 mb-4 text-muted">
+					<div className="spinner-border spinner-border-sm me-2" role="status" />
+					Loading trip bay telemetry...
+				</div>
+			) : !tripDetail ? (
+				<div className="kp-card text-center py-4 mb-4 text-muted">
+					<IconTrain size={44} className="mb-2 text-muted" stroke={1.5} />
+					<p className="mb-0">Select a scheduled trip above to view cargo loading console.</p>
+				</div>
+			) : (
+				<div className="kp-card mb-4 p-4">
+					<div className="row align-items-center g-3">
+						<div className="col-12 col-md-6 col-lg-5">
+							<div className="d-flex align-items-center gap-2 mb-1 flex-wrap">
+								<h4 className="mb-0 fw-bold" style={{ color: "#1e293b" }}>
+									{formatTripId(tripDetail.trip_id)} — {tripDetail.destination_city}
+								</h4>
+								<span
+									className={`badge ${
+										tripDetail.status === "Loaded"
+											? "bg-success"
+											: tripDetail.status === "Loading"
+											? "bg-warning text-dark"
+											: "bg-info text-dark"
+									}`}
+									style={{ fontSize: "0.8rem", padding: "0.35rem 0.65rem" }}
 								>
-									<div>
-										<h5 className="mb-0" style={{ fontWeight: 700, fontSize: "1rem" }}>
-											Loaded Cargo Manifest ({allocations.length} allocations)
-										</h5>
-										<span className="text-muted" style={{ fontSize: "0.75rem" }}>
-											Drag and drop orders into this container
-										</span>
-									</div>
-									<span className="badge bg-light text-dark border">
-										Destination: {tripDetail.destination_city}
+									{tripDetail.status || "Scheduled"}
+								</span>
+							</div>
+							<div className="text-muted d-flex align-items-center gap-3 flex-wrap" style={{ fontSize: "0.86rem" }}>
+								<span>Train: <strong>{tripDetail.train_name}</strong></span>
+								<span>•</span>
+								<span>Departure: <strong>{formatDateTime(tripDetail.departure_datetime)}</strong></span>
+							</div>
+						</div>
+
+						<div className="col-12 col-md-6 col-lg-7">
+							<div className="bg-light p-3 rounded border">
+								<div className="d-flex justify-content-between align-items-center mb-1">
+									<span style={{ fontSize: "0.84rem", fontWeight: 600 }}>Train Cargo Capacity Utilization</span>
+									<span style={{ fontSize: "0.86rem", fontWeight: 700 }}>
+										{usedCap} / {totalCap} units ({capPct}%)
 									</span>
 								</div>
+								<div className="progress mb-2" style={{ height: "10px", borderRadius: "5px" }}>
+									<div
+										className="progress-bar"
+										role="progressbar"
+										style={{
+											width: `${capPct}%`,
+											backgroundColor: isNearCapacity ? "#ef4444" : capPct > 60 ? "#3b82f6" : "#10b981",
+											transition: "width 0.3s ease",
+										}}
+									/>
+								</div>
+								<div className="d-flex justify-content-between align-items-center flex-wrap gap-2" style={{ fontSize: "0.8rem" }}>
+									<span className={isNearCapacity ? "text-danger fw-bold" : "text-muted"}>
+										Available Remaining Space: <strong>{remainingCap}</strong> units
+									</span>
+									{isNearCapacity ? (
+										<span className="badge bg-danger d-inline-flex align-items-center gap-1">
+											<IconAlertTriangle size={13} /> Near Capacity Limit
+										</span>
+									) : (
+										<span className="text-muted">Safe loading margin</span>
+									)}
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
 
+			{/* SECTION 3: TWO-COLUMN DISPATCH WORKSPACE */}
+			{tripDetail && (
+				<div className="row g-4">
+					{/* PANE 1: ALLOTABLE ORDERS (col-12 col-lg-5 col-xl-5) */}
+					<div className="col-12 col-lg-5 col-xl-5">
+						<div className="kp-card h-100 d-flex flex-column" style={{ minHeight: "680px" }}>
+							<div className="d-flex justify-content-between align-items-start mb-2">
+								<div>
+									<h5 className="mb-1" style={{ fontWeight: 600, fontSize: "1.05rem" }}>
+										<IconBoxSeam size={20} className="me-2 text-primary" />
+										Allotable Cargo Backlog
+									</h5>
+									<p className="text-muted mb-0" style={{ fontSize: "0.8rem" }}>
+										Orders destined for <strong>{tripDetail?.destination_city || "Selected Route"}</strong>
+									</p>
+								</div>
+								<span className="badge bg-primary rounded-pill px-2 py-1">
+									{filteredAllotable.length} Available
+								</span>
+							</div>
+
+							{/* Search & Auto-Allocate All */}
+							<div className="mt-2 mb-3">
+								<div className="input-group input-group-sm mb-2">
+									<span className="input-group-text bg-white border-end-0">
+										<IconSearch size={14} className="text-muted" />
+									</span>
+									<input
+										type="text"
+										className="form-control border-start-0"
+										placeholder="Search by Order ID, customer, product..."
+										value={searchAllotable}
+										onChange={(e) => setSearchAllotable(e.target.value)}
+									/>
+									{searchAllotable && (
+										<button
+											className="btn btn-outline-secondary"
+											type="button"
+											onClick={() => setSearchAllotable("")}
+										>
+											✕
+										</button>
+									)}
+								</div>
+
+								<button
+									type="button"
+									className="btn btn-sm btn-outline-primary w-100 d-inline-flex align-items-center justify-content-center gap-2"
+									onClick={handleAutoAllocateAll}
+									disabled={allocating || !filteredAllotable.length}
+									title="Sequentially allocate all orders, automatically scheduling excess to subsequent trips"
+								>
+									<IconBolt size={16} />
+									<span>Auto-Allocate All with Overflow</span>
+								</button>
+							</div>
+
+							{/* Scrollable list of allotable orders */}
+							<div
+								className="flex-grow-1 overflow-auto pe-1"
+								style={{ maxHeight: "640px", display: "flex", flexDirection: "column", gap: "0.75rem" }}
+							>
+								{loadingAllotable ? (
+									<div className="text-center py-5 text-muted">
+										<div className="spinner-border spinner-border-sm me-2" role="status" />
+										Searching route-matched orders...
+									</div>
+								) : filteredAllotable.length === 0 ? (
+									<div className="text-center py-5 text-muted bg-light rounded p-4">
+										<IconPackage size={36} className="text-muted mb-2" stroke={1.5} />
+										<p className="mb-1" style={{ fontWeight: 600 }}>
+											No Unallocated Orders
+										</p>
+										<p className="mb-0" style={{ fontSize: "0.8rem" }}>
+											All orders destined for {tripDetail?.destination_city || "this city"} are currently allocated!
+										</p>
+									</div>
+								) : (
+									filteredAllotable.map((item) => {
+										const isBeingDragged = draggingItem?.order_item_id === item.order_item_id;
+										const hasPartialSplit = (item.existing_allocations || []).length > 0;
+
+										return (
+											<div
+												key={item.order_item_id}
+												draggable={true}
+												onDragStart={(e) => handleDragStart(e, item)}
+												onDragEnd={handleDragEnd}
+												className="draggable-order-card p-3"
+												style={{
+													opacity: isBeingDragged ? 0.5 : 1,
+													borderLeft: hasPartialSplit ? "4px solid #f59e0b" : "4px solid #3b82f6",
+												}}
+											>
+												<div className="d-flex justify-content-between align-items-center mb-1">
+													<div className="d-flex align-items-center gap-1">
+														<span title="Drag to load into trip loading bay" className="text-muted">
+															<IconGripVertical size={16} />
+														</span>
+														<span className="font-monospace fw-bold text-dark" style={{ fontSize: "0.88rem" }}>
+															#ORD-{item.order_id}
+														</span>
+													</div>
+													<span className="badge bg-light text-dark border font-monospace" style={{ fontSize: "0.72rem" }}>
+														Item #{item.order_item_id}
+													</span>
+												</div>
+
+												<div className="mb-2">
+													<span className="fw-bold text-primary" style={{ fontSize: "0.92rem" }}>
+														{item.product_name}
+													</span>
+												</div>
+
+												<div className="text-muted mb-2" style={{ fontSize: "0.8rem" }}>
+													<div className="d-flex align-items-center gap-1 mb-1">
+														<IconUser size={14} className="text-muted flex-shrink-0" />
+														<strong className="text-dark">{item.customer_name}</strong>
+														<span className="mx-1">•</span>
+														<IconBuildingStore size={14} className="text-muted flex-shrink-0" />
+														<span>{item.store_name} ({item.route_name})</span>
+													</div>
+													<div className="d-flex align-items-center gap-1">
+														<IconMapPin size={14} className="text-muted flex-shrink-0" />
+														<span className="text-truncate">{item.delivery_address}</span>
+													</div>
+												</div>
+
+												{/* Existing split alert badge */}
+												{hasPartialSplit && (
+													<div
+														className="alert alert-warning py-1 px-2 mb-2 d-flex align-items-center gap-1"
+														style={{ fontSize: "0.74rem" }}
+													>
+														<IconArrowsSplit size={14} />
+														<span>
+															<strong>Split Order:</strong> {item.allocated_quantity} units already on TRP-
+															{item.existing_allocations.map((a) => a.trip_id).join(", ")}
+														</span>
+													</div>
+												)}
+
+												<div className="d-flex justify-content-between align-items-center pt-2 border-top">
+													<div>
+														<span className="fw-bold fs-6 text-dark">{item.unallocated_quantity}</span>
+														<span className="text-muted" style={{ fontSize: "0.8rem" }}>
+															{" "}
+															units ({item.unallocated_volume} m³)
+														</span>
+													</div>
+													<div className="d-flex gap-1">
+														<button
+															type="button"
+															className="btn btn-sm btn-primary py-1 px-2 d-inline-flex align-items-center gap-1"
+															style={{ fontSize: "0.78rem" }}
+															onClick={() => executeAllocation(item, false)}
+															disabled={allocating}
+															title="Load directly into currently selected trip"
+														>
+															<IconPlus size={14} />
+															<span>Load</span>
+														</button>
+														<button
+															type="button"
+															className="btn btn-sm btn-outline-warning py-1 px-2 d-inline-flex align-items-center gap-1"
+															style={{ fontSize: "0.78rem" }}
+															onClick={() => executeAllocation(item, true)}
+															disabled={allocating}
+															title="Load available space and automatically overflow the remainder to subsequent trips"
+														>
+															<IconBolt size={14} />
+															<span>Overflow</span>
+														</button>
+													</div>
+												</div>
+											</div>
+										);
+									})
+								)}
+							</div>
+						</div>
+					</div>
+
+					{/* PANE 2: TRIP MANIFEST & DROP LOADING BAY (col-12 col-lg-7 col-xl-7) */}
+					<div className="col-12 col-lg-7 col-xl-7">
+						<div
+							onDragOver={handleDragOver}
+							onDragLeave={handleDragLeave}
+							onDrop={handleDrop}
+							className={`kp-card drop-zone-bay h-100 d-flex flex-column ${isDragOver ? "drop-zone-active" : ""}`}
+							style={{ padding: 0, overflow: "hidden" }}
+						>
+							{/* Drop Banner when hovering */}
+							{isDragOver && (
+								<div
+									className="p-3 text-center bg-primary text-white d-flex align-items-center justify-content-center gap-2"
+									style={{ fontWeight: 600, fontSize: "0.95rem" }}
+								>
+									<IconTransferIn size={22} />
+									<span>Drop order item here to allocate to Trip #{formatTripId(tripDetail.trip_id)}</span>
+								</div>
+							)}
+
+							<div
+								className="d-flex justify-content-between align-items-center p-3 border-bottom flex-wrap gap-2"
+								style={{ background: "#f8fafc" }}
+							>
+								<div>
+									<h5 className="mb-0 fw-bold" style={{ fontSize: "1.05rem" }}>
+										Loaded Cargo Bay Manifest
+									</h5>
+									<span className="text-muted" style={{ fontSize: "0.78rem" }}>
+										{allocations.length} allocated cargo batches — drag items here from the left panel
+									</span>
+								</div>
+								<span className="badge bg-light text-dark border">
+									Destination: {tripDetail.destination_city}
+								</span>
+							</div>
+
+							<div className="flex-grow-1 overflow-auto" style={{ maxHeight: "640px" }}>
 								{allocations.length === 0 ? (
 									<div className="text-center py-5 text-muted p-4">
-										<IconBoxSeam size={44} className="mb-2 text-muted" stroke={1.5} />
+										<IconBoxSeam size={48} className="mb-2 text-muted" stroke={1.5} />
 										<h6 className="fw-bold mb-1">Loading Bay is Empty</h6>
 										<p className="mb-0 text-muted" style={{ fontSize: "0.85rem" }}>
-											Drag orders from the left panel or click <strong>➕ Load</strong> to allocate cargo onto this train.
+											Drag orders from the left backlog or click <strong>Load</strong> to allocate cargo onto this train.
 										</p>
 									</div>
 								) : (
 									<div className="table-responsive">
 										<table className="table align-middle mb-0">
-											<thead className="table-light text-uppercase" style={{ fontSize: "0.72rem", letterSpacing: "0.5px" }}>
+											<thead className="table-light text-uppercase" style={{ fontSize: "0.74rem", letterSpacing: "0.5px" }}>
 												<tr>
 													<th className="ps-3">Allocation</th>
 													<th>Order Item</th>
 													<th>Product</th>
 													<th>Qty</th>
 													<th>Flags & Parts</th>
-													<th>Status</th>
+													<th>Loading Status</th>
 													<th className="text-end pe-3">Actions</th>
 												</tr>
 											</thead>
@@ -944,7 +965,7 @@ function DispatcherTrainLoading() {
 													<tr
 														key={a.cargo_allocation_id}
 														style={{
-															backgroundColor: a.is_overflow ? "rgba(245, 158, 11, 0.05)" : undefined,
+															backgroundColor: a.is_overflow ? "rgba(245, 158, 11, 0.04)" : undefined,
 														}}
 													>
 														<td className="ps-3">
@@ -958,20 +979,20 @@ function DispatcherTrainLoading() {
 																{a.order_id ? `#ORD-${a.order_id}` : `Item #${a.order_item_id}`}
 															</span>
 															{a.customer_name && (
-																<div className="text-muted" style={{ fontSize: "0.74rem" }}>
+																<div className="text-muted" style={{ fontSize: "0.76rem" }}>
 																	{a.customer_name}
 																</div>
 															)}
 														</td>
 
 														<td>
-															<span className="fw-semibold text-dark" style={{ fontSize: "0.85rem" }}>
+															<span className="fw-semibold text-dark" style={{ fontSize: "0.88rem" }}>
 																{a.product_name || `Product #${a.product_id}`}
 															</span>
 														</td>
 
 														<td>
-															<span className="fw-bold">{a.allocated_quantity}</span>
+															<span className="fw-bold fs-6">{a.allocated_quantity}</span>
 															<span className="text-muted" style={{ fontSize: "0.75rem" }}>
 																{" "}
 																units
@@ -994,7 +1015,7 @@ function DispatcherTrainLoading() {
 																	<button
 																		type="button"
 																		className="btn btn-sm btn-outline-info py-0 px-2 d-inline-flex align-items-center gap-1"
-																		style={{ fontSize: "0.72rem" }}
+																		style={{ fontSize: "0.74rem" }}
 																		onClick={() =>
 																			setLinkedModal({
 																				show: true,
@@ -1008,7 +1029,7 @@ function DispatcherTrainLoading() {
 																	</button>
 																) : (
 																	!a.is_overflow && (
-																		<span className="badge bg-light text-muted border" style={{ fontSize: "0.7rem" }}>
+																		<span className="badge bg-light text-muted border" style={{ fontSize: "0.72rem" }}>
 																			Single Trip
 																		</span>
 																	)
@@ -1026,7 +1047,7 @@ function DispatcherTrainLoading() {
 																		? "text-warning border-warning"
 																		: "text-muted"
 																}`}
-																style={{ width: "auto", minWidth: "125px", fontWeight: 600, fontSize: "0.78rem" }}
+																style={{ width: "auto", minWidth: "130px", fontWeight: 600, fontSize: "0.8rem" }}
 																value={a.status || "Not Loaded"}
 																onChange={(e) => handleStatusChange(a.cargo_allocation_id, e.target.value)}
 																disabled={tripDetail.status === "Loaded"}
@@ -1078,32 +1099,32 @@ function DispatcherTrainLoading() {
 										</table>
 									</div>
 								)}
-
-								{allocations.length > 0 && (
-									<div className="p-3 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-										<div className="text-muted" style={{ fontSize: "0.8rem" }}>
-											Total Allocated: <strong>{usedCap}</strong> / {totalCap} units
-										</div>
-										<button
-											type="button"
-											className="btn btn-success d-inline-flex align-items-center gap-2"
-											onClick={handleMarkAllLoaded}
-											disabled={tripDetail.status === "Loaded"}
-										>
-											<IconCheck size={18} />
-											<span>
-												{tripDetail.status === "Loaded"
-													? "Manifest Locked (All Loaded)"
-													: "Mark All Loaded & Lock Manifest"}
-											</span>
-										</button>
-									</div>
-								)}
 							</div>
-						</>
-					)}
+
+							{allocations.length > 0 && (
+								<div className="p-3 bg-light border-top d-flex justify-content-between align-items-center flex-wrap gap-2 mt-auto">
+									<div className="text-muted" style={{ fontSize: "0.84rem" }}>
+										Total Allocated: <strong>{usedCap}</strong> / {totalCap} units ({capPct}% loaded)
+									</div>
+									<button
+										type="button"
+										className="btn btn-success d-inline-flex align-items-center gap-2"
+										onClick={handleMarkAllLoaded}
+										disabled={tripDetail.status === "Loaded"}
+									>
+										<IconCheck size={18} />
+										<span>
+											{tripDetail.status === "Loaded"
+												? "Manifest Locked (All Loaded)"
+												: "Mark All Loaded & Lock Manifest"}
+										</span>
+									</button>
+								</div>
+							)}
+						</div>
+					</div>
 				</div>
-			</div>
+			)}
 
 			{/* MODAL 1: VIEW OTHER PART STATE OF SPLIT / OVERFLOWN ORDER */}
 			{linkedModal.show && linkedModal.allocation && (

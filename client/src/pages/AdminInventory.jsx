@@ -109,6 +109,15 @@ function AdminInventory() {
     };
   }, [loadStock]);
 
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess("");
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   const loadHistory = async () => {
     setShowHistoryModal(true);
     setLoadingHistory(true);
@@ -165,16 +174,39 @@ function AdminInventory() {
     }
   };
 
+  // ── Adjustment Reason Categories (Direction-Aware) ───────
+  const ADDITION_REASONS = [
+    { value: "AUDIT_GAIN", label: "Stocktake Surplus / Found Stock" },
+    { value: "RETURN", label: "Customer Return / Restock" },
+    { value: "INBOUND_OVERAGE", label: "Supplier / Inbound Overage" },
+    { value: "CORRECTION_ADD", label: "Audit Inventory Correction (Addition)" },
+    { value: "OTHER_ADD", label: "Other Inventory Addition" },
+  ];
+
+  const DEDUCTION_REASONS = [
+    { value: "DAMAGE", label: "Damaged in Warehouse" },
+    { value: "EXPIRED", label: "Expired / Quality Failure" },
+    { value: "AUDIT_CORRECTION", label: "Stocktake Discrepancy / Shortage" },
+    { value: "DEFECTIVE", label: "Quality Rejection / Quarantine" },
+    { value: "WRITE_OFF", label: "Loss / Shrinkage Write-Off" },
+    { value: "OTHER_REDUCE", label: "Other Deduction Reason" },
+  ];
+
   // ── Handlers: Adjustment / Write-Off ─────────────────────
   const handleOpenAdjust = (item) => {
     setAdjustProduct(item);
-    setAdjustType("DAMAGE");
     setAdjustDirection("REDUCE");
+    setAdjustType("DAMAGE");
     setAdjustQty("");
     setAdjustReason("");
     setAdjustBatch("");
     setError("");
     setSuccess("");
+  };
+
+  const handleDirectionChange = (newDir) => {
+    setAdjustDirection(newDir);
+    setAdjustType(newDir === "ADD" ? "AUDIT_GAIN" : "DAMAGE");
   };
 
   const handleAdjustSubmit = async (e) => {
@@ -201,11 +233,17 @@ function AdminInventory() {
     setSuccess("");
 
     const typeNames = {
+      AUDIT_GAIN: "Stocktake Surplus / Found Stock",
+      RETURN: "Customer Return / Restock",
+      INBOUND_OVERAGE: "Supplier / Inbound Overage",
+      CORRECTION_ADD: "Audit Inventory Correction (Addition)",
+      OTHER_ADD: "Other Inventory Addition",
       DAMAGE: "Damaged Stock Write-Off",
       EXPIRED: "Expired / Quality Rejection",
       AUDIT_CORRECTION: "Stock Take Discrepancy",
-      RETURN: "Factory Return / Restock",
-      OTHER: "Manual Inventory Adjustment",
+      DEFECTIVE: "Quality Rejection / Quarantine",
+      WRITE_OFF: "Loss / Shrinkage Write-Off",
+      OTHER_REDUCE: "Manual Inventory Deduction",
     };
 
     try {
@@ -590,8 +628,34 @@ function AdminInventory() {
           </div>
         </div>
 
-        {error && <div className="alert alert-danger p-2 small mb-3">{error}</div>}
-        {success && <div className="alert alert-success p-2 small mb-3">{success}</div>}
+        {error && (
+          <div className="alert alert-danger d-flex align-items-center justify-content-between p-2.5 small mb-3">
+            <div className="d-flex align-items-center gap-2">
+              <IconAlertTriangle size={16} className="text-danger flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              className="btn-close btn-sm"
+              style={{ fontSize: "0.65rem" }}
+              onClick={() => setError("")}
+            />
+          </div>
+        )}
+        {success && (
+          <div className="alert alert-success d-flex align-items-center justify-content-between p-2.5 small mb-3">
+            <div className="d-flex align-items-center gap-2">
+              <IconCheck size={16} className="text-success flex-shrink-0" />
+              <span>{success}</span>
+            </div>
+            <button
+              type="button"
+              className="btn-close btn-sm"
+              style={{ fontSize: "0.65rem" }}
+              onClick={() => setSuccess("")}
+            />
+          </div>
+        )}
 
         {/* ── Search & Filter Controls ─────────────────────────── */}
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -748,30 +812,33 @@ function AdminInventory() {
                         LKR {valuation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td>{getStockBadge(atp)}</td>
-                      <td>
-                        <div className="d-flex justify-content-center align-items-center gap-1">
+                      <td style={{ whiteSpace: "nowrap", width: "1%" }}>
+                        <div className="d-flex justify-content-center align-items-center gap-1.5">
                           <button
-                            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1 py-1 px-2"
+                            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 py-1 px-2.5 rounded-2 fw-medium text-nowrap"
+                            style={{ fontSize: "0.8rem", height: "30px" }}
                             title="Restock Product"
                             onClick={() => handleOpenRestock(item)}
                           >
-                            <IconPlus size={13} />
+                            <IconPlus size={14} />
                             <span>Restock</span>
                           </button>
                           <button
-                            className="btn btn-sm btn-outline-warning text-dark d-inline-flex align-items-center gap-1 py-1 px-2"
-                            title="Damage or Audit Adjustment"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 py-1 px-2.5 rounded-2 fw-medium text-nowrap"
+                            style={{ fontSize: "0.8rem", height: "30px" }}
+                            title="Stock adjustment (damage write-off, count correction, or surplus)"
                             onClick={() => handleOpenAdjust(item)}
                           >
-                            <IconAdjustments size={13} />
+                            <IconAdjustments size={14} />
                             <span>Adjust</span>
                           </button>
                           <button
-                            className="btn btn-sm btn-light border d-inline-flex align-items-center py-1 px-2"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center py-1 px-2 rounded-2 text-nowrap"
+                            style={{ fontSize: "0.8rem", height: "30px" }}
                             title="Edit SKU Details"
                             onClick={() => handleOpenEditProduct(item)}
                           >
-                            <IconEdit size={13} />
+                            <IconEdit size={14} />
                           </button>
                         </div>
                       </td>
@@ -920,7 +987,7 @@ function AdminInventory() {
                       <select
                         className="form-select form-select-sm"
                         value={adjustDirection}
-                        onChange={(e) => setAdjustDirection(e.target.value)}
+                        onChange={(e) => handleDirectionChange(e.target.value)}
                       >
                         <option value="REDUCE">Deduct Stock (Write-Off / Loss)</option>
                         <option value="ADD">Add Stock (Found / Audit Gain)</option>
@@ -934,11 +1001,11 @@ function AdminInventory() {
                         value={adjustType}
                         onChange={(e) => setAdjustType(e.target.value)}
                       >
-                        <option value="DAMAGE">Damaged in Warehouse</option>
-                        <option value="EXPIRED">Expired / Quality Failure</option>
-                        <option value="AUDIT_CORRECTION">Stocktake Discrepancy</option>
-                        <option value="RETURN">Factory Return</option>
-                        <option value="OTHER">Other Adjustment</option>
+                        {(adjustDirection === "ADD" ? ADDITION_REASONS : DEDUCTION_REASONS).map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>

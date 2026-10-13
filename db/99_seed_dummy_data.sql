@@ -7,12 +7,12 @@ INSERT IGNORE INTO product (product_id, name, unit_price, space_consumption_rate
 (103, 'Kandypack Chocolate Biscuits', 220.00, 0.8),
 (104, 'Kandypack Sugar 1kg', 300.00, 1.0);
 
--- 2. Insert a Fake Customer User (Password is 'password123')
+-- 2. Insert Customer User (Password is 'password123')
 INSERT IGNORE INTO user (user_id, name, email, password_hash, role_id) VALUES
-(999, 'Test Shop', 'shop@test.com', '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVEdHurSIa2O', 6);
+(999, 'Dilshan Wickramasinghe', 'dilshan.wickramasinghe@kandypack.lk', '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVEdHurSIa2O', 6);
 
 INSERT IGNORE INTO customer (user_id, phone, address, city_id) VALUES
-(999, '0771234567', '45 Galle Road, Colombo', 1);
+(999, '0772345678', '45 Galle Road, Colombo 03', 1);
 
 -- 3. Insert Fake Orders over different dates (for the Quarterly Sales report)
 INSERT IGNORE INTO `order` (order_id, customer_id, route_id, order_date, requested_delivery_date, status, total_value, total_volume) VALUES
