@@ -121,11 +121,29 @@ function DriverDelivery() {
 
   useEffect(() => {
     loadRuns();
+    const interval = setInterval(() => {
+      loadRuns();
+    }, 15000);
+    const onFocus = () => loadRuns();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadRuns]);
 
   useEffect(() => {
     if (selectedScheduleId) {
       loadScheduleDetails(selectedScheduleId);
+      const interval = setInterval(() => {
+        loadScheduleDetails(selectedScheduleId);
+      }, 15000);
+      const onFocus = () => loadScheduleDetails(selectedScheduleId);
+      window.addEventListener("focus", onFocus);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", onFocus);
+      };
     }
   }, [selectedScheduleId, loadScheduleDetails]);
 

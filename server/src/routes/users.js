@@ -317,6 +317,7 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
       `, [userId]);
 
       return res.json({
+        userName,
         roleId,
         weeklyHours: hoursWorked,
         maxWeeklyHours: roleId === 4 ? 40 : 60,

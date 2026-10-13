@@ -55,6 +55,7 @@ const mockDb = {
     { user_id: 1, name: 'Nimal Perera', email: 'admin@kandypack.local', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 2, name: 'Kavinda Fernando', email: 'dispatcher@kandypack.local', phone: '0712222222', role_id: 2, role: 'Dispatcher', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 3, name: 'Suneth Silva', email: 'manager@kandypack.local', phone: '0713333333', role_id: 3, role: 'Regional Store Manager', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 4, name: 'Sunil Jayawardena', email: 'driver@kandypack.local', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 5, name: 'Kamal Gunaratne', email: 'kamal.driver@kandypack.lk', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 6, name: 'Ajith Kumara', email: 'ajith.driver@kandypack.lk', phone: '0716666666', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 7, name: 'Bandara Weerakoon', email: 'bandara.asst@kandypack.lk', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
