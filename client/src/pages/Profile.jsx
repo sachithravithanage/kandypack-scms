@@ -34,12 +34,9 @@ function Profile() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Notification preferences
-  const [notifPrefs, setNotifPrefs] = useState({
-    email: true,
-    sms: true,
-    inApp: true,
-  });
+  // Notification preferences — only in-app is supported
+  const [notifInApp, setNotifInApp] = useState(true);
+  const [showDisableWarn, setShowDisableWarn] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -72,11 +69,7 @@ function Profile() {
             typeof data.notification_preferences === "string"
               ? JSON.parse(data.notification_preferences)
               : data.notification_preferences;
-          setNotifPrefs({
-            email: parsed.email ?? true,
-            sms: parsed.sms ?? true,
-            inApp: parsed.inApp ?? true,
-          });
+          setNotifInApp(parsed.inApp ?? true);
         } catch {
           // keep defaults
         }
@@ -160,11 +153,10 @@ function Profile() {
     setError("");
     setSuccess("");
     setActionLoading(true);
-
     try {
       await axios.put(
         apiUrl("/api/auth/preferences"),
-        { preferences: notifPrefs },
+        { preferences: { inApp: notifInApp, email: false, sms: false } },
         authHeader
       );
       setSuccess("Notification preferences saved successfully.");
@@ -541,65 +533,118 @@ function Profile() {
       {/* ── Tab 3: Notification Preferences ──────────────────── */}
       {activeTab === "notifications" && (
         <div className="kp-card" style={{ maxWidth: "600px" }}>
-          <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
-            Dispatch & Order Alerts
+
+          {/* Warning modal when user tries to disable in-app notifications */}
+          {showDisableWarn && (
+            <div
+              className="modal d-block"
+              tabIndex="-1"
+              style={{ background: "rgba(0,0,0,0.45)" }}
+              aria-modal="true"
+              role="dialog"
+            >
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content border-0 shadow">
+                  <div className="modal-header bg-warning text-dark">
+                    <h5 className="modal-title d-flex align-items-center gap-2">
+                      <IconBell size={20} />
+                      Disable Website Notifications?
+                    </h5>
+                  </div>
+                  <div className="modal-body">
+                    <p className="mb-2">
+                      <strong>Website notifications are required</strong> for you to receive
+                      system alerts, incident reports, and delivery updates inside the app.
+                    </p>
+                    <p className="mb-0 text-muted small">
+                      If you turn them off, you will <strong>not</strong> see any new
+                      notifications until you re-enable them. Are you sure?
+                    </p>
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      id="btn-profile-cancel-disable-notif"
+                      className="btn btn-secondary"
+                      onClick={() => setShowDisableWarn(false)}
+                    >
+                      Cancel — Keep Enabled
+                    </button>
+                    <button
+                      id="btn-profile-confirm-disable-notif"
+                      className="btn btn-warning fw-bold"
+                      onClick={() => { setNotifInApp(false); setShowDisableWarn(false); }}
+                    >
+                      Yes, Turn Off
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <h3 className="h6 mb-1 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
+            Dispatch &amp; Order Alerts
           </h3>
           <p className="text-muted small mb-4">
-            Select the channels through which you wish to receive automated status updates and critical logistics notifications.
+            Control how you receive automated status updates and critical logistics
+            notifications inside the website.
           </p>
 
           <form onSubmit={handleSavePreferences}>
             <div className="d-flex flex-column gap-3 mb-4">
-              <label className="d-flex align-items-start gap-3 p-3 rounded border bg-light cursor-pointer">
+
+              {/* In-App — only supported channel */}
+              <div className="d-flex align-items-start gap-3 p-3 rounded border bg-light">
                 <input
                   type="checkbox"
+                  id="pref-inapp"
                   className="form-check-input mt-1"
-                  checked={notifPrefs.inApp}
-                  onChange={(e) =>
-                    setNotifPrefs({ ...notifPrefs, inApp: e.target.checked })
-                  }
+                  checked={notifInApp}
+                  onChange={(e) => {
+                    if (!e.target.checked && notifInApp) {
+                      setShowDisableWarn(true);
+                    } else {
+                      setNotifInApp(e.target.checked);
+                    }
+                  }}
                 />
                 <div>
-                  <div className="fw-semibold small">In-App Notifications</div>
-                  <div className="text-muted small">
+                  <label htmlFor="pref-inapp" className="fw-semibold small mb-0" style={{ cursor: "pointer" }}>
+                    In-App Notifications
+                    {notifInApp
+                      ? <span className="badge bg-success ms-2">Active</span>
+                      : <span className="badge bg-secondary ms-2">Off</span>}
+                  </label>
+                  <div className="text-muted small mt-1">
                     Real-time topbar notifications when orders advance or runs are scheduled.
+                    This is the <strong>only</strong> notification channel currently available.
                   </div>
+                  {!notifInApp && (
+                    <div className="text-danger small mt-1 fw-semibold">
+                      ⚠ You will not receive any new notifications while this is off.
+                    </div>
+                  )}
                 </div>
-              </label>
+              </div>
 
-              <label className="d-flex align-items-start gap-3 p-3 rounded border bg-light cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="form-check-input mt-1"
-                  checked={notifPrefs.email}
-                  onChange={(e) =>
-                    setNotifPrefs({ ...notifPrefs, email: e.target.checked })
-                  }
-                />
+              {/* Email — not available */}
+              <div className="d-flex align-items-start gap-3 p-3 rounded border bg-white opacity-50" title="Not available in this version">
+                <input type="checkbox" className="form-check-input mt-1" disabled />
                 <div>
-                  <div className="fw-semibold small">Email Notifications</div>
-                  <div className="text-muted small">
-                    Daily summaries, order dispatch manifests, and shipment discrepancy alerts.
-                  </div>
+                  <div className="fw-semibold small text-muted">Email Notifications <span className="badge bg-secondary ms-1" style={{fontSize:"0.65rem"}}>Coming Soon</span></div>
+                  <div className="text-muted small">Daily summaries, order dispatch manifests, and shipment discrepancy alerts.</div>
                 </div>
-              </label>
+              </div>
 
-              <label className="d-flex align-items-start gap-3 p-3 rounded border bg-light cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="form-check-input mt-1"
-                  checked={notifPrefs.sms}
-                  onChange={(e) =>
-                    setNotifPrefs({ ...notifPrefs, sms: e.target.checked })
-                  }
-                />
+              {/* SMS — not available */}
+              <div className="d-flex align-items-start gap-3 p-3 rounded border bg-white opacity-50" title="Not available in this version">
+                <input type="checkbox" className="form-check-input mt-1" disabled />
                 <div>
-                  <div className="fw-semibold small">SMS Alerts (Mobile)</div>
-                  <div className="text-muted small">
-                    Immediate text alerts when the delivery driver is approaching your drop-off stop.
-                  </div>
+                  <div className="fw-semibold small text-muted">SMS Alerts (Mobile) <span className="badge bg-secondary ms-1" style={{fontSize:"0.65rem"}}>Coming Soon</span></div>
+                  <div className="text-muted small">Immediate text alerts when the delivery driver is approaching your drop-off stop.</div>
                 </div>
-              </label>
+              </div>
+
             </div>
 
             <button
