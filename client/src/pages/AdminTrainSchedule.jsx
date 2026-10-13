@@ -231,9 +231,9 @@ function AdminTrainSchedule() {
                 <AppLayout pageTitle="Train Schedule Management">
                         <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                                 <div>
-                                        <h2 className="mb-0" style={{ fontWeight: 600, fontSize: "1.5rem" }}>
-                                                Train Schedule Management
-                                        </h2>
+                                        <p className="text-muted small mb-0">
+                                                Central railway schedule management for outbound cargo freight from Kandy hub to regional store destinations.
+                                        </p>
                                 </div>
                                 <button
                                         className="btn btn-primary d-inline-flex align-items-center gap-2"

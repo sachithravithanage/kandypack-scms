@@ -421,7 +421,7 @@ function MyOrders() {
       {/* Top Banner / Actions */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
-          <h2 className="h4 mb-0 fw-bold">Customer Order Portal</h2>
+          <p className="text-muted small mb-0">Track and manage your order deliveries and fulfillment status in real-time.</p>
         </div>
         <Link to="/orders/new" className="btn btn-primary d-inline-flex align-items-center gap-2">
           <IconPlus size={18} stroke={2} />

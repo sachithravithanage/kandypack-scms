@@ -480,11 +480,8 @@ function DispatcherTrainLoading() {
 
 			<div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
 				<div>
-					<h2 className="mb-1" style={{ fontWeight: 700, fontSize: "1.6rem" }}>
-						Train Loading & Cargo Dispatch
-					</h2>
 					<p className="text-muted mb-0" style={{ fontSize: "0.92rem" }}>
-						Drag and drop route-matched orders into scheduled train trips with automatic overflow management.
+						Drag and drop route-matched orders into scheduled train trips with automatic cargo overflow management.
 					</p>
 				</div>
 				<div className="d-flex align-items-center gap-2">

@@ -275,7 +275,7 @@ function RosterSchedule() {
 
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h2 className="h5 mb-0 fw-bold">Truck Run Roster</h2>
+          <p className="text-muted small mb-0">Weekly duty assignment and statutory hours monitoring for drivers and assistants.</p>
         </div>
         <div className="d-flex align-items-center gap-2">
           <button
