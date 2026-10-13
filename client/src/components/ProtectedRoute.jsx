@@ -1,8 +1,9 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import { IconShieldLock, IconArrowLeft } from "@tabler/icons-react";
 
 export default function ProtectedRoute({ allowedRoles, children }) {
+  const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const roleId = Number(localStorage.getItem("roleId")) || 0;
 
@@ -25,22 +26,23 @@ export default function ProtectedRoute({ allowedRoles, children }) {
           </div>
           <h2 className="h4 mb-2">Access Restricted</h2>
           <p className="text-muted mb-4 small">
-            Your current account (<strong>{roleName}</strong>) does not have authorization to view or perform actions in this module.
+            Your current account (<strong>{roleName}</strong>) is not permitted to access this module.
+            Please navigate to your permitted dashboard or contact your system administrator for permissions.
           </p>
           <div className="d-flex justify-content-center gap-2">
             <button
               className="btn btn-primary btn-sm px-4 fw-bold"
               onClick={() => {
                 if (roleId === 4 || roleId === 5) {
-                  window.location.href = "/delivery";
+                  navigate("/delivery", { replace: true });
                 } else if (roleId === 2) {
-                  window.location.href = "/roster";
+                  navigate("/roster", { replace: true });
                 } else if (roleId === 3) {
-                  window.location.href = "/store/dispatch";
+                  navigate("/store/receipt", { replace: true });
                 } else if (roleId === 6) {
-                  window.location.href = "/orders";
+                  navigate("/orders", { replace: true });
                 } else {
-                  window.location.href = "/dashboard";
+                  navigate("/dashboard", { replace: true });
                 }
               }}
             >

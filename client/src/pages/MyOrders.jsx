@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -15,6 +18,13 @@ import {
   IconMapPin,
   IconCalendar,
   IconCircleCheck,
+  IconChevronDown,
+  IconChevronUp,
+  IconFileText,
+  IconRefresh,
+  IconX,
+  IconDownload,
+  IconFileSpreadsheet,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -64,12 +74,31 @@ const STATUS_CONFIG = {
 const LIFECYCLE_STEPS = ["Placed", "Scheduled", "In Transit", "Delivered", "Closed"];
 
 function MyOrders() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearchQuery(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+  const [expandedOrders, setExpandedOrders] = useState({});
 
   // Edit Modal State
   const [editingOrder, setEditingOrder] = useState(null);
@@ -77,6 +106,204 @@ function MyOrders() {
   const [editDate, setEditDate] = useState("");
   const [editError, setEditError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  const toggleExpandOrder = (orderId) => {
+    setExpandedOrders((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
+
+  // Re-order past order items
+  const handleReorder = (order) => {
+    if (!order.items || order.items.length === 0) {
+      navigate("/orders/new");
+      return;
+    }
+    navigate("/orders/new", {
+      state: {
+        reorderItems: order.items,
+        deliveryAddress: order.delivery_address,
+      },
+    });
+  };
+
+  // Download professional PDF invoice / receipt
+  const downloadPdfInvoice = (order) => {
+    try {
+      const doc = new jsPDF();
+
+      // Brand header banner
+      doc.setFillColor(15, 23, 42); // Navy 900
+      doc.rect(0, 0, 210, 36, "F");
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("KANDYPACK SCMS", 14, 18);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("Central Railway & Road Supply Chain Logistics", 14, 25);
+      doc.text("Official Delivery Invoice & Cargo Manifest", 14, 30);
+
+      // Invoice info right-aligned
+      doc.setFontSize(9);
+      doc.text(`INVOICE: #INV-${String(order.order_id).padStart(6, "0")}`, 196, 18, { align: "right" });
+      doc.text(`Order Date: ${order.order_date ? new Date(order.order_date).toLocaleDateString() : "—"}`, 196, 24, { align: "right" });
+      doc.text(`Status: ${order.status.toUpperCase()}`, 196, 30, { align: "right" });
+
+      // Delivery & Customer Information
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Delivery & Recipient Information", 14, 46);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Customer Account ID: #${order.customer_id}`, 14, 53);
+      doc.text(`Delivery Address: ${order.delivery_address || "Standard Address"}`, 14, 59);
+      doc.text(`Route / Stop: ${order.route_name || "Route #" + (order.route_id || "—")} (Stop: ${order.stop_name || "#" + (order.route_stop_id || "—")})`, 14, 65);
+      doc.text(`Requested Delivery Date: ${order.requested_delivery_date ? new Date(order.requested_delivery_date).toLocaleDateString() : "—"}`, 14, 71);
+
+      // Items table
+      const tableData = (order.items && order.items.length > 0)
+        ? order.items.map((item, index) => [
+            index + 1,
+            item.product_name || `Product #${item.product_id}`,
+            `LKR ${parseFloat(item.unit_price || 0).toFixed(2)}`,
+            item.quantity,
+            `${parseFloat(item.line_volume || 0).toFixed(2)} m3`,
+            `LKR ${parseFloat(item.line_total || (item.quantity * item.unit_price) || 0).toFixed(2)}`,
+          ])
+        : [
+            [1, "Order Consignment Package", "—", "1", `${parseFloat(order.total_volume || 0).toFixed(2)} m3`, `LKR ${parseFloat(order.total_value || 0).toFixed(2)}`],
+          ];
+
+      autoTable(doc, {
+        startY: 77,
+        head: [["#", "Product Description", "Unit Price", "Qty", "Volume", "Line Total (LKR)"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: 255,
+          fontStyle: "bold",
+          fontSize: 9,
+        },
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 3,
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 28, halign: "right" },
+          3: { cellWidth: 18, halign: "center" },
+          4: { cellWidth: 24, halign: "right" },
+          5: { cellWidth: 35, halign: "right" },
+        },
+      });
+
+      const finalY = doc.lastAutoTable.finalY + 8;
+
+      // Summary block
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(120, finalY, 76, 32, 2, 2, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(120, finalY, 76, 32, 2, 2, "D");
+
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text("Total Volume:", 125, finalY + 8);
+      doc.text(`${parseFloat(order.total_volume || 0).toFixed(2)} m3`, 190, finalY + 8, { align: "right" });
+
+      doc.text("Handling & Rail Freight:", 125, finalY + 16);
+      doc.text("INCLUDED", 190, finalY + 16, { align: "right" });
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text("Grand Total:", 125, finalY + 25);
+      doc.text(`LKR ${parseFloat(order.total_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 190, finalY + 25, { align: "right" });
+
+      // Footer
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text("This is an official computer-generated receipt from Kandypack SCMS.", 14, 280);
+      doc.text(`Generated on ${new Date().toLocaleString()} for Order #${order.order_id}`, 14, 285);
+
+      doc.save(`Kandypack_Invoice_Order_${order.order_id}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      setError("Failed to generate PDF invoice.");
+    }
+  };
+
+  // ---- All-orders report (uses the currently filtered list) ----
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
+  const buildReportRows = (list) =>
+    list.map((o) => ({
+      "Order ID": o.order_id,
+      "Order Date": fmtDate(o.order_date),
+      "Requested Delivery": fmtDate(o.requested_delivery_date),
+      Status: o.status,
+      "Delivery Address": o.delivery_address || "—",
+      Items: o.items?.length || 0,
+      "Volume (m3)": Number(parseFloat(o.total_volume || 0).toFixed(2)),
+      "Total (LKR)": Number(parseFloat(o.total_value || 0).toFixed(2)),
+    }));
+
+  const downloadOrdersReportPdf = (list) => {
+    try {
+      if (!list.length) return;
+      const rows = buildReportRows(list);
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 297, 28, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("KANDYPACK SCMS - My Orders Report", 14, 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Customer #${customerId}  |  Generated ${new Date().toLocaleString()}  |  ${rows.length} orders`, 14, 22);
+
+      const cols = Object.keys(rows[0]);
+      autoTable(doc, {
+        startY: 34,
+        head: [cols],
+        body: rows.map((r) => cols.map((c) => String(r[c]))),
+        theme: "striped",
+        headStyles: { fillColor: [30, 41, 59], fontSize: 9 },
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+      });
+
+      const active = list.filter((o) => o.status !== "Cancelled");
+      const sum = active.reduce((s, o) => s + parseFloat(o.total_value || 0), 0);
+      const y = doc.lastAutoTable.finalY + 8;
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(
+        `Total value (excluding cancelled): LKR ${sum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        14,
+        y
+      );
+      doc.save(`Kandypack_My_Orders_Report_${toLocalDateString(new Date())}.pdf`);
+    } catch (err) {
+      console.error("Orders report failed:", err);
+      setError("Failed to generate orders report.");
+    }
+  };
+
+  const downloadOrdersReportExcel = (list) => {
+    if (!list.length) return;
+    const ws = XLSX.utils.json_to_sheet(buildReportRows(list));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "My Orders");
+    XLSX.writeFile(wb, `Kandypack_My_Orders_Report_${toLocalDateString(new Date())}.xlsx`);
+  };
 
   const customerId = (() => {
     const stored = localStorage.getItem("userId") || localStorage.getItem("customerId");
@@ -93,16 +320,16 @@ function MyOrders() {
     return 9;
   })();
   const token = localStorage.getItem("token");
-  const authHeader = token ? {
-    headers: { Authorization: `Bearer ${token}` },
-  } : {};
+  const authHeader = useMemo(() => {
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+  }, [token]);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const currentToken = localStorage.getItem("token");
+      const headers = currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
       const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, { headers });
       // Sort orders newest first
       const sorted = (res.data || []).sort(
@@ -111,14 +338,21 @@ function MyOrders() {
       setOrders(sorted);
     } catch (err) {
       console.error("Error loading customer orders:", err);
-      setError(err.response?.data?.error || "Could not load order history.");
+      if (!silent) setError(err.response?.data?.error || "Could not load order history.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, [customerId, authHeader]);
+  }, [customerId]);
 
   useEffect(() => {
     loadOrders();
+    const interval = setInterval(() => loadOrders(true), 15000);
+    const onFocus = () => loadOrders(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadOrders]);
 
   // REQ-ORD-07: Customer confirms receipt (Delivered -> Closed)
@@ -128,10 +362,14 @@ function MyOrders() {
       setActionLoading(true);
       setError("");
       const res = await axios.put(`${API_BASE}/orders/${orderId}/confirm-receipt`, {}, authHeader);
-      setSuccessMsg(res.data.message || `Order #${orderId} marked as received and closed.`);
+      const msg = res.data.message || `Order #${orderId} marked as received and closed.`;
+      setSuccessMsg(msg);
       loadOrders();
+      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Could not confirm order receipt.");
+      const errorMsg = err.response?.data?.error || "Could not confirm order receipt.";
+      setError(errorMsg);
+      window.alert(`❌ Confirmation Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
@@ -251,13 +489,34 @@ function MyOrders() {
       {/* Top Banner / Actions */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
-          <h2 className="h4 mb-0">Customer Order Portal</h2>
-          <p className="text-muted small mb-0">Track and manage your supply chain distribution orders</p>
+          <p className="text-muted small mb-0">Track and manage your order deliveries and fulfillment status in real-time.</p>
         </div>
-        <Link to="/orders/new" className="btn btn-primary d-inline-flex align-items-center gap-2">
-          <IconPlus size={18} stroke={2} />
-          <span>Place New Order</span>
-        </Link>
+        <div className="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-danger d-inline-flex align-items-center gap-2"
+            onClick={() => downloadOrdersReportPdf(filteredOrders)}
+            disabled={loading || filteredOrders.length === 0}
+            title="Download a PDF report of the orders currently shown"
+          >
+            <IconDownload size={18} />
+            <span>Orders Report (PDF)</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-success d-inline-flex align-items-center gap-2"
+            onClick={() => downloadOrdersReportExcel(filteredOrders)}
+            disabled={loading || filteredOrders.length === 0}
+            title="Download an Excel report of the orders currently shown"
+          >
+            <IconFileSpreadsheet size={18} />
+            <span>Excel</span>
+          </button>
+          <Link to="/orders/new" className="btn btn-primary d-inline-flex align-items-center gap-2">
+            <IconPlus size={18} stroke={2} />
+            <span>Place New Order</span>
+          </Link>
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -317,14 +576,32 @@ function MyOrders() {
             ))}
           </div>
 
-          <div className="kp-search" style={{ width: 260 }}>
+          <div className="kp-search" style={{ width: 260, position: "relative" }}>
             <IconSearch size={16} stroke={1.75} />
             <input
               type="text"
               placeholder="Search by order ID or address..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange("")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "0 2px",
+                  cursor: "pointer",
+                  color: "var(--color-text-muted)",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                aria-label="Clear search"
+              >
+                <IconX size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -519,41 +796,134 @@ function MyOrders() {
                   </div>
                 )}
 
-                {/* Action Footer */}
-                <div className="d-flex justify-content-end align-items-center gap-2 pt-3 border-top mt-3">
-                  {/* REQ-ORD-07 Confirm receipt button */}
-                  {isDelivered && (
-                    <button
-                      className="btn btn-sm btn-success d-inline-flex align-items-center gap-1 fw-bold px-3"
-                      onClick={() => handleConfirmReceipt(order.order_id)}
-                      disabled={actionLoading}
-                    >
-                      <IconCircleCheck size={16} />
-                      <span>Confirm Receipt</span>
-                    </button>
-                  )}
+                {/* Expandable Order Items Section */}
+                {expandedOrders[order.order_id] && (
+                  <div className="mt-3 pt-3 border-top bg-light p-3 rounded">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <span className="fw-semibold small text-dark">
+                        Itemized Cargo Breakdown ({order.items?.length || 0} items)
+                      </span>
+                      <span className="text-muted small">
+                        Total Volume: {parseFloat(order.total_volume || 0).toFixed(2)} m³
+                      </span>
+                    </div>
 
-                  {/* REQ-ORD-06 Placed-only actions: Edit & Cancel */}
-                  {isPlaced && (
-                    <>
+                    {!order.items || order.items.length === 0 ? (
+                      <p className="text-muted small mb-0">No item details recorded for this order.</p>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table table-sm table-bordered bg-white mb-0 align-middle small">
+                          <thead className="table-light">
+                            <tr>
+                              <th style={{ width: 40 }} className="text-center">#</th>
+                              <th>Product Name</th>
+                              <th className="text-end" style={{ width: 120 }}>Unit Price</th>
+                              <th className="text-center" style={{ width: 70 }}>Qty</th>
+                              <th className="text-end" style={{ width: 90 }}>Volume</th>
+                              <th className="text-end" style={{ width: 120 }}>Line Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {order.items.map((it, idx) => (
+                              <tr key={it.order_item_id || idx}>
+                                <td className="text-center text-muted">{idx + 1}</td>
+                                <td className="fw-medium text-dark">{it.product_name || `Product #${it.product_id}`}</td>
+                                <td className="text-end">LKR {parseFloat(it.unit_price || 0).toFixed(2)}</td>
+                                <td className="text-center fw-bold">{it.quantity}</td>
+                                <td className="text-end text-muted">{parseFloat(it.line_volume || (it.quantity * it.space_consumption_rate) || 0).toFixed(2)} m³</td>
+                                <td className="text-end fw-semibold text-dark">
+                                  LKR {parseFloat(it.line_total || (it.quantity * it.unit_price) || 0).toFixed(2)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Footer */}
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 border-top mt-3">
+                  <div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                      onClick={() => toggleExpandOrder(order.order_id)}
+                    >
+                      {expandedOrders[order.order_id] ? (
+                        <>
+                          <IconChevronUp size={15} />
+                          <span>Hide Items</span>
+                        </>
+                      ) : (
+                        <>
+                          <IconChevronDown size={15} />
+                          <span>View Items ({order.items?.length || 0})</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="d-flex align-items-center flex-wrap gap-2">
+                    {/* Re-Order Button */}
+                    {order.items && order.items.length > 0 && (
                       <button
-                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
-                        onClick={() => openEditModal(order)}
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                        onClick={() => handleReorder(order)}
+                        title="Copy items into new order form"
+                      >
+                        <IconRefresh size={14} />
+                        <span>Re-Order</span>
+                      </button>
+                    )}
+
+                    {/* PDF Invoice Button */}
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                      onClick={() => downloadPdfInvoice(order)}
+                      title="Download official PDF invoice and delivery manifest"
+                    >
+                      <IconFileText size={14} />
+                      <span>Invoice (PDF)</span>
+                    </button>
+
+                    {/* REQ-ORD-07 Confirm receipt button */}
+                    {isDelivered && (
+                      <button
+                        className="btn btn-sm btn-success d-inline-flex align-items-center gap-1 fw-bold px-3"
+                        onClick={() => handleConfirmReceipt(order.order_id)}
                         disabled={actionLoading}
                       >
-                        <IconEdit size={14} />
-                        <span>Edit Order</span>
+                        <IconCircleCheck size={16} />
+                        <span>Confirm Receipt</span>
                       </button>
-                      <button
-                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
-                        onClick={() => handleCancelOrder(order.order_id)}
-                        disabled={actionLoading}
-                      >
-                        <IconTrash size={14} />
-                        <span>Cancel</span>
-                      </button>
-                    </>
-                  )}
+                    )}
+
+                    {/* REQ-ORD-06 Placed-only actions: Edit & Cancel */}
+                    {isPlaced && (
+                      <>
+                        <button
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                          onClick={() => openEditModal(order)}
+                          disabled={actionLoading}
+                        >
+                          <IconEdit size={14} />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                          onClick={() => handleCancelOrder(order.order_id)}
+                          disabled={actionLoading}
+                        >
+                          <IconTrash size={14} />
+                          <span>Cancel</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -613,7 +983,7 @@ function MyOrders() {
                       required
                     />
                     <div className="form-text small text-muted">
-                      Per supply chain policy (REQ-ORD-02), modifications must maintain at least a 7-day advance notice.
+                      Per supply chain policy, modifications must maintain at least a 7-day advance notice.
                     </div>
                   </div>
                 </div>

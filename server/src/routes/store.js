@@ -45,7 +45,7 @@ router.get('/:storeId/incoming-trips', requireAuth, requireRole([1, 2, 3]), asyn
        JOIN train t ON t.train_id = tt.train_id
        JOIN city  c ON c.city_id  = tt.destination_city_id
        WHERE tt.destination_city_id = (SELECT city_id FROM store WHERE store_id = ?)
-         AND tt.status = 'Loaded'
+         AND tt.status IN ('Loaded', 'In Transit', 'Arrived')
        ORDER BY tt.arrival_datetime DESC`,
       [storeId]
     );
@@ -171,7 +171,8 @@ router.post('/:storeId/receive', requireAuth, requireRole([1, 3]), async (req, r
       // Append-only store inventory ledger (REQ-STORE-03, Project Guide C1/4.4)
       await conn.query(
         `INSERT INTO store_inventory (store_id, product_id, cargo_allocation_id, quantity_on_hand)
-         VALUES (?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE quantity_on_hand = VALUES(quantity_on_hand)`,
         [storeId, pId, cAllocId, recQty]
       );
 
@@ -195,6 +196,8 @@ router.post('/:storeId/receive', requireAuth, requireRole([1, 3]), async (req, r
       recorded.push({ cargoAllocationId: cAllocId, productId: pId, receivedQuantity: recQty });
     }
 
+    const operatorUserId = req.user?.user_id || req.user?.userId || null;
+
     // Log each discrepancy to audit_log (REQ-STORE-02) and trigger notifications (REQ-NOT-01)
     if (discrepancies.length > 0) {
       for (const d of discrepancies) {
@@ -202,7 +205,7 @@ router.post('/:storeId/receive', requireAuth, requireRole([1, 3]), async (req, r
           `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
            VALUES (?, 'Shipment discrepancy', 'cargo_allocation', ?, ?)`,
           [
-            req.user?.userId || null,
+            operatorUserId,
             d.cargoAllocationId,
             `store=${storeId} trip=${d.tripId || tripId} product=${d.productId} expected=${d.expected} received=${d.received} shortfall=${d.shortfall}`
           ]
@@ -226,6 +229,17 @@ router.post('/:storeId/receive', requireAuth, requireRole([1, 3]), async (req, r
         }
       }
     }
+
+    // Always log the receipt batch event
+    await conn.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Store shipment receipt recorded', 'cargo_allocation', ?, ?)`,
+      [
+        operatorUserId,
+        recorded[0]?.cargoAllocationId || storeId,
+        `store=${storeId} trip=${tripId || 'N/A'} items_recorded=${recorded.length} discrepancies=${discrepancies.length}`
+      ]
+    );
 
     await conn.commit();
     res.status(201).json({
@@ -279,6 +293,23 @@ router.post('/:storeId/dispatch', requireAuth, requireRole([1, 3]), async (req, 
     const [result] = await db.query(
       'INSERT INTO truck_allocation (truck_schedule_id, order_id, route_stop_id, delivery_status) VALUES (?, ?, ?, ?)',
       [truckScheduleId, orderId, orderRows[0].route_stop_id, 'Pending']
+    );
+
+    // Update order status to Out for Delivery
+    await db.query(
+      "UPDATE `order` SET status = 'Out for Delivery' WHERE order_id = ?",
+      [orderId]
+    );
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || null;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Dispatched order to truck schedule', 'truck_allocation', ?, ?)`,
+      [
+        operatorUserId,
+        result.insertId,
+        `truckScheduleId=${truckScheduleId}, orderId=${orderId}, routeStopId=${orderRows[0].route_stop_id}`
+      ]
     );
 
     res.status(201).json({

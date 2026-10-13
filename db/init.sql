@@ -110,6 +110,16 @@ CREATE TABLE order_item (
   FOREIGN KEY (product_id) REFERENCES product(product_id)
 );
 
+-- REQ-ORD-05 View: a customer's orders with route and stop names
+CREATE OR REPLACE VIEW v_customer_orders AS
+SELECT o.order_id, o.customer_id, o.route_id, o.route_stop_id,
+       o.delivery_address, o.order_date, o.requested_delivery_date,
+       o.status, o.total_value, o.total_volume, o.delivered_at,
+       r.name AS route_name, rs.stop_name
+  FROM `order` o
+  LEFT JOIN route r ON o.route_id = r.route_id
+  LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id;
+
 -- 03_rail_store_schema.sql
 CREATE TABLE train (
   train_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -145,6 +155,8 @@ CREATE TABLE cargo_allocation (
   received_quantity INT,
   discrepancy_flag BOOLEAN DEFAULT FALSE,
   discrepancy_note TEXT,
+  is_overflow BOOLEAN DEFAULT FALSE,
+  parent_allocation_id INT,
   FOREIGN KEY (order_item_id) REFERENCES order_item(order_item_id),
   FOREIGN KEY (trip_id) REFERENCES train_trip(trip_id)
 );
@@ -228,6 +240,89 @@ CREATE TABLE system_parameter (
 
 INSERT INTO system_parameter VALUES ('driver_min_rest_hours', '2');
 
+-- =========================================================================
+-- VIEW: v_driver_assigned_runs (Member D)
+-- =========================================================================
+CREATE OR REPLACE VIEW v_driver_assigned_runs AS
+SELECT
+    ts.truck_schedule_id,
+    ts.route_id,
+    r.name AS route_name,
+    r.max_delivery_time_minutes,
+    ts.truck_id,
+    tk.plate_number,
+    tk.capacity AS truck_capacity,
+    ts.driver_id,
+    ud.name AS driver_name,
+    ts.assistant_id,
+    ua.name AS assistant_name,
+    DATE_FORMAT(ts.scheduled_date, '%Y-%m-%d') AS scheduled_date,
+    ts.start_time,
+    ts.end_time,
+    ts.status,
+    ts.pickup_confirmed_at,
+    COUNT(ta.truck_allocation_id) AS total_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Delivered' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS delivered_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Attempted' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS attempted_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Failed' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS failed_stops,
+    COALESCE(
+        SUM(
+            CASE
+                WHEN ta.delivery_status = 'Pending' THEN 1
+                ELSE 0
+            END
+        ),
+        0
+    ) AS pending_stops
+FROM
+    truck_schedule ts
+    JOIN route r ON ts.route_id = r.route_id
+    JOIN truck tk ON ts.truck_id = tk.truck_id
+    JOIN `user` ud ON ts.driver_id = ud.user_id
+    JOIN `user` ua ON ts.assistant_id = ua.user_id
+    LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
+GROUP BY
+    ts.truck_schedule_id,
+    ts.route_id,
+    r.name,
+    r.max_delivery_time_minutes,
+    ts.truck_id,
+    tk.plate_number,
+    tk.capacity,
+    ts.driver_id,
+    ud.name,
+    ts.assistant_id,
+    ua.name,
+    ts.scheduled_date,
+    ts.start_time,
+    ts.end_time,
+    ts.status,
+    ts.pickup_confirmed_at;
+
 -- 05_notifications_schema.sql
 CREATE TABLE notification (
   notification_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -266,11 +361,11 @@ INSERT INTO main_inventory (product_id, quantity_in_stock) VALUES
   (6, 900), (7, 1100), (8, 950), (9, 1000), (10, 750);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id) VALUES
-  (1, 'System Administrator', 'admin@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 1),
-  (2, 'Dispatch Controller', 'dispatcher@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 2),
-  (3, 'Colombo Store Manager', 'manager@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 3),
-  (4, 'Nimal Perera', 'driver@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 4),
-  (5, 'Kamal Silva', 'assistant@kandypack.local', '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy', 5);
+  (1, 'Nimal Perera', 'admin@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 1),
+  (2, 'Dispatch Controller', 'dispatcher@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 2),
+  (3, 'Colombo Store Manager', 'manager@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 3),
+  (4, 'Sunil Jayawardena', 'driver@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 4),
+  (5, 'Kamal Silva', 'assistant@kandypack.local', '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e', 5);
 
 INSERT INTO `user` (user_id, name, email, password_hash, role_id)
 WITH RECURSIVE customer_numbers AS (
@@ -284,7 +379,7 @@ SELECT
   customer_number + 6,
   CONCAT('Sample Customer ', customer_number),
   CONCAT('customer', customer_number, '@kandypack.local'),
-  '$2b$10$XdP.SYjmvXCoVzL1pzSKk.VjCU.eatS800ipR2KLn8d5Wl8TZ4GGy',
+  '$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e',
   6
 FROM customer_numbers;
 
@@ -518,7 +613,217 @@ SELECT
   ) AS route_total_value
 FROM v_order_delivery_summary AS summary;
 
+-- REQ-RPT-02: Top Selling Products View
+CREATE OR REPLACE VIEW vw_top_selling_products AS
+SELECT 
+  p.product_id,
+  p.name AS product_name,
+  p.unit_price,
+  COALESCE(SUM(oi.quantity), 0) AS total_quantity_sold,
+  COALESCE(SUM(oi.quantity * p.unit_price), 0) AS total_revenue
+FROM product p
+LEFT JOIN order_item oi ON p.product_id = oi.product_id
+GROUP BY p.product_id, p.name, p.unit_price;
+
+-- REQ-RPT-05: Truck Utilization View
+CREATE OR REPLACE VIEW vw_truck_utilization AS
+SELECT 
+  t.truck_id,
+  t.plate_number,
+  t.capacity,
+  COUNT(ts.truck_schedule_id) AS total_trips_assigned,
+  SUM(CASE WHEN ts.status = 'Completed' THEN 1 ELSE 0 END) AS completed_trips,
+  COALESCE(SUM(rl.actual_hours_worked), 0) AS total_hours_operated
+FROM truck t
+LEFT JOIN truck_schedule ts ON t.truck_id = ts.truck_id
+LEFT JOIN roster_log rl ON ts.truck_schedule_id = rl.truck_schedule_id
+GROUP BY t.truck_id, t.plate_number, t.capacity;
+
+-- REQ-RPT-08: Complete System Summary View
+CREATE OR REPLACE VIEW vw_complete_system_summary AS
+SELECT 
+  ta.truck_allocation_id,
+  ta.truck_schedule_id,
+  ts.scheduled_date,
+  ts.status AS schedule_status,
+  t.plate_number AS truck_plate,
+  ud.name AS driver_name,
+  ua.name AS assistant_name,
+  r.name AS route_name,
+  s.name AS store_name,
+  o.order_id,
+  uc.name AS customer_name,
+  ta.delivery_status,
+  ta.delivered_at
+FROM truck_allocation ta
+JOIN truck_schedule ts ON ta.truck_schedule_id = ts.truck_schedule_id
+JOIN truck t ON ts.truck_id = t.truck_id
+JOIN `user` ud ON ts.driver_id = ud.user_id
+JOIN `user` ua ON ts.assistant_id = ua.user_id
+JOIN route r ON ts.route_id = r.route_id
+JOIN store s ON r.store_id = s.store_id
+JOIN `order` o ON ta.order_id = o.order_id
+JOIN `user` uc ON o.customer_id = uc.user_id;
+
+-- REQ-DEL-01: Driver Assigned Runs View
+CREATE OR REPLACE VIEW v_driver_assigned_runs AS
+SELECT 
+  ts.truck_schedule_id,
+  ts.route_id,
+  r.name AS route_name,
+  ts.truck_id,
+  tk.plate_number,
+  ts.driver_id,
+  ud.name AS driver_name,
+  ts.assistant_id,
+  ua.name AS assistant_name,
+  ts.scheduled_date,
+  ts.start_time,
+  ts.end_time,
+  ts.status,
+  ts.pickup_confirmed_at,
+  COUNT(ta.truck_allocation_id) AS total_stops,
+  SUM(CASE WHEN ta.delivery_status = 'Delivered' THEN 1 ELSE 0 END) AS delivered_stops,
+  SUM(CASE WHEN ta.delivery_status = 'Failed' THEN 1 ELSE 0 END) AS failed_stops,
+  SUM(CASE WHEN ta.delivery_status = 'Attempted' THEN 1 ELSE 0 END) AS attempted_stops,
+  SUM(CASE WHEN ta.delivery_status = 'Pending' THEN 1 ELSE 0 END) AS pending_stops
+FROM truck_schedule ts
+JOIN route r ON ts.route_id = r.route_id
+JOIN truck tk ON ts.truck_id = tk.truck_id
+JOIN `user` ud ON ts.driver_id = ud.user_id
+JOIN `user` ua ON ts.assistant_id = ua.user_id
+LEFT JOIN truck_allocation ta ON ts.truck_schedule_id = ta.truck_schedule_id
+GROUP BY 
+  ts.truck_schedule_id, ts.route_id, r.name, ts.truck_id, tk.plate_number,
+  ts.driver_id, ud.name, ts.assistant_id, ua.name, ts.scheduled_date,
+  ts.start_time, ts.end_time, ts.status, ts.pickup_confirmed_at;
+
+-- REQ-ORD-05 View: a customer's orders with route and stop names
+CREATE OR REPLACE VIEW v_customer_orders AS
+SELECT o.order_id, o.customer_id, o.route_id, o.route_stop_id,
+       o.delivery_address, o.order_date, o.requested_delivery_date,
+       o.status, o.total_value, o.total_volume, o.delivered_at,
+       r.name AS route_name, rs.stop_name
+  FROM `order` o
+  LEFT JOIN route r ON o.route_id = r.route_id
+  LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id;
+
 DELIMITER //
+
+-- REQ-ORD-02  Days between order date and requested delivery date
+DROP FUNCTION IF EXISTS fn_days_until_delivery //
+CREATE FUNCTION fn_days_until_delivery (p_from DATE, p_requested DATE)
+RETURNS INT
+DETERMINISTIC
+BEGIN
+  RETURN DATEDIFF(p_requested, p_from);
+END //
+
+-- REQ-ORD-04  Order totals computed from items x product
+DROP FUNCTION IF EXISTS fn_order_total_value //
+CREATE FUNCTION fn_order_total_value (p_order_id INT)
+RETURNS DECIMAL(11,2)
+READS SQL DATA
+BEGIN
+  DECLARE v_total DECIMAL(11,2);
+  SELECT COALESCE(SUM(oi.quantity * p.unit_price), 0)
+    INTO v_total
+    FROM order_item oi
+    JOIN product p ON p.product_id = oi.product_id
+   WHERE oi.order_id = p_order_id;
+  RETURN v_total;
+END //
+
+DROP FUNCTION IF EXISTS fn_order_total_volume //
+CREATE FUNCTION fn_order_total_volume (p_order_id INT)
+RETURNS DECIMAL(10,2)
+READS SQL DATA
+BEGIN
+  DECLARE v_total DECIMAL(10,2);
+  SELECT COALESCE(SUM(oi.quantity * p.space_consumption_rate), 0)
+    INTO v_total
+    FROM order_item oi
+    JOIN product p ON p.product_id = oi.product_id
+   WHERE oi.order_id = p_order_id;
+  RETURN v_total;
+END //
+
+DROP PROCEDURE IF EXISTS sp_recalc_order_totals //
+CREATE PROCEDURE sp_recalc_order_totals (IN p_order_id INT)
+BEGIN
+  UPDATE `order`
+     SET total_value  = fn_order_total_value(p_order_id),
+         total_volume = fn_order_total_volume(p_order_id)
+   WHERE order_id = p_order_id;
+END //
+
+-- User-Defined Function: driver weekly hours
+DROP FUNCTION IF EXISTS fn_get_driver_weekly_hours //
+CREATE FUNCTION fn_get_driver_weekly_hours(
+  p_driver_id INT,
+  p_scheduled_date DATE
+)
+RETURNS DECIMAL(5,2)
+DETERMINISTIC
+READS SQL DATA
+BEGIN
+  DECLARE v_week_start DATE;
+  DECLARE v_total_hours DECIMAL(5,2);
+  SET v_week_start = DATE_SUB(p_scheduled_date, INTERVAL WEEKDAY(p_scheduled_date) DAY);
+  SELECT COALESCE(SUM(rl.actual_hours_worked), 0.00) INTO v_total_hours
+  FROM roster_log rl
+  JOIN truck_schedule ts ON rl.truck_schedule_id = ts.truck_schedule_id
+  WHERE ts.driver_id = p_driver_id
+    AND ts.scheduled_date >= v_week_start
+    AND ts.scheduled_date <= p_scheduled_date;
+  RETURN v_total_hours;
+END //
+
+-- REQ-ORD-02  7-day lead time enforced by the database
+DROP TRIGGER IF EXISTS trg_order_before_insert //
+CREATE TRIGGER trg_order_before_insert
+BEFORE INSERT ON `order`
+FOR EACH ROW
+BEGIN
+  IF fn_days_until_delivery(NEW.order_date, NEW.requested_delivery_date) < 7 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Delivery date must be at least 7 days after the order date.';
+  END IF;
+END //
+
+-- REQ-ORD-07  Auto-close 'Delivered' orders after 48 h without customer confirmation
+DROP PROCEDURE IF EXISTS sp_auto_close_delivered_orders //
+CREATE PROCEDURE sp_auto_close_delivered_orders ()
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+  SELECT NULL, 'Order auto-closed (system)', 'order', o.order_id,
+         'No customer confirmation within 48 hours of Delivered'
+    FROM `order` o
+   WHERE o.status = 'Delivered'
+     AND o.delivered_at IS NOT NULL
+     AND o.delivered_at <= NOW() - INTERVAL 48 HOUR;
+
+  UPDATE `order`
+     SET status = 'Closed'
+   WHERE status = 'Delivered'
+     AND delivered_at IS NOT NULL
+     AND delivered_at <= NOW() - INTERVAL 48 HOUR;
+
+  COMMIT;
+END //
+
+DROP EVENT IF EXISTS ev_auto_close_delivered_orders //
+CREATE EVENT ev_auto_close_delivered_orders
+ON SCHEDULE EVERY 1 HOUR
+DO CALL sp_auto_close_delivered_orders() //
 
 CREATE FUNCTION fn_order_item_value(p_product_id INT, p_quantity INT)
 RETURNS DECIMAL(14, 2)
@@ -594,4 +899,217 @@ BEGIN
   END IF;
 END//
 
+-- =========================================================================
+-- Member C Stored Procedures & Triggers (Rail Cargo & Store Receipt)
+-- REQ-RAIL-03, REQ-RAIL-04, REQ-RAIL-05, REQ-RAIL-06, REQ-RAIL-07
+-- ============================================================
+DROP PROCEDURE IF EXISTS sp_allocate_cargo //
+CREATE PROCEDURE sp_allocate_cargo (
+  IN  p_order_item_id INT,
+  IN  p_trip_id       INT,
+  IN  p_quantity      INT,
+  OUT p_status        VARCHAR(100)
+)
+BEGIN
+  DECLARE v_total_cap   DECIMAL(10, 2);
+  DECLARE v_used_cap    DECIMAL(10, 2);
+  DECLARE v_remaining   DECIMAL(10, 2);
+  DECLARE v_trip_status VARCHAR(30);
+  DECLARE v_order_id    INT;
+
+  -- Lock the trip row to prevent concurrent over-allocation (REQ-RAIL-04)
+  SELECT total_capacity, status
+    INTO v_total_cap, v_trip_status
+    FROM train_trip
+   WHERE trip_id = p_trip_id
+   FOR UPDATE;
+
+  IF v_total_cap IS NULL THEN
+    SET p_status = 'TRIP_NOT_FOUND';
+
+  ELSEIF v_trip_status != 'Scheduled' THEN
+    SET p_status = 'TRIP_NOT_SCHEDULABLE';
+
+  ELSE
+    SELECT COALESCE(SUM(allocated_quantity), 0)
+      INTO v_used_cap
+      FROM cargo_allocation
+     WHERE trip_id = p_trip_id;
+
+    SET v_remaining = v_total_cap - v_used_cap;
+
+    IF p_quantity > v_remaining THEN
+      SET p_status = 'INSUFFICIENT_CAPACITY';
+
+    ELSE
+      INSERT INTO cargo_allocation
+        (order_item_id, trip_id, allocated_quantity, status)
+      VALUES
+        (p_order_item_id, p_trip_id, p_quantity, 'Not Loaded');
+
+      -- Advance parent order from Placed → Scheduled (REQ-RAIL-03)
+      SELECT order_id INTO v_order_id
+        FROM order_item
+       WHERE order_item_id = p_order_item_id;
+
+      UPDATE `order`
+         SET status = 'Scheduled'
+       WHERE order_id = v_order_id
+         AND status = 'Placed';
+
+      SET p_status = 'OK';
+    END IF;
+  END IF;
+END //
+
+DROP PROCEDURE IF EXISTS sp_overflow_allocate //
+CREATE PROCEDURE sp_overflow_allocate (
+  IN p_order_item_id INT,
+  IN p_start_trip_id INT,
+  IN p_quantity      INT
+)
+BEGIN
+  DECLARE v_remaining       INT DEFAULT p_quantity;
+  DECLARE v_cur_trip_id     INT DEFAULT p_start_trip_id;
+  DECLARE v_cur_departure   DATETIME;
+  DECLARE v_dest_city_id    INT;
+  DECLARE v_total_cap       DECIMAL(10, 2);
+  DECLARE v_used_cap        DECIMAL(10, 2);
+  DECLARE v_available       INT;
+  DECLARE v_to_allocate     INT;
+  DECLARE v_next_trip_id    INT;
+  DECLARE v_next_departure  DATETIME;
+  DECLARE v_new_alloc_id    INT;
+  DECLARE v_order_id        INT;
+
+  -- Resolve order_id once
+  SELECT order_id INTO v_order_id
+    FROM order_item WHERE order_item_id = p_order_item_id;
+
+  -- Get starting trip metadata
+  SELECT destination_city_id, departure_datetime
+    INTO v_dest_city_id, v_cur_departure
+    FROM train_trip WHERE trip_id = p_start_trip_id;
+
+  WHILE v_remaining > 0 DO
+
+    -- Lock current trip
+    SELECT total_capacity
+      INTO v_total_cap
+      FROM train_trip
+     WHERE trip_id = v_cur_trip_id
+     FOR UPDATE;
+
+    SELECT COALESCE(SUM(allocated_quantity), 0)
+      INTO v_used_cap
+      FROM cargo_allocation
+     WHERE trip_id = v_cur_trip_id;
+
+    SET v_available   = FLOOR(v_total_cap - v_used_cap);
+    SET v_to_allocate = LEAST(v_remaining, v_available);
+
+    IF v_to_allocate > 0 THEN
+      INSERT INTO cargo_allocation
+        (order_item_id, trip_id, allocated_quantity, status)
+      VALUES
+        (p_order_item_id, v_cur_trip_id, v_to_allocate, 'Not Loaded');
+
+      SET v_new_alloc_id = LAST_INSERT_ID();
+      SET v_remaining    = v_remaining - v_to_allocate;
+
+      -- Audit overflow hops (REQ-RAIL-05)
+      IF v_cur_trip_id != p_start_trip_id THEN
+        INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+        VALUES (
+          NULL,
+          'Cargo overflow allocation',
+          'cargo_allocation',
+          v_new_alloc_id,
+          CONCAT('order_item_id=', p_order_item_id,
+                 ' overflowed from trip ', p_start_trip_id,
+                 ' → trip ', v_cur_trip_id,
+                 ', qty=', v_to_allocate)
+        );
+      END IF;
+    END IF;
+
+    -- Find next trip if still quantity left
+    IF v_remaining > 0 THEN
+      SET v_next_trip_id = NULL;
+
+      SELECT trip_id, departure_datetime
+        INTO v_next_trip_id, v_next_departure
+        FROM train_trip
+       WHERE destination_city_id = v_dest_city_id
+         AND status = 'Scheduled'
+         AND departure_datetime > v_cur_departure
+       ORDER BY departure_datetime ASC
+       LIMIT 1;
+
+      IF v_next_trip_id IS NULL THEN
+        SET v_remaining = 0; -- No more trips; exit loop
+      ELSE
+        SET v_cur_trip_id   = v_next_trip_id;
+        SET v_cur_departure = v_next_departure;
+      END IF;
+    END IF;
+
+  END WHILE;
+
+  -- Advance order to Scheduled
+  UPDATE `order`
+     SET status = 'Scheduled'
+   WHERE order_id = v_order_id
+     AND status = 'Placed';
+
+END //
+
+DROP TRIGGER IF EXISTS trg_lock_trip_on_all_loaded //
+CREATE TRIGGER trg_lock_trip_on_all_loaded
+AFTER UPDATE ON cargo_allocation
+FOR EACH ROW
+BEGIN
+  DECLARE v_unloaded_count INT;
+
+  IF NEW.status = 'Loaded' AND OLD.status != 'Loaded' THEN
+
+    SELECT COUNT(*)
+      INTO v_unloaded_count
+      FROM cargo_allocation
+     WHERE trip_id = NEW.trip_id
+       AND status != 'Loaded';
+
+    IF v_unloaded_count = 0 THEN
+
+      UPDATE train_trip
+         SET status = 'Loaded'
+       WHERE trip_id = NEW.trip_id;
+
+      UPDATE `order`
+         SET status = 'In Transit'
+       WHERE order_id IN (
+               SELECT DISTINCT oi.order_id
+                 FROM order_item oi
+                 JOIN cargo_allocation ca ON ca.order_item_id = oi.order_item_id
+                WHERE ca.trip_id = NEW.trip_id
+             )
+         AND status = 'Scheduled';
+
+    END IF;
+  END IF;
+END //
+
 DELIMITER ;
+
+-- 08_password_reset.sql
+CREATE TABLE IF NOT EXISTS password_reset (
+  reset_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token_hash VARCHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_token_hash (token_hash),
+  INDEX idx_user_id (user_id),
+  FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

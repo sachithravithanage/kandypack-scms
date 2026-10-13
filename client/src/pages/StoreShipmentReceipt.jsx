@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
+import * as XLSX from "xlsx";
 import {
   IconBuildingWarehouse,
   IconTrain,
@@ -11,7 +13,8 @@ import {
   IconBoxSeam,
   IconRefresh,
   IconShieldCheck,
-  IconFileSpreadsheet
+  IconFileSpreadsheet,
+  IconSearch
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -32,6 +35,38 @@ function StoreShipmentReceipt() {
 
   const [storeStock, setStoreStock] = useState([]);
   const [activeTab, setActiveTab] = useState("manifest"); // "manifest" | "inventory"
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [manifestSearch, setManifestSearch] = useState(urlSearch);
+  const [inventorySearch, setInventorySearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setManifestSearch(urlSearch);
+    setInventorySearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleManifestSearchChange = (val) => {
+    setManifestSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleInventorySearchChange = (val) => {
+    setInventorySearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const [loading, setLoading] = useState(true);
   const [loadingManifest, setLoadingManifest] = useState(false);
@@ -96,6 +131,17 @@ function StoreShipmentReceipt() {
   useEffect(() => {
     if (selectedStoreId) {
       loadStoreData(selectedStoreId);
+      const interval = setInterval(() => {
+        loadStoreData(selectedStoreId);
+      }, 15000);
+      const onFocus = () => {
+        loadStoreData(selectedStoreId);
+      };
+      window.addEventListener("focus", onFocus);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", onFocus);
+      };
     }
   }, [selectedStoreId, loadStoreData]);
 
@@ -224,6 +270,70 @@ function StoreShipmentReceipt() {
     const rec = receivedInputs[m.cargo_allocation_id];
     return rec !== "" && rec !== undefined && Number(rec) < Number(m.expected_quantity);
   }).length;
+
+  const filteredManifest = useMemo(() => {
+    if (!manifestSearch.trim()) return manifest;
+    const q = manifestSearch.toLowerCase().trim();
+    return manifest.filter((item) =>
+      String(item.cargo_allocation_id).includes(q) ||
+      String(item.order_id).includes(q) ||
+      (item.product_name && item.product_name.toLowerCase().includes(q))
+    );
+  }, [manifest, manifestSearch]);
+
+  const filteredStoreStock = useMemo(() => {
+    if (!inventorySearch.trim()) return storeStock;
+    const q = inventorySearch.toLowerCase().trim();
+    return storeStock.filter((prod) =>
+      String(prod.product_id).includes(q) ||
+      (prod.product_name && prod.product_name.toLowerCase().includes(q))
+    );
+  }, [storeStock, inventorySearch]);
+
+  const exportManifestExcel = () => {
+    const exportData = manifest.map((item) => {
+      const rec = receivedInputs[item.cargo_allocation_id];
+      const exp = Number(item.expected_quantity);
+      const recNum = rec !== "" && rec !== undefined ? Number(rec) : exp;
+      const diff = recNum - exp;
+      let status = "Reconciled";
+      if (diff < 0) status = `Discrepant (${diff})`;
+      else if (diff > 0) status = `Over (+${diff})`;
+
+      return {
+        "Allocation ID": item.cargo_allocation_id,
+        "Order ID": item.order_id,
+        "Product ID": item.product_id,
+        "Product Name": item.product_name,
+        "Space Rate (m³)": item.space_consumption_rate,
+        "Expected Quantity": exp,
+        "Received Quantity": recNum,
+        "Difference": diff,
+        "Verification Status": status,
+        "Notes / Discrepancy Reason": notesInputs[item.cargo_allocation_id] || item.discrepancy_note || ""
+      };
+    });
+
+    const storeName = stores.find((s) => String(s.store_id) === String(selectedStoreId))?.name || `Store_${selectedStoreId}`;
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Manifest Reconciliation");
+    XLSX.writeFile(wb, `Shipment_Manifest_Trip_${selectedTripId || "NA"}_${storeName.replace(/\s+/g, "_")}.xlsx`);
+  };
+
+  const exportInventoryExcel = () => {
+    const storeName = stores.find((s) => String(s.store_id) === String(selectedStoreId))?.name || `Store_${selectedStoreId}`;
+    const exportData = storeStock.map((prod) => ({
+      "Product ID": prod.product_id,
+      "Product Name": prod.product_name,
+      "Current On-Hand Stock": Number(prod.current_stock || 0),
+      "Stock Status": Number(prod.current_stock) > 50 ? "Optimal" : Number(prod.current_stock) > 0 ? "Low Stock" : "Out of Stock"
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Store Inventory Ledger");
+    XLSX.writeFile(wb, `Store_Inventory_Ledger_${storeName.replace(/\s+/g, "_")}.xlsx`);
+  };
 
   return (
     <AppLayout pageTitle="Store Shipment Receipt">
@@ -399,26 +509,58 @@ function StoreShipmentReceipt() {
 
           {/* Manifest Table Card */}
           <div className="kp-card">
-            <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
               <div>
-                <h5 className="mb-1" style={{ fontWeight: 600 }}>
+                <h5 className="mb-0 fw-bold">
                   Incoming Manifest Verification
                 </h5>
-                <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
-                  Verify arriving quantities against the rail cargo manifest. Shortfalls will flag an automatic discrepancy.
-                </p>
               </div>
-              {manifest.length > 0 && canReceive && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
-                  onClick={handleAutoFillExpected}
-                  disabled={submitting}
-                >
-                  <IconCheck size={16} className="me-1.5 text-success" />
-                  Auto-fill All as Expected
-                </button>
-              )}
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <div className="input-group input-group-sm" style={{ width: "240px" }}>
+                  <span className="input-group-text bg-white">
+                    <IconSearch size={14} className="text-muted" />
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search manifest..."
+                    value={manifestSearch}
+                    onChange={(e) => handleManifestSearchChange(e.target.value)}
+                    disabled={manifest.length === 0}
+                  />
+                  {manifestSearch && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => handleManifestSearchChange("")}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {manifest.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
+                      onClick={handleAutoFillExpected}
+                      disabled={submitting}
+                    >
+                      <IconCheck size={16} className="me-1.5 text-success" />
+                      Auto-fill Expected
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-success d-inline-flex align-items-center"
+                      onClick={exportManifestExcel}
+                      disabled={submitting}
+                    >
+                      <IconFileSpreadsheet size={16} className="me-1.5" />
+                      Export Excel
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {loadingManifest ? (
@@ -430,6 +572,18 @@ function StoreShipmentReceipt() {
               <div className="text-center py-5 text-muted">
                 <IconBuildingWarehouse size={40} className="mb-2 opacity-50" />
                 <p>No manifest items found for the selected incoming trip.</p>
+              </div>
+            ) : filteredManifest.length === 0 ? (
+              <div className="text-center py-5 text-muted">
+                <IconSearch size={36} className="mb-2 opacity-50" />
+                <p>No manifest items matched &ldquo;{manifestSearch}&rdquo;</p>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => handleManifestSearchChange("")}
+                >
+                  Clear Search
+                </button>
               </div>
             ) : (
               <form onSubmit={handleConfirmReceipt}>
@@ -447,7 +601,7 @@ function StoreShipmentReceipt() {
                       </tr>
                     </thead>
                     <tbody>
-                      {manifest.map((item) => {
+                      {filteredManifest.map((item) => {
                         const recVal = receivedInputs[item.cargo_allocation_id];
                         const isDiscrepant =
                           recVal !== "" &&
@@ -571,29 +725,71 @@ function StoreShipmentReceipt() {
       ) : (
         /* Store Inventory Tab */
         <div className="kp-card">
-          <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
             <div>
-              <h5 className="mb-1" style={{ fontWeight: 600 }}>
+              <h5 className="mb-0 fw-bold">
                 Store Inventory On-Hand Ledger
               </h5>
-              <p className="text-muted mb-0" style={{ fontSize: "0.85rem" }}>
-                Current stock aggregated from the store&apos;s append-only shipment receipts ledger (REQ-STORE-03).
-              </p>
             </div>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
-              onClick={() => loadStoreData(selectedStoreId)}
-            >
-              <IconRefresh size={16} className="me-1" />
-              Refresh Stock
-            </button>
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <div className="input-group input-group-sm" style={{ width: "240px" }}>
+                <span className="input-group-text bg-white">
+                  <IconSearch size={14} className="text-muted" />
+                </span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Search ledger..."
+                  value={inventorySearch}
+                  onChange={(e) => handleInventorySearchChange(e.target.value)}
+                  disabled={storeStock.length === 0}
+                />
+                {inventorySearch && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => handleInventorySearchChange("")}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
+                onClick={() => loadStoreData(selectedStoreId)}
+              >
+                <IconRefresh size={16} className="me-1" />
+                Refresh Stock
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-success d-inline-flex align-items-center"
+                onClick={exportInventoryExcel}
+                disabled={storeStock.length === 0}
+              >
+                <IconFileSpreadsheet size={16} className="me-1.5" />
+                Export Ledger (Excel)
+              </button>
+            </div>
           </div>
 
           {storeStock.length === 0 ? (
             <div className="text-center py-5 text-muted">
               <IconBoxSeam size={40} className="mb-2 opacity-50" />
               <p>No inventory records found for this store facility yet.</p>
+            </div>
+          ) : filteredStoreStock.length === 0 ? (
+            <div className="text-center py-5 text-muted">
+              <IconSearch size={36} className="mb-2 opacity-50" />
+              <p>No inventory products matched &ldquo;{inventorySearch}&rdquo;</p>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => handleInventorySearchChange("")}
+              >
+                Clear Search
+              </button>
             </div>
           ) : (
             <div className="table-responsive">
@@ -607,7 +803,7 @@ function StoreShipmentReceipt() {
                   </tr>
                 </thead>
                 <tbody>
-                  {storeStock.map((prod) => (
+                  {filteredStoreStock.map((prod) => (
                     <tr key={prod.product_id}>
                       <td className="text-muted">#{prod.product_id}</td>
                       <td className="fw-semibold">{prod.product_name}</td>

@@ -3,6 +3,31 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
+const { ensureAzureTunnel } = require('./tunnel');
+
+let tunnelPromise = null;
+function getTunnelPromise() {
+  if (process.env.DB_SSH_TUNNEL === 'true') {
+    if (!tunnelPromise) {
+      tunnelPromise = ensureAzureTunnel().catch((err) => {
+        console.warn('[DB] Azure tunnel warning:', err.message);
+        return false;
+      });
+    }
+    return tunnelPromise;
+  }
+  return Promise.resolve(true);
+}
+
+// Start tunnel immediately in background on module load
+getTunnelPromise();
+
+async function ensureReady() {
+  if (process.env.DB_SSH_TUNNEL === 'true') {
+    await getTunnelPromise();
+  }
+}
+
 let pool = null;
 
 const poolConfig = {
@@ -27,14 +52,15 @@ const defaultPasswordHash = '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVE
 
 const mockDb = {
   users: [
-    { user_id: 1, name: 'Kasun Perera', email: 'admin@kandypack.lk', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 2, name: 'Nimal Fernando', email: 'dispatcher@kandypack.lk', phone: '0712222222', role_id: 2, role: 'Dispatcher', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 3, name: 'Suneth Silva', email: 'suneth.cmb@kandypack.lk', phone: '0713333333', role_id: 3, role: 'Regional Store Manager', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 5, name: 'Kamal Gunaratne', email: 'kamal.driver@kandypack.lk', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 1, name: 'Nimal Perera', email: 'admin@kandypack.local', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 2, name: 'Kavinda Fernando', email: 'dispatcher@kandypack.local', phone: '0712222222', role_id: 2, role: 'Dispatcher', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 3, name: 'Suneth Silva', email: 'manager@kandypack.local', phone: '0713333333', role_id: 3, role: 'Regional Store Manager', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 4, name: 'Sunil Jayawardena', email: 'driver@kandypack.local', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 5, name: 'Kamal Silva', email: 'assistant@kandypack.local', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 6, name: 'Ajith Kumara', email: 'ajith.driver@kandypack.lk', phone: '0716666666', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 7, name: 'Bandara Weerakoon', email: 'bandara.asst@kandypack.lk', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni@gmail.com', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
+    { user_id: 9, name: 'Waruni Rathnayake', email: 'customer1@kandypack.local', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
   ],
   customers: [
     { user_id: 9, phone: '0771234567', address: '42 Flower Road, Colombo 07', city_id: 1 }
@@ -336,6 +362,11 @@ function executeMockQuery(sql, params = []) {
   // Order Placement Mock: Recalculate totals
   if (s.includes('CALL SP_RECALC_ORDER_TOTALS')) {
     return [[]]; // SPs usually return arrays of result sets
+  }
+
+  // Rail Allocation Mocks: Member C Stored Procedures
+  if (s.includes('CALL SP_ALLOCATE_CARGO') || s.includes('CALL SP_OVERFLOW_ALLOCATE')) {
+    return [[]];
   }
 
   // Dashboard: Total orders (reports/sales)
@@ -903,35 +934,34 @@ function executeMockQuery(sql, params = []) {
   return [[]];
 }
 
-module.exports = {
-        query: async (sql, params = []) => {
-                try {
-                        return await pool.query(sql, params);
-                } catch (err) {
-                        if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
-                                return executeMockQuery(sql, params);
-                        }
-                        throw err;
-                }
-        },
-        execute: async (sql, params) => {
-                return module.exports.query(sql, params);
-        },
-        getConnection: async () => {
-                try {
-                        return await pool.getConnection();
-                } catch (err) {
-                        if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
-                                return {
-                                        query: async (sql, params = []) => executeMockQuery(sql, params),
-                                        execute: async (sql, params = []) => executeMockQuery(sql, params),
-                                        beginTransaction: async () => {},
-                                        commit: async () => {},
-                                        rollback: async () => {},
-                                        release: () => {}
-                                };
-                        }
-                        throw err;
-                }
-        }
+const dbExport = {
+  query: async (sql, params = []) => {
+    await ensureReady();
+    return pool.query(sql, params);
+  },
+  execute: async (sql, params) => {
+    await ensureReady();
+    return pool.query(sql, params);
+  },
+  getConnection: async () => {
+    await ensureReady();
+    return pool.getConnection();
+  },
+  pool,
+  ensureReady
 };
+
+module.exports = new Proxy(dbExport, {
+  get(target, prop) {
+    if (prop in target) {
+      return target[prop];
+    }
+    if (pool && typeof pool[prop] === 'function') {
+      return async (...args) => {
+        await ensureReady();
+        return pool[prop](...args);
+      };
+    }
+    return pool ? pool[prop] : undefined;
+  }
+});

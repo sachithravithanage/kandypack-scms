@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 require("dotenv").config();
 // KandyPack SCMS Server
 
@@ -22,6 +23,30 @@ const productsRouter = require("./routes/products");
 const routesRouter = require("./routes/routes");
 
 const app = express();
+// Strip stale HSTS rules so client browsers do not force HTTPS on plain HTTP deployments
+app.use((req, res, next) => {
+  res.setHeader("Strict-Transport-Security", "max-age=0");
+  next();
+});
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    frameguard: { action: "deny" },
+    hsts: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "*"],
+        upgradeInsecureRequests: null,
+      },
+    },
+  })
+);
 app.use(cors());
 app.use(express.json());
 
@@ -31,6 +56,13 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    network: "Rail & Fleet Network Live",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Route Modules
@@ -59,6 +91,30 @@ app.use((err, req, res, next) => {
 require("./cron");
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    const db = require("./db");
+    await db.query(
+      "UPDATE `user` SET name = 'Nimal Perera' WHERE (user_id = 1 OR email = 'admin@kandypack.local') AND name IN ('System Administrator', 'Administrator')"
+    );
+    await db.query(
+      "UPDATE `user` SET name = 'Kavinda Fernando' WHERE (user_id = 2 OR email = 'dispatcher@kandypack.local') AND name IN ('Dispatch Controller', 'Dispatcher')"
+    );
+    await db.query(
+      "UPDATE `user` SET name = 'Suneth Silva' WHERE (user_id = 3 OR email = 'manager@kandypack.local') AND name IN ('Colombo Store Manager', 'Store Manager', 'Regional Store Manager')"
+    );
+    await db.query(
+      "UPDATE `user` SET name = 'Sunil Jayawardena' WHERE (user_id = 4 OR email = 'driver@kandypack.local') AND name IN ('Driver', 'Commercial Driver')"
+    );
+    await db.query(
+      "UPDATE `user` SET name = 'Kamal Silva' WHERE (user_id = 5 OR email = 'assistant@kandypack.local') AND name IN ('Assistant', 'Delivery Assistant')"
+    );
+    await db.query(
+      "UPDATE `user` SET name = 'Waruni Rathnayake' WHERE email = 'customer1@kandypack.local' AND (name LIKE 'Sample Customer%' OR name = 'Customer')"
+    );
+    console.log("[DB] Administrator, Dispatcher, Store Manager, Driver, Assistant & Customer names synchronized");
+  } catch (err) {
+    console.warn("[DB] Startup user sync note:", err.message);
+  }
 });

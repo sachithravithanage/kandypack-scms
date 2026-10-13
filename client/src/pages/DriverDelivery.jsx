@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
+import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -14,6 +16,8 @@ import {
   IconSignature,
   IconAlertTriangle,
   IconSend,
+  IconSearch,
+  IconFileSpreadsheet,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -29,6 +33,27 @@ function DriverDelivery() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Stop search and filter state
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [stopSearch, setStopSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setStopSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleStopSearchChange = (val) => {
+    setStopSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+  const [stopStatusFilter, setStopStatusFilter] = useState("ALL");
 
   // Delivery confirmation modal state
   const [deliveryModalStop, setDeliveryModalStop] = useState(null);
@@ -49,9 +74,14 @@ function DriverDelivery() {
   const [issueType, setIssueType] = useState("Traffic Delay");
   const [issueDescription, setIssueDescription] = useState("");
 
-  const authHeader = {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
-  };
+  const roleId = Number(localStorage.getItem("roleId"));
+  const isDriverOrAssistant = roleId === 4 || roleId === 5;
+
+  const authHeader = useMemo(() => {
+    return {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    };
+  }, []);
 
   // 1. Load all available runs
   const loadRuns = useCallback(async () => {
@@ -89,15 +119,33 @@ function DriverDelivery() {
     } finally {
       setActionLoading(false);
     }
-  }, [authHeader]);
+  }, []);
 
   useEffect(() => {
     loadRuns();
+    const interval = setInterval(() => {
+      loadRuns();
+    }, 15000);
+    const onFocus = () => loadRuns();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadRuns]);
 
   useEffect(() => {
     if (selectedScheduleId) {
       loadScheduleDetails(selectedScheduleId);
+      const interval = setInterval(() => {
+        loadScheduleDetails(selectedScheduleId);
+      }, 15000);
+      const onFocus = () => loadScheduleDetails(selectedScheduleId);
+      window.addEventListener("focus", onFocus);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", onFocus);
+      };
     }
   }, [selectedScheduleId, loadScheduleDetails]);
 
@@ -112,11 +160,15 @@ function DriverDelivery() {
         {},
         authHeader
       );
-      setSuccessMsg(res.data.message || "Pickup confirmed! Delivery run started.");
+      const msg = res.data.message || "Pickup confirmed! Delivery run started.";
+      setSuccessMsg(msg);
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to confirm pickup.");
+      const errorMsg = err.response?.data?.error || "Failed to confirm pickup.";
+      setError(errorMsg);
+      window.alert(`❌ Pickup Confirmation Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
@@ -125,30 +177,33 @@ function DriverDelivery() {
   // REQ-DEL-03 & REQ-DEL-05: Record Delivery Success with recipient note / proof
   const handleConfirmDelivery = async () => {
     if (!deliveryModalStop) return;
+    const currentStop = deliveryModalStop;
     try {
       setActionLoading(true);
       setError("");
       const res = await axios.put(
-        `${API_BASE}/delivery/allocations/${deliveryModalStop.truck_allocation_id}`,
+        `${API_BASE}/delivery/allocations/${currentStop.truck_allocation_id}`,
         {
           deliveryStatus: "Delivered",
           note: recipientNote ? `Recipient: ${recipientNote}` : "Delivered directly to customer.",
         },
         authHeader
       );
-      setSuccessMsg(`Order #${deliveryModalStop.order_id} marked as Delivered!`);
+      const successText = res.data?.allStopsFinished
+        ? `Delivery confirmed! All stops completed for Run #${selectedScheduleId}. Click 'Complete Run' to finish your shift.`
+        : `Delivery confirmed! Order #${currentStop.order_id} (Stop #${currentStop.stop_order}) has been marked as Delivered.`;
+
+      setSuccessMsg(successText);
       setDeliveryModalStop(null);
       setRecipientNote("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
 
-      if (res.data?.allStopsFinished) {
-        setSuccessMsg(
-          `All stops completed for Run #${selectedScheduleId}! Click 'Complete Run' below to finish your shift.`
-        );
-      }
+      window.alert(`✅ Success: ${successText}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to record delivery.");
+      const errorText = err.response?.data?.error || "Failed to record delivery.";
+      setError(errorText);
+      window.alert(`❌ Delivery Confirmation Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -157,6 +212,7 @@ function DriverDelivery() {
   // REQ-DEL-04: Record Delivery Failure and Auto Re-queue
   const handleMarkFailed = async () => {
     if (!failureModalStop) return;
+    const currentStop = failureModalStop;
     try {
       setActionLoading(true);
       setError("");
@@ -165,7 +221,7 @@ function DriverDelivery() {
         : failureReason;
 
       const res = await axios.put(
-        `${API_BASE}/delivery/allocations/${failureModalStop.truck_allocation_id}`,
+        `${API_BASE}/delivery/allocations/${currentStop.truck_allocation_id}`,
         {
           deliveryStatus: "Failed",
           note: fullNote,
@@ -173,9 +229,9 @@ function DriverDelivery() {
         authHeader
       );
 
-      let msg = "Delivery marked as Failed.";
+      let msg = `Order #${currentStop.order_id} marked as Failed.`;
       if (res.data.reallocatedScheduleId) {
-        msg += ` Automatically re-queued onto next scheduled run #${res.data.reallocatedScheduleId} (REQ-DEL-04).`;
+        msg += ` Automatically re-queued onto next scheduled run #${res.data.reallocatedScheduleId}.`;
       } else {
         msg += " Flagged for Dispatcher re-routing review.";
       }
@@ -186,8 +242,12 @@ function DriverDelivery() {
       setFailureDetail("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+
+      window.alert(`Delivery Outcome Recorded: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to record delivery failure.");
+      const errorText = err.response?.data?.error || "Failed to record delivery failure.";
+      setError(errorText);
+      window.alert(`❌ Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -196,6 +256,7 @@ function DriverDelivery() {
   // REQ-DEL-03: Record Delivery Attempted (Customer contacted / Door knocked, order stays on truck)
   const handleMarkAttempted = async () => {
     if (!attemptedModalStop) return;
+    const currentStop = attemptedModalStop;
     try {
       setActionLoading(true);
       setError("");
@@ -204,7 +265,7 @@ function DriverDelivery() {
         : attemptedReason;
 
       await axios.put(
-        `${API_BASE}/delivery/allocations/${attemptedModalStop.truck_allocation_id}`,
+        `${API_BASE}/delivery/allocations/${currentStop.truck_allocation_id}`,
         {
           deliveryStatus: "Attempted",
           note: fullNote,
@@ -212,14 +273,19 @@ function DriverDelivery() {
         authHeader
       );
 
-      setSuccessMsg(`Stop #${attemptedModalStop.stop_order} marked as Attempted (Customer notified).`);
+      const msg = `Stop #${currentStop.stop_order} marked as Attempted (Customer notified). Order stays on truck manifest.`;
+      setSuccessMsg(msg);
       setAttemptedModalStop(null);
       setAttemptedReason("Customer phone unanswered / Gate closed");
       setAttemptedDetail("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+
+      window.alert(`Delivery Attempt Recorded: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to record delivery attempt.");
+      const errorText = err.response?.data?.error || "Failed to record delivery attempt.";
+      setError(errorText);
+      window.alert(`❌ Attempt Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -275,11 +341,15 @@ function DriverDelivery() {
         {},
         authHeader
       );
-      setSuccessMsg(res.data.message || "Run marked as Completed! Hours recorded.");
+      const msg = res.data.message || "Run marked as Completed! Hours recorded.";
+      setSuccessMsg(msg);
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
+      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to complete run.");
+      const errorMsg = err.response?.data?.error || "Failed to complete run.";
+      setError(errorMsg);
+      window.alert(`❌ Run Completion Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
@@ -291,11 +361,49 @@ function DriverDelivery() {
   const failedCount = stops.filter((s) => s.delivery_status === "Failed").length;
   const attemptedCount = stops.filter((s) => s.delivery_status === "Attempted").length;
 
-  const isAssignedStaff = activeRun ? (
-    Number(activeRun.driver_id) === currentUserId ||
-    Number(activeRun.assistant_id) === currentUserId
-  ) : false;
-  const canExecuteActions = isAssignedStaff || currentRoleId === 1;
+  // Filtered stops based on search query and status filter
+  const filteredStops = useMemo(() => {
+    return stops.filter((stop) => {
+      if (stopStatusFilter !== "ALL" && stop.delivery_status !== stopStatusFilter) {
+        return false;
+      }
+      if (!stopSearch.trim()) return true;
+      const term = stopSearch.toLowerCase();
+      return (
+        String(stop.stop_order).includes(term) ||
+        String(stop.order_id).includes(term) ||
+        (stop.stop_name && stop.stop_name.toLowerCase().includes(term)) ||
+        (stop.customer_name && stop.customer_name.toLowerCase().includes(term)) ||
+        (stop.customer_phone && stop.customer_phone.toLowerCase().includes(term)) ||
+        (stop.delivery_address && stop.delivery_address.toLowerCase().includes(term)) ||
+        (stop.delivery_note && stop.delivery_note.toLowerCase().includes(term))
+      );
+    });
+  }, [stops, stopStatusFilter, stopSearch]);
+
+  // Export Delivery Run Sheet / Manifest to Excel
+  const exportRunSheetExcel = () => {
+    if (!stops || stops.length === 0 || !activeRun) return;
+    const exportData = stops.map((stop) => ({
+      "Stop #": stop.stop_order,
+      "Stop Name": stop.stop_name,
+      "Order ID": stop.order_id,
+      "Customer": stop.customer_name,
+      "Phone": stop.customer_phone || "N/A",
+      "Delivery Address": stop.delivery_address,
+      "Volume (m³)": stop.total_volume,
+      "Status": stop.delivery_status,
+      "Delivery Notes": stop.delivery_note || "",
+      "Delivered At": stop.delivered_at ? new Date(stop.delivered_at).toLocaleString() : "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Delivery Manifest");
+    XLSX.writeFile(
+      wb,
+      `Delivery_Run_Sheet_Run_${activeRun.truck_schedule_id}_${(activeRun.plate_number || "").replace(/\s+/g, "_")}.xlsx`
+    );
+  };
 
   return (
     <AppLayout pageTitle="Delivery Execution Portal">
@@ -324,12 +432,16 @@ function DriverDelivery() {
           <div className="kp-card h-100">
             <h3 className="h6 mb-3 d-flex align-items-center">
               <IconTruck className="me-2 text-primary" size={18} />
-              Select Assigned Truck Run
+              {isDriverOrAssistant ? "My Assigned Truck Runs" : "All Fleet Delivery Runs"}
             </h3>
             {loading ? (
               <p className="text-muted">Loading schedules...</p>
             ) : runs.length === 0 ? (
-              <p className="text-muted">No runs scheduled for today.</p>
+              <p className="text-muted">
+                {isDriverOrAssistant
+                  ? "No delivery runs currently assigned to you."
+                  : "No runs scheduled for today."}
+              </p>
             ) : (
               <div className="d-flex flex-column gap-2">
                 {runs.map((r) => {
@@ -535,23 +647,82 @@ function DriverDelivery() {
       {/* Stop Execution Sequence (REQ-DEL-01, REQ-DEL-03, REQ-DEL-04, REQ-DEL-05) */}
       {activeRun && (
         <div className="kp-card">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h3 className="h6 mb-0 d-flex align-items-center">
+          <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h3 className="h6 mb-0 d-flex align-items-center fw-bold">
               <IconMapPin size={18} className="me-2 text-primary" />
               Delivery Sequence (Ordered by Route Stop Order)
             </h3>
             <span className="small text-muted">
-              Total Assigned Deliveries: {stops.length}
+              Showing {filteredStops.length} of {stops.length} assigned deliveries
             </span>
           </div>
+
+          {/* Delivery Stop Filters & Excel Run Sheet Export */}
+          {stops.length > 0 && (
+            <div className="row g-2 align-items-center mb-3 pb-3 border-bottom">
+              <div className="col-md-5">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white border-end-0">
+                    <IconSearch size={16} className="text-muted" />
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control border-start-0"
+                    placeholder="Search stop #, order, customer, phone, or address..."
+                    value={stopSearch}
+                    onChange={(e) => handleStopSearchChange(e.target.value)}
+                  />
+                  {stopSearch && (
+                    <button
+                      className="btn btn-outline-secondary border"
+                      type="button"
+                      onClick={() => handleStopSearchChange("")}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="col-md-3">
+                <select
+                  className="form-select form-select-sm"
+                  value={stopStatusFilter}
+                  onChange={(e) => setStopStatusFilter(e.target.value)}
+                >
+                  <option value="ALL">All Stops ({stops.length})</option>
+                  <option value="Pending">Pending ({pendingCount})</option>
+                  <option value="Delivered">Delivered ({deliveredCount})</option>
+                  <option value="Attempted">Attempted ({attemptedCount})</option>
+                  <option value="Failed">Failed ({failedCount})</option>
+                </select>
+              </div>
+
+              <div className="col-md-4 text-md-end">
+                <button
+                  className="btn btn-outline-success btn-sm fw-bold d-inline-flex align-items-center"
+                  onClick={exportRunSheetExcel}
+                  disabled={stops.length === 0}
+                  title="Export official delivery run sheet to Excel"
+                >
+                  <IconFileSpreadsheet size={16} className="me-1" />
+                  Export Run Sheet (Excel)
+                </button>
+              </div>
+            </div>
+          )}
 
           {stops.length === 0 ? (
             <div className="text-center py-4 text-muted">
               No orders allocated to this truck run yet.
             </div>
+          ) : filteredStops.length === 0 ? (
+            <div className="text-center py-4 text-muted">
+              No delivery stops match your search criteria.
+            </div>
           ) : (
             <div className="d-flex flex-column gap-3">
-              {stops.map((stop) => {
+              {filteredStops.map((stop) => {
                 const isDelivered = stop.delivery_status === "Delivered";
                 const isFailed = stop.delivery_status === "Failed";
                 const isAttempted = stop.delivery_status === "Attempted";
@@ -803,7 +974,7 @@ function DriverDelivery() {
               </div>
               <div className="modal-body">
                 <p className="small text-muted mb-3">
-                  Under <strong>REQ-DEL-04</strong>, marking this delivery as Failed will
+                  Marking this delivery as Failed will
                   record the incident and <strong>automatically re-queue</strong> Order #
                   {failureModalStop.order_id} onto the next available truck schedule on{" "}
                   <strong>{activeRun.route_name}</strong>.
@@ -887,7 +1058,7 @@ function DriverDelivery() {
               </div>
               <div className="modal-body">
                 <p className="small text-muted mb-3">
-                  Under <strong>REQ-DEL-03</strong>, marking a stop as <strong>Attempted</strong> logs that delivery was attempted but not completed (e.g., premises closed). The order is <strong>kept on the vehicle manifest</strong> for re-attempt or dispatcher advice without immediately failing the consignment.
+                  Marking a stop as <strong>Attempted</strong> logs that delivery was attempted but not completed (e.g., premises closed). The order is <strong>kept on the vehicle manifest</strong> for re-attempt or dispatcher advice without immediately failing the consignment.
                 </p>
 
                 <div className="mb-3">

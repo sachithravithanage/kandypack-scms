@@ -9,6 +9,7 @@ DELIMITER //
 -- Uses SELECT … FOR UPDATE to block concurrent allocations.
 -- OUT p_status: 'OK' | 'INSUFFICIENT_CAPACITY' | 'TRIP_NOT_FOUND' | 'TRIP_NOT_SCHEDULABLE'
 -- ============================================================
+DROP PROCEDURE IF EXISTS sp_allocate_cargo //
 CREATE PROCEDURE sp_allocate_cargo (
   IN  p_order_item_id INT,
   IN  p_trip_id       INT,
@@ -75,6 +76,7 @@ END //
 -- repeating until the full quantity is allocated.
 -- Logs each overflow hop to audit_log.
 -- ============================================================
+DROP PROCEDURE IF EXISTS sp_overflow_allocate //
 CREATE PROCEDURE sp_overflow_allocate (
   IN p_order_item_id INT,
   IN p_start_trip_id INT,
@@ -183,6 +185,7 @@ END //
 --   1. Set train_trip.status = 'Loaded'  (locks the manifest)
 --   2. Cascade parent orders → 'In Transit'
 -- ============================================================
+DROP TRIGGER IF EXISTS trg_lock_trip_on_all_loaded //
 CREATE TRIGGER trg_lock_trip_on_all_loaded
 AFTER UPDATE ON cargo_allocation
 FOR EACH ROW

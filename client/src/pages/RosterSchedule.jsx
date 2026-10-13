@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
+import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -8,6 +10,13 @@ import {
   IconAlertCircle,
   IconCheck,
   IconAlertTriangle,
+  IconSearch,
+  IconFileSpreadsheet,
+  IconTrash,
+  IconClock,
+  IconTruck,
+  IconUser,
+  IconRefresh,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -20,11 +29,33 @@ function RosterSchedule() {
   const [trucks, setTrucks] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [assistants, setAssistants] = useState([]);
+  const [driverHours, setDriverHours] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Filters & search
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [searchFilter, setSearchFilter] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearchFilter(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchFilterChange = (val) => {
+    setSearchFilter(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -41,25 +72,29 @@ function RosterSchedule() {
   const [overrideScheduleId, setOverrideScheduleId] = useState(null);
   const [justification, setJustification] = useState("");
 
-  const authHeader = {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
-  };
+  const authHeader = useMemo(() => {
+    return {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    };
+  }, []);
 
-  // 1. Fetch metadata and schedules
+  // 1. Fetch metadata, schedules, and driver weekly hours
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || "";
       const headers = { Authorization: `Bearer ${token}` };
-      const [schedRes, metaRes] = await Promise.all([
+      const [schedRes, metaRes, hoursRes] = await Promise.all([
         axios.get(`${API_BASE}/roster`, { headers }),
         axios.get(`${API_BASE}/roster/metadata`, { headers }),
+        axios.get(`${API_BASE}/roster/driver-hours`, { headers }).catch(() => ({ data: [] })),
       ]);
       setSchedules(schedRes.data || []);
       setRoutes(metaRes.data?.routes || []);
       setTrucks(metaRes.data?.trucks || []);
       setDrivers(metaRes.data?.drivers || []);
       setAssistants(metaRes.data?.assistants || []);
+      setDriverHours(hoursRes.data || []);
 
       if (metaRes.data?.routes?.length > 0) {
         setFormData((prev) => {
@@ -102,6 +137,53 @@ function RosterSchedule() {
     }
   }, [formData.routeId, formData.startTime, routes]);
 
+  const getDriverWeeklyHours = (driverId) => {
+    const found = driverHours.find((h) => String(h.driver_id) === String(driverId));
+    return found ? Number(found.hours_worked_this_week || 0).toFixed(1) : null;
+  };
+
+  // Filtered schedules
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter((s) => {
+      const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
+      if (!matchesStatus) return false;
+      if (!searchFilter.trim()) return true;
+      const term = searchFilter.toLowerCase();
+      const schedDate = s.scheduled_date ? new Date(s.scheduled_date).toISOString().slice(0, 10) : "";
+      return (
+        String(s.truck_schedule_id).toLowerCase().includes(term) ||
+        (s.route_name && s.route_name.toLowerCase().includes(term)) ||
+        (s.store_name && s.store_name.toLowerCase().includes(term)) ||
+        (s.plate_number && s.plate_number.toLowerCase().includes(term)) ||
+        (s.driver_name && s.driver_name.toLowerCase().includes(term)) ||
+        (s.assistant_name && s.assistant_name.toLowerCase().includes(term)) ||
+        schedDate.includes(term)
+      );
+    });
+  }, [schedules, statusFilter, searchFilter]);
+
+  // Export to Excel
+  const exportRosterExcel = () => {
+    if (!filteredSchedules || filteredSchedules.length === 0) return;
+    const exportData = filteredSchedules.map((s) => ({
+      "Schedule #": s.truck_schedule_id,
+      "Route": s.route_name,
+      "Store": s.store_name,
+      "Truck Plate": s.plate_number,
+      "Capacity (m³)": s.truck_capacity,
+      "Driver": s.driver_name,
+      "Assistant": s.assistant_name,
+      "Scheduled Date": s.scheduled_date ? new Date(s.scheduled_date).toISOString().slice(0, 10) : "",
+      "Start Time": s.start_time,
+      "End Time": s.end_time,
+      "Status": s.status,
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Truck Roster");
+    XLSX.writeFile(wb, `Truck_Roster_Schedules_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   // Handle Create Schedule
   const handleCreateSchedule = async (e) => {
     e.preventDefault();
@@ -126,10 +208,28 @@ function RosterSchedule() {
     } catch (err) {
       const data = err.response?.data;
       if (data?.violations && Array.isArray(data.violations) && data.violations.length > 0) {
-        setError(data.violations.map(v => v.message).join(" • "));
+        setError(data.violations.map((v) => v.message).join(" • "));
       } else {
         setError(data?.error || "Failed to schedule run.");
       }
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Delete / Cancel Schedule
+  const handleDeleteSchedule = async (scheduleId) => {
+    if (!window.confirm(`Are you sure you want to cancel and remove Schedule #${scheduleId}? This will free up the truck and crew.`)) {
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setError("");
+      await axios.delete(`${API_BASE}/roster/${scheduleId}`, authHeader);
+      setSuccessMsg(`Truck schedule #${scheduleId} cancelled and deleted successfully.`);
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to delete schedule.");
     } finally {
       setActionLoading(false);
     }
@@ -175,15 +275,20 @@ function RosterSchedule() {
         </div>
       )}
 
-      {/* Header with Add Button */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h2 className="h5 mb-1">Truck Run Roster</h2>
-          <p className="text-muted small mb-0">
-            Schedule truck runs, enforce 7-day advance booking, prevent double-bookings, and track weekly limits.
-          </p>
+          <p className="text-muted small mb-0">Weekly duty assignment and statutory hours monitoring for drivers and assistants.</p>
         </div>
-        {canEditRoster && (
+        <div className="d-flex align-items-center gap-2">
+          <button
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center"
+            onClick={loadData}
+            title="Refresh Roster"
+            disabled={loading}
+          >
+            <IconRefresh size={16} className={`me-1 ${loading ? "fa-spin" : ""}`} />
+            Refresh
+          </button>
           <button
             className="btn btn-primary btn-sm d-flex align-items-center fw-bold"
             onClick={() => setShowAddForm(!showAddForm)}
@@ -191,16 +296,22 @@ function RosterSchedule() {
             <IconPlus size={16} className="me-1" />
             {showAddForm ? "Close Form" : "Schedule New Run"}
           </button>
-        )}
+        </div>
       </div>
 
       {/* Schedule Form */}
       {showAddForm && (
-        <div className="kp-card mb-4 border border-primary">
-          <h3 className="h6 mb-3 text-primary d-flex align-items-center">
-            <IconCalendarEvent size={18} className="me-2" />
-            Create Truck Schedule Entry
-          </h3>
+        <div className="kp-card mb-4 border border-primary shadow-sm">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h3 className="h6 mb-0 text-primary fw-bold d-flex align-items-center">
+              <IconCalendarEvent size={18} className="me-2" />
+              Create Truck Schedule Entry
+            </h3>
+            <span className="badge bg-primary-subtle text-primary border border-primary-subtle small">
+              Advance Booking (7 Days Rule)
+            </span>
+          </div>
+
           <form onSubmit={handleCreateSchedule}>
             <div className="row g-3">
               <div className="col-md-4">
@@ -213,7 +324,7 @@ function RosterSchedule() {
                 >
                   {routes.map((r) => (
                     <option key={r.route_id} value={r.route_id}>
-                      {r.name} ({r.max_delivery_time_minutes} mins)
+                      {r.name} ({r.max_delivery_time_minutes} mins) - {r.store_name}
                     </option>
                   ))}
                 </select>
@@ -229,7 +340,7 @@ function RosterSchedule() {
                 >
                   {trucks.map((t) => (
                     <option key={t.truck_id} value={t.truck_id}>
-                      {t.plate_number} (Cap: {t.capacity} m³)
+                      {t.plate_number} (Capacity: {t.capacity} m³)
                     </option>
                   ))}
                 </select>
@@ -247,18 +358,28 @@ function RosterSchedule() {
               </div>
 
               <div className="col-md-4">
-                <label className="form-label small fw-bold">Primary Driver:</label>
+                <label className="form-label small fw-bold d-flex justify-content-between">
+                  <span>Primary Driver:</span>
+                  {formData.driverId && getDriverWeeklyHours(formData.driverId) !== null && (
+                    <span className="text-primary fw-normal">
+                      Logged: {getDriverWeeklyHours(formData.driverId)} / 40.0h
+                    </span>
+                  )}
+                </label>
                 <select
                   className="form-select form-select-sm"
                   value={formData.driverId}
                   onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
                   required
                 >
-                  {drivers.map((d) => (
-                    <option key={d.user_id} value={d.user_id}>
-                      {d.name} ({d.license_number})
-                    </option>
-                  ))}
+                  {drivers.map((d) => {
+                    const hrs = getDriverWeeklyHours(d.user_id);
+                    return (
+                      <option key={d.user_id} value={d.user_id}>
+                        {d.name} ({d.license_number}) {hrs !== null ? `— ${hrs} / 40h this week` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -272,7 +393,7 @@ function RosterSchedule() {
                 >
                   {assistants.map((a) => (
                     <option key={a.user_id} value={a.user_id}>
-                      {a.name}
+                      {a.name} (Max 60h/week)
                     </option>
                   ))}
                 </select>
@@ -320,75 +441,165 @@ function RosterSchedule() {
         </div>
       )}
 
+      {/* Roster Controls: Search, Filter, Excel Export */}
+      <div className="kp-card mb-3">
+        <div className="row g-2 align-items-center">
+          <div className="col-md-5">
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0">
+                <IconSearch size={16} className="text-muted" />
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0"
+                placeholder="Search schedule #, route, store, truck, or driver..."
+                value={searchFilter}
+                onChange={(e) => handleSearchFilterChange(e.target.value)}
+              />
+              {searchFilter && (
+                <button
+                  className="btn btn-outline-secondary border"
+                  type="button"
+                  onClick={() => handleSearchFilterChange("")}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="col-md-3">
+            <select
+              className="form-select form-select-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="ALL">All Statuses ({schedules.length})</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+
+          <div className="col-md-4 text-md-end">
+            <button
+              className="btn btn-outline-success btn-sm fw-bold d-inline-flex align-items-center"
+              onClick={exportRosterExcel}
+              disabled={filteredSchedules.length === 0}
+              title="Export visible schedule roster to Excel"
+            >
+              <IconFileSpreadsheet size={16} className="me-1" />
+              Export Roster (Excel)
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Schedules List */}
       <div className="kp-card">
         {loading ? (
           <p className="text-muted text-center py-4">Loading roster schedules...</p>
-        ) : schedules.length === 0 ? (
-          <p className="text-muted text-center py-4">No schedules found. Click "Schedule New Run" above to create one.</p>
+        ) : filteredSchedules.length === 0 ? (
+          <p className="text-muted text-center py-4">
+            {searchFilter || statusFilter !== "ALL"
+              ? "No schedules match your search filters."
+              : 'No schedules found. Click "Schedule New Run" above to create one.'}
+          </p>
         ) : (
           <div className="table-responsive">
-            <table className="table align-middle">
+            <table className="table align-middle table-hover">
               <thead>
                 <tr>
                   <th>Schedule #</th>
                   <th>Route & Store</th>
                   <th>Truck</th>
-                  <th>Driver & Assistant</th>
-                  <th>Date & Time</th>
+                  <th>Crew (Driver / Assistant)</th>
+                  <th>Date & Window</th>
                   <th>Status</th>
-                  {canEditRoster && <th>Action</th>}
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {schedules.map((s) => (
-                  <tr key={s.truck_schedule_id}>
-                    <td className="fw-bold">#{s.truck_schedule_id}</td>
-                    <td>
-                      <div>{s.route_name}</div>
-                      <div className="small text-muted">{s.store_name}</div>
-                    </td>
-                    <td>
-                      <div>{s.plate_number}</div>
-                      <div className="small text-muted">{s.truck_capacity} m³ cap</div>
-                    </td>
-                    <td>
-                      <div>Driver: <strong>{s.driver_name}</strong></div>
-                      <div className="small text-muted">Asst: {s.assistant_name}</div>
-                    </td>
-                    <td>
-                      <div>{s.scheduled_date}</div>
-                      <div className="small text-muted">
-                        {s.start_time} - {s.end_time}
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          s.status === "Completed"
-                            ? "bg-success"
-                            : s.status === "In Progress"
-                            ? "bg-warning text-dark"
-                            : "bg-secondary"
-                        }`}
-                      >
-                        {s.status}
-                      </span>
-                    </td>
-                    {canEditRoster && (
+                {filteredSchedules.map((s) => {
+                  const schedDate = s.scheduled_date
+                    ? new Date(s.scheduled_date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "—";
+
+                  return (
+                    <tr key={s.truck_schedule_id}>
+                      <td className="fw-bold text-primary">#{s.truck_schedule_id}</td>
                       <td>
-                        <button
-                          className="btn btn-outline-warning btn-sm"
-                          onClick={() => setOverrideScheduleId(s.truck_schedule_id)}
-                          title="Dispatcher Override"
-                        >
-                          <IconAlertTriangle size={14} className="me-1" />
-                          Override
-                        </button>
+                        <div className="fw-semibold">{s.route_name}</div>
+                        <div className="small text-muted">{s.store_name}</div>
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td>
+                        <div className="d-flex align-items-center">
+                          <IconTruck size={15} className="me-1 text-muted" />
+                          <span className="fw-semibold">{s.plate_number}</span>
+                        </div>
+                        <div className="small text-muted">{s.truck_capacity} m³ capacity</div>
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          <IconUser size={15} className="me-1 text-primary" />
+                          <span>Driver: <strong>{s.driver_name}</strong></span>
+                        </div>
+                        <div className="small text-muted ps-4">
+                          Asst: {s.assistant_name}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="fw-semibold">{schedDate}</div>
+                        <div className="small text-muted d-flex align-items-center">
+                          <IconClock size={13} className="me-1" />
+                          {s.start_time} &ndash; {s.end_time}
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            s.status === "Completed"
+                              ? "bg-success"
+                              : s.status === "In Progress"
+                              ? "bg-warning text-dark"
+                              : "bg-secondary"
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </td>
+                      <td className="text-end">
+                        <div className="btn-group btn-group-sm">
+                          {s.status !== "Completed" && (
+                            <button
+                              className="btn btn-outline-warning btn-sm"
+                              onClick={() => setOverrideScheduleId(s.truck_schedule_id)}
+                              title="Dispatcher Override"
+                            >
+                              <IconAlertTriangle size={14} className="me-1" />
+                              Override
+                            </button>
+                          )}
+                          {s.status === "Scheduled" && (
+                            <button
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleDeleteSchedule(s.truck_schedule_id)}
+                              title="Cancel & Delete Schedule"
+                              disabled={actionLoading}
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -401,9 +612,9 @@ function RosterSchedule() {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title d-flex align-items-center text-warning">
+                <h5 className="modal-title d-flex align-items-center text-warning fw-bold">
                   <IconAlertTriangle size={20} className="me-2" />
-                  Dispatcher Override (REQ-SCHED-05)
+                  Dispatcher Override
                 </h5>
                 <button
                   type="button"
@@ -413,7 +624,7 @@ function RosterSchedule() {
               </div>
               <div className="modal-body">
                 <p className="small text-muted">
-                  Under <strong>REQ-SCHED-05</strong>, dispatchers may override validation rules
+                  Dispatchers may override validation rules
                   in emergency situations. A mandatory written justification is required and will
                   be stored permanently in the <code>audit_log</code> table.
                 </p>

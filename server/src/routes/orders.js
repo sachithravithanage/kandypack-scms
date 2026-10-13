@@ -37,17 +37,45 @@ async function leadTimeDays(connection, deliveryDate) {
     return Math.round((requested - today) / (1000 * 60 * 60 * 24));
 }
 
+// REQ-ORD-05 — List all orders with filters (Admin & Dispatcher)
+router.get('/', requireAuth, requireRole([1, 2]), async (req, res) => {
+    try {
+        const { status, limit = 100 } = req.query;
+        let query =
+            'SELECT o.*, r.name AS route_name, rs.stop_name, u.name AS customer_name, c.phone AS customer_phone ' +
+            'FROM `order` o ' +
+            'LEFT JOIN route r ON o.route_id = r.route_id ' +
+            'LEFT JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id ' +
+            'LEFT JOIN customer c ON o.customer_id = c.user_id ' +
+            'LEFT JOIN `user` u ON o.customer_id = u.user_id ';
+        const params = [];
+        if (status) {
+            query += 'WHERE o.status = ? ';
+            params.push(status);
+        }
+        query += 'ORDER BY o.order_id DESC LIMIT ?';
+        params.push(Math.min(Math.max(Number(limit) || 100, 1), 500));
+
+        const [rows] = await db.query(query, params);
+        res.json(rows);
+    } catch (err) {
+        sendError(res, err);
+    }
+});
+
 // Place a new order — REQ-ORD-01 to REQ-ORD-04
-router.post('/', requireAuth, requireRole([1, 6]), async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
         let { customerId, routeStopId, deliveryAddress, deliveryDate, items } = req.body;
 
-        // Security: If logged in as customer, enforce own customerId
-        if (req.user.roleId === 6) {
-            customerId = req.user.userId;
+        // Non-admin customers can only place orders under their own user account
+        if (![1, 2].includes(req.user.role_id)) {
+            customerId = req.user.user_id;
+        } else if (!customerId) {
+            customerId = req.user.user_id;
         }
 
         // Input validation — REQ-ORD-01
@@ -194,21 +222,51 @@ router.post('/', requireAuth, requireRole([1, 6]), async (req, res) => {
 });
 
 // Get order history for a customer — REQ-ORD-05
+// Reads from the view v_customer_orders and attaches itemized product details
 router.get('/customer/:customerId', requireAuth, async (req, res) => {
     try {
-        // Security check: Customer can only view their own orders
-        if (req.user.roleId === 6 && Number(req.params.customerId) !== req.user.userId) {
-            return res.status(403).json({ error: 'You are only authorized to view your own order history.' });
-        }
-        if (req.user.roleId === 4 || req.user.roleId === 5) {
-            return res.status(403).json({ error: 'Drivers and assistants are not authorized to view customer orders.' });
+        const targetCustomerId = Number(req.params.customerId);
+
+        // Security check: Customers can only access their own history; Admins/Dispatchers can view any
+        if (![1, 2].includes(req.user.role_id) && req.user.user_id !== targetCustomerId) {
+            return res.status(403).json({ error: 'You do not have permission to view these orders.' });
         }
 
-        const [rows] = await db.query(
+        const [orders] = await db.query(
             'SELECT * FROM v_customer_orders WHERE customer_id = ? ORDER BY order_id DESC',
-            [req.params.customerId]
+            [targetCustomerId]
         );
-        res.json(rows);
+
+        if (orders.length === 0) {
+            return res.json([]);
+        }
+
+        // Attach itemized order items
+        const orderIds = orders.map((o) => o.order_id);
+        const [items] = await db.query(
+            `SELECT oi.order_item_id, oi.order_id, oi.product_id, oi.quantity, oi.status,
+                    p.name AS product_name, p.unit_price, p.space_consumption_rate,
+                    (oi.quantity * p.unit_price) AS line_total,
+                    (oi.quantity * p.space_consumption_rate) AS line_volume
+             FROM order_item oi
+             JOIN product p ON oi.product_id = p.product_id
+             WHERE oi.order_id IN (?)
+             ORDER BY oi.order_id, oi.order_item_id`,
+            [orderIds]
+        );
+
+        const itemsByOrder = {};
+        for (const item of items) {
+            if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+            itemsByOrder[item.order_id].push(item);
+        }
+
+        const ordersWithItems = orders.map((o) => ({
+            ...o,
+            items: itemsByOrder[o.order_id] || [],
+        }));
+
+        res.json(ordersWithItems);
     } catch (err) {
         sendError(res, err);
     }
@@ -219,43 +277,57 @@ router.get('/:id', requireAuth, async (req, res) => {
     try {
         const [orders] = await db.query('SELECT * FROM `order` WHERE order_id = ?', [req.params.id]);
         if (orders.length === 0) return res.status(404).json({ error: 'Order not found' });
+        const order = orders[0];
 
-        if (req.user.roleId === 6 && orders[0].customer_id !== req.user.userId) {
-            return res.status(403).json({ error: 'You are only authorized to view your own orders.' });
+        // Security check: only order owner or Admin/Dispatcher can view
+        if (![1, 2].includes(req.user.role_id) && req.user.user_id !== order.customer_id) {
+            return res.status(403).json({ error: 'You do not have permission to view this order.' });
         }
+
         const [items] = await db.query(
-            `SELECT oi.*, p.name AS product_name, p.unit_price
+            `SELECT oi.*, p.name AS product_name, p.unit_price, p.space_consumption_rate
              FROM order_item oi
              JOIN product p ON oi.product_id = p.product_id
              WHERE oi.order_id = ?`,
             [req.params.id]
         );
-        res.json({ ...orders[0], items });
+        res.json({ ...order, items });
     } catch (err) {
         sendError(res, err);
     }
 });
 
 // Cancel an order — only while status is 'Placed' — REQ-ORD-06
-router.delete('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
+// Must return reserved stock to main_inventory
+router.delete('/:id', requireAuth, async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
-        const [orderRows] = await connection.query('SELECT status, customer_id FROM `order` WHERE order_id = ? FOR UPDATE', [req.params.id]);
+        const [orderRows] = await connection.query(
+            'SELECT customer_id, status FROM `order` WHERE order_id = ? FOR UPDATE',
+            [req.params.id]
+        );
         if (orderRows.length === 0) {
             await connection.rollback();
             return res.status(404).json({ error: 'Order not found.' });
         }
-        if (req.user.roleId === 6 && orderRows[0].customer_id !== req.user.userId) {
+        const order = orderRows[0];
+
+        // Security check: only order owner or Admin can cancel
+        if (![1, 2].includes(req.user.role_id) && req.user.user_id !== order.customer_id) {
             await connection.rollback();
-            return res.status(403).json({ error: 'You are not authorized to cancel this order.' });
+            return res.status(403).json({ error: 'You do not have permission to cancel this order.' });
         }
-        if (orderRows[0].status !== 'Placed') {
+
+        if (order.status !== 'Placed') {
             await connection.rollback();
             return res.status(400).json({ error: 'Order can only be cancelled while status is Placed.' });
         }
 
-        const [items] = await connection.query('SELECT product_id, quantity FROM order_item WHERE order_id = ? ORDER BY product_id', [req.params.id]);
+        const [items] = await connection.query(
+            'SELECT product_id, quantity FROM order_item WHERE order_id = ? ORDER BY product_id',
+            [req.params.id]
+        );
         for (const item of items) {
             await connection.query(
                 'UPDATE main_inventory SET quantity_in_stock = quantity_in_stock + ? WHERE product_id = ?',
@@ -265,10 +337,10 @@ router.delete('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
 
         await connection.query("UPDATE `order` SET status = 'Cancelled' WHERE order_id = ?", [req.params.id]);
 
-        // REQ-ORD-06 — cancellation is audit-logged
+        // REQ-ORD-06 — cancellation is audit-logged with active user
         await connection.query(
-            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order cancelled', 'order', ?, 'Status Placed -> Cancelled, stock restored')",
-            [req.params.id]
+            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, 'Order cancelled', 'order', ?, 'Status Placed -> Cancelled, stock restored')",
+            [req.user.user_id, req.params.id]
         );
         await connection.commit();
         res.json({ message: 'Order cancelled and stock restored' });
@@ -281,13 +353,13 @@ router.delete('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
 });
 
 // Edit an order — allowed only while status is 'Placed' — REQ-ORD-06 & REQ-ORD-02
-router.put('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
         const [orderRows] = await connection.query(
-            'SELECT status, customer_id FROM `order` WHERE order_id = ? FOR UPDATE',
+            'SELECT customer_id, status FROM `order` WHERE order_id = ? FOR UPDATE',
             [req.params.id]
         );
 
@@ -295,13 +367,15 @@ router.put('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
             await connection.rollback();
             return res.status(404).json({ error: 'Order not found.' });
         }
+        const order = orderRows[0];
 
-        if (req.user.roleId === 6 && orderRows[0].customer_id !== req.user.userId) {
+        // Security check: only order owner or Admin can edit
+        if (![1, 2].includes(req.user.role_id) && req.user.user_id !== order.customer_id) {
             await connection.rollback();
-            return res.status(403).json({ error: 'You are not authorized to edit this order.' });
+            return res.status(403).json({ error: 'You do not have permission to edit this order.' });
         }
 
-        if (orderRows[0].status !== 'Placed') {
+        if (order.status !== 'Placed') {
             await connection.rollback();
             return res.status(400).json({ error: 'Order can only be edited while status is Placed.' });
         }
@@ -325,10 +399,10 @@ router.put('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
             [deliveryAddress, deliveryDate, req.params.id]
         );
 
-        // REQ-ORD-06 — modification is audit-logged
+        // REQ-ORD-06 — modification is audit-logged with active user
         await connection.query(
-            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (NULL, 'Order modified', 'order', ?, ?)",
-            [req.params.id, `new address=[${deliveryAddress}], new delivery date=${deliveryDate}`]
+            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, 'Order modified', 'order', ?, ?)",
+            [req.user.user_id, req.params.id, `new address=[${deliveryAddress}], new delivery date=${deliveryDate}`]
         );
 
         await connection.commit();
@@ -342,23 +416,41 @@ router.put('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
 });
 
 // Customer confirms receipt: Delivered -> Closed — REQ-ORD-07
-router.put('/:id/confirm-receipt', requireAuth, requireRole([1, 6]), async (req, res) => {
+router.put('/:id/confirm-receipt', requireAuth, async (req, res) => {
     try {
-        let query = "UPDATE `order` SET status = 'Closed' WHERE order_id = ? AND status = 'Delivered'";
-        const params = [req.params.id];
+        const [orderRows] = await db.query(
+            'SELECT customer_id, status FROM `order` WHERE order_id = ?',
+            [req.params.id]
+        );
+        if (orderRows.length === 0) {
+            return res.status(404).json({ error: 'Order not found.' });
+        }
+        const order = orderRows[0];
 
-        if (req.user.roleId === 6) {
-            query += " AND customer_id = ?";
-            params.push(req.user.userId);
+        // Security check: only order owner or Admin can confirm receipt
+        if (![1, 2].includes(req.user.role_id) && req.user.user_id !== order.customer_id) {
+            return res.status(403).json({ error: 'You do not have permission to confirm this order.' });
         }
 
-        const [result] = await db.query(query, params);
+        if (order.status !== 'Delivered') {
+            return res.status(400).json({ error: 'Order not found or not awaiting confirmation (status must be Delivered).' });
+        }
+
+        const [result] = await db.query(
+            "UPDATE `order` SET status = 'Closed' WHERE order_id = ? AND status = 'Delivered'",
+            [req.params.id]
+        );
 
         if (result.affectedRows === 0) {
-            return res.status(400).json({ error: 'Order not found, not awaiting confirmation (status must be Delivered), or unauthorized.' });
+            return res.status(400).json({ error: 'Failed to update order status.' });
         }
 
-        res.json({ message: 'Order receipt confirmed' });
+        await db.query(
+            "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, 'Confirmed order receipt', 'order', ?, 'Status Delivered -> Closed by customer')",
+            [req.user.user_id, req.params.id]
+        );
+
+        res.json({ message: 'Order receipt confirmed successfully' });
     } catch (err) {
         sendError(res, err);
     }

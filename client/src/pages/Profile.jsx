@@ -1,158 +1,723 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
+import {
+  IconUser,
+  IconLock,
+  IconBell,
+  IconCheck,
+  IconAlertCircle,
+  IconShield,
+  IconMail,
+  IconMapPin,
+  IconClock,
+  IconTruck,
+} from "@tabler/icons-react";
 
 function Profile() {
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    cityId: "",
-  });
+  const [activeTab, setActiveTab] = useState("info"); // "info" | "security" | "notifications" | "activity"
+
+  // Profile data
+  const [userData, setUserData] = useState(null);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [cityId, setCityId] = useState("");
   const [cities, setCities] = useState([]);
-  const [roleId, setRoleId] = useState(null);
+
+  // Password update form
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Notification preferences — only in-app is supported
+  const [notifInApp, setNotifInApp] = useState(true);
+  const [showDisableWarn, setShowDisableWarn] = useState(false);
+
+  // UI state
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(true);
 
   const token = localStorage.getItem("token");
-  const authH = { headers: { Authorization: `Bearer ${token}` } };
+  const authHeader = { headers: { Authorization: `Bearer ${token}` } };
 
-  useEffect(() => {
-    // Load cities for the dropdown
-    axios
-      .get(apiUrl("/api/cities"))
-      .then((res) => setCities(res.data))
-      .catch(() => setError("Could not load cities."));
+  const loadProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [profileRes, citiesRes] = await Promise.all([
+        axios.get(apiUrl("/api/users/profile"), authHeader),
+        axios.get(apiUrl("/api/cities")),
+      ]);
 
-    // Load user's profile
-    axios
-      .get(apiUrl("/api/users/profile"), authH)
-      .then((res) => {
-        const data = res.data;
-        setRoleId(data.role_id);
-        setForm({
-          name: data.name || "",
-          phone: data.phone || "",
-          address: data.address || "",
-          cityId: data.city_id || "",
-        });
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Could not load profile data.");
-        setLoading(false);
-      });
+      const data = profileRes.data;
+      setUserData(data);
+      setName(data.name || "");
+      setPhone(data.phone || "");
+      setAddress(data.address || "");
+      setCityId(data.city_id ? String(data.city_id) : "");
+      setCities(citiesRes.data || []);
+
+      if (data.notification_preferences) {
+        try {
+          const parsed =
+            typeof data.notification_preferences === "string"
+              ? JSON.parse(data.notification_preferences)
+              : data.notification_preferences;
+          setNotifInApp(parsed.inApp ?? true);
+        } catch {
+          // keep defaults
+        }
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Could not load profile data.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
-  const handleSubmit = async (e) => {
+  const handleUpdateInfo = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setActionLoading(true);
 
     try {
       await axios.put(
         apiUrl("/api/users/profile"),
         {
-          name: form.name,
-          phone: form.phone,
-          address: form.address,
-          city_id: form.cityId ? Number(form.cityId) : null,
+          name: name.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          city_id: cityId ? Number(cityId) : null,
         },
-        authH
+        authHeader
       );
-      setSuccess("Profile updated successfully!");
-      // Update local storage name if it was changed
-      localStorage.setItem("name", form.name);
+      localStorage.setItem("name", name.trim());
+      setUserData((prev) => (prev ? { ...prev, name: name.trim() } : prev));
+      window.dispatchEvent(new Event("user-updated"));
+      setSuccess("Personal details updated successfully.");
+      loadProfile();
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to update profile");
+      setError(err.response?.data?.error || "Failed to update profile.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setError("New password must contain both letters and numbers.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New password and confirm password do not match.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await axios.put(
+        apiUrl("/api/users/change-password"),
+        { currentPassword, newPassword },
+        authHeader
+      );
+      setSuccess("Your password has been changed securely.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to change password.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSavePreferences = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setActionLoading(true);
+    try {
+      await axios.put(
+        apiUrl("/api/auth/preferences"),
+        { preferences: { inApp: notifInApp, email: false, sms: false } },
+        authHeader
+      );
+      setSuccess("Notification preferences saved successfully.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to update preferences.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
   if (loading) {
     return (
       <AppLayout pageTitle="My Profile">
-        <p>Loading profile...</p>
+        <div className="kp-card p-4 text-center text-muted">
+          <div className="spinner-border spinner-border-sm me-2" role="status" />
+          Loading profile details...
+        </div>
       </AppLayout>
     );
   }
 
+  const roleName = userData?.role || "Staff";
+  const initials = (name || "U")
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const weeklyHours = userData?.weekly_hours || 0;
+  const maxHours = userData?.max_weekly_hours || (userData?.role_id === 4 ? 40 : 60);
+
   return (
-    <AppLayout pageTitle="My Profile">
-      <div className="kp-card" style={{ maxWidth: "600px" }}>
-        <h3 className="mb-3">Personal Information</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label">Full name</label>
-            <input
-              type="text"
-              name="name"
-              className="form-control"
-              value={form.name}
-              onChange={handleChange}
-              required
-            />
+    <AppLayout pageTitle="User Profile">
+      {/* ── Top Hero Card ────────────────────────────────────── */}
+      <div className="kp-card mb-4 p-4">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div className="d-flex align-items-center gap-3">
+            <div
+              className="kp-avatar shadow-sm"
+              style={{ width: "62px", height: "62px", fontSize: "1.4rem" }}
+            >
+              {initials}
+            </div>
+            <div>
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <h2 className="h4 mb-0 fw-bold">{name || "Kandypack User"}</h2>
+                <span className="badge bg-success-subtle text-success small px-2">Active</span>
+              </div>
+              <div className="d-flex flex-wrap align-items-center gap-2 text-muted small">
+                <span className="badge bg-primary-subtle text-primary fw-medium px-2 py-1">
+                  {roleName}
+                </span>
+                <span>•</span>
+                <span className="d-inline-flex align-items-center gap-1">
+                  <IconMail size={14} />
+                  {userData?.email}
+                </span>
+                {userData?.license_number && (
+                  <>
+                    <span>•</span>
+                    <span className="badge bg-secondary-subtle text-secondary">
+                      CDL: {userData.license_number}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          
-          {roleId === 6 && (
-            <>
-              <div className="mb-3">
-                <label className="form-label">Phone number</label>
+
+          {/* Role badge highlights */}
+          <div className="d-flex flex-wrap gap-2">
+            {(userData?.role_id === 4 || userData?.role_id === 5) && (
+              <div className="p-2.5 rounded bg-light border text-end small">
+                <div className="text-muted" style={{ fontSize: "0.72rem" }}>WEEKLY STATUTORY DUTY</div>
+                <div className="fw-bold font-monospace text-dark">
+                  {weeklyHours} / {maxHours} hrs
+                </div>
+              </div>
+            )}
+
+            {userData?.role_id === 6 && (
+              <div className="p-2.5 rounded bg-light border text-end small">
+                <div className="text-muted" style={{ fontSize: "0.72rem" }}>TOTAL ORDERS PLACED</div>
+                <div className="fw-bold text-dark">{userData?.order_count ?? 0} Orders</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="alert alert-danger d-flex align-items-center gap-2 p-3 mb-3">
+          <IconAlertCircle size={18} className="flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {success && (
+        <div className="alert alert-success d-flex align-items-center gap-2 p-3 mb-3">
+          <IconCheck size={18} className="flex-shrink-0" />
+          <span>{success}</span>
+        </div>
+      )}
+
+      {/* ── Tabs Navigation ──────────────────────────────────── */}
+      <div className="d-flex flex-wrap gap-2 mb-3 border-bottom pb-2">
+        <button
+          className={`btn btn-sm d-flex align-items-center gap-2 ${
+            activeTab === "info" ? "btn-primary" : "btn-light border"
+          }`}
+          onClick={() => {
+            setActiveTab("info");
+            setError("");
+            setSuccess("");
+          }}
+        >
+          <IconUser size={16} />
+          <span>Personal Details</span>
+        </button>
+        <button
+          className={`btn btn-sm d-flex align-items-center gap-2 ${
+            activeTab === "security" ? "btn-primary" : "btn-light border"
+          }`}
+          onClick={() => {
+            setActiveTab("security");
+            setError("");
+            setSuccess("");
+          }}
+        >
+          <IconLock size={16} />
+          <span>Security & Password</span>
+        </button>
+        <button
+          className={`btn btn-sm d-flex align-items-center gap-2 ${
+            activeTab === "notifications" ? "btn-primary" : "btn-light border"
+          }`}
+          onClick={() => {
+            setActiveTab("notifications");
+            setError("");
+            setSuccess("");
+          }}
+        >
+          <IconBell size={16} />
+          <span>Notification Preferences</span>
+        </button>
+        <button
+          className={`btn btn-sm d-flex align-items-center gap-2 ${
+            activeTab === "activity" ? "btn-primary" : "btn-light border"
+          }`}
+          onClick={() => {
+            setActiveTab("activity");
+            setError("");
+            setSuccess("");
+          }}
+        >
+          <IconShield size={16} />
+          <span>Account Security Status</span>
+        </button>
+      </div>
+
+      {/* ── Tab 1: Personal Details ──────────────────────────── */}
+      {activeTab === "info" && (
+        <div className="kp-card">
+          <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
+            Account Profile Information
+          </h3>
+          <form onSubmit={handleUpdateInfo}>
+            <div className="row g-3 mb-3">
+              <div className="col-12 col-md-6">
+                <label className="form-label small fw-medium">Full Name</label>
                 <input
                   type="text"
-                  name="phone"
                   className="form-control"
-                  placeholder="07X-XXX-XXXX"
-                  value={form.phone}
-                  onChange={handleChange}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   required
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label">Delivery address</label>
+
+              <div className="col-12 col-md-6">
+                <label className="form-label small fw-medium">Email Address (Login Identifier)</label>
+                <input
+                  type="email"
+                  className="form-control bg-light text-muted"
+                  value={userData?.email || ""}
+                  disabled
+                />
+                <span className="form-text small" style={{ fontSize: "0.76rem" }}>
+                  Primary login email address cannot be changed directly.
+                </span>
+              </div>
+
+              <div className="col-12 col-md-6">
+                <label className="form-label small fw-medium">Assigned System Role</label>
                 <input
                   type="text"
-                  name="address"
+                  className="form-control bg-light text-muted"
+                  value={roleName}
+                  disabled
+                />
+              </div>
+            </div>
+
+            {/* Customer specific delivery profile fields */}
+            {userData?.role_id === 6 && (
+              <div className="p-3 mb-3 bg-light rounded border">
+                <h4 className="h6 mb-3 d-flex align-items-center gap-2">
+                  <IconMapPin size={16} className="text-primary" />
+                  Default Customer Delivery Profile
+                </h4>
+                <div className="row g-3">
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small fw-medium">Contact Phone Number</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      placeholder="07X-XXXXXXX"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small fw-medium">Street Delivery Address</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 45 Galle Road, Colombo 03"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small fw-medium">Registered Delivery City</label>
+                    <select
+                      className="form-select"
+                      value={cityId}
+                      onChange={(e) => setCityId(e.target.value)}
+                      required
+                    >
+                      <option value="">Select City</option>
+                      {cities.map((c) => (
+                        <option key={c.city_id} value={c.city_id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Driver specific compliance fields */}
+            {userData?.role_id === 4 && (
+              <div className="p-3 mb-3 bg-light rounded border">
+                <h4 className="h6 mb-3 d-flex align-items-center gap-2">
+                  <IconTruck size={16} className="text-primary" />
+                  Driver License & Compliance Details
+                </h4>
+                <div className="row g-3 align-items-center">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label small fw-medium">Commercial Driver License</label>
+                    <input
+                      type="text"
+                      className="form-control bg-white"
+                      value={userData.license_number || "Verified"}
+                      disabled
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <div className="d-flex justify-content-between small mb-1">
+                      <span className="text-muted">Statutory Weekly Driving Hours:</span>
+                      <strong>{weeklyHours} / 40.0 hrs</strong>
+                    </div>
+                    <div className="progress" style={{ height: "6px" }}>
+                      <div
+                        className={`progress-bar ${weeklyHours > 36 ? "bg-danger" : weeklyHours > 30 ? "bg-warning" : "bg-success"}`}
+                        style={{ width: `${Math.min(100, (weeklyHours / 40) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Assistant specific compliance fields */}
+            {userData?.role_id === 5 && (
+              <div className="p-3 mb-3 bg-light rounded border">
+                <h4 className="h6 mb-3 d-flex align-items-center gap-2">
+                  <IconClock size={16} className="text-primary" />
+                  Assistant Logistics Duty Details
+                </h4>
+                <div className="mb-1">
+                  <div className="d-flex justify-content-between small mb-1">
+                    <span className="text-muted">Statutory Weekly Duty Hours:</span>
+                    <strong>{weeklyHours} / 60.0 hrs</strong>
+                  </div>
+                  <div className="progress" style={{ height: "6px" }}>
+                    <div
+                      className={`progress-bar ${weeklyHours > 54 ? "bg-danger" : weeklyHours > 45 ? "bg-warning" : "bg-success"}`}
+                      style={{ width: `${Math.min(100, (weeklyHours / 60) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn btn-primary mt-2 d-inline-flex align-items-center gap-2"
+              disabled={actionLoading}
+            >
+              {actionLoading ? "Saving Changes..." : "Save Personal Details"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── Tab 2: Security & Password ───────────────────────── */}
+      {activeTab === "security" && (
+        <div className="kp-card">
+          <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
+            Change Account Password
+          </h3>
+          <p className="text-muted small mb-4">
+            Ensure your account is protected with a secure passphrase containing at least 8 characters, including both letters and numbers.
+          </p>
+
+          <form onSubmit={handleUpdatePassword}>
+            <div className="row g-3 mb-3">
+              <div className="col-12 col-md-4">
+                <label className="form-label small fw-medium">Current Password</label>
+                <input
+                  type="password"
                   className="form-control"
-                  placeholder="Street address"
-                  value={form.address}
-                  onChange={handleChange}
+                  placeholder="Enter current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                   required
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label">City</label>
-                <select
-                  name="cityId"
-                  className="form-select"
-                  value={form.cityId}
-                  onChange={handleChange}
+
+              <div className="col-12 col-md-4">
+                <label className="form-label small fw-medium">New Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="At least 8 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   required
-                >
-                  <option value="">Select a city</option>
-                  {cities.map((c) => (
-                    <option key={c.city_id} value={c.city_id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
-            </>
+
+              <div className="col-12 col-md-4">
+                <label className="form-label small fw-medium">Confirm New Password</label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary mt-2 d-inline-flex align-items-center gap-2"
+              disabled={actionLoading}
+            >
+              <IconLock size={16} />
+              {actionLoading ? "Updating..." : "Update Password"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── Tab 3: Notification Preferences ──────────────────── */}
+      {activeTab === "notifications" && (
+        <div className="kp-card">
+
+          {/* Warning modal when user tries to disable in-app notifications */}
+          {showDisableWarn && (
+            <div
+              className="modal d-block"
+              tabIndex="-1"
+              style={{ background: "rgba(0,0,0,0.45)" }}
+              aria-modal="true"
+              role="dialog"
+            >
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content border-0 shadow">
+                  <div className="modal-header bg-warning text-dark">
+                    <h5 className="modal-title d-flex align-items-center gap-2">
+                      <IconBell size={20} />
+                      Disable Website Notifications?
+                    </h5>
+                  </div>
+                  <div className="modal-body">
+                    <p className="mb-2">
+                      <strong>Website notifications are required</strong> for you to receive
+                      system alerts, incident reports, and delivery updates inside the app.
+                    </p>
+                    <p className="mb-0 text-muted small">
+                      If you turn them off, you will <strong>not</strong> see any new
+                      notifications until you re-enable them. Are you sure?
+                    </p>
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      id="btn-profile-cancel-disable-notif"
+                      className="btn btn-secondary"
+                      onClick={() => setShowDisableWarn(false)}
+                    >
+                      Cancel — Keep Enabled
+                    </button>
+                    <button
+                      id="btn-profile-confirm-disable-notif"
+                      className="btn btn-warning fw-bold"
+                      onClick={() => { setNotifInApp(false); setShowDisableWarn(false); }}
+                    >
+                      Yes, Turn Off
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
-          {error && <div className="alert alert-danger">{error}</div>}
-          {success && <div className="alert alert-success">{success}</div>}
-          
-          <button type="submit" className="btn btn-primary">
-            Save Changes
-          </button>
-        </form>
-      </div>
+          <h3 className="h6 mb-1 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
+            Dispatch &amp; Order Alerts
+          </h3>
+          <p className="text-muted small mb-4">
+            Control how you receive automated status updates and critical logistics
+            notifications inside the website.
+          </p>
+
+          <form onSubmit={handleSavePreferences}>
+            <div className="d-flex flex-column gap-3 mb-4">
+
+              {/* In-App — only supported channel */}
+              <div className="d-flex align-items-start gap-3 p-3 rounded border bg-light">
+                <input
+                  type="checkbox"
+                  id="pref-inapp"
+                  className="form-check-input mt-1"
+                  checked={notifInApp}
+                  onChange={(e) => {
+                    if (!e.target.checked && notifInApp) {
+                      setShowDisableWarn(true);
+                    } else {
+                      setNotifInApp(e.target.checked);
+                    }
+                  }}
+                />
+                <div>
+                  <label htmlFor="pref-inapp" className="fw-semibold small mb-0" style={{ cursor: "pointer" }}>
+                    In-App Notifications
+                    {notifInApp
+                      ? <span className="badge bg-success ms-2">Active</span>
+                      : <span className="badge bg-secondary ms-2">Off</span>}
+                  </label>
+                  <div className="text-muted small mt-1">
+                    Real-time topbar notifications when orders advance or runs are scheduled.
+                    This is the <strong>only</strong> notification channel currently available.
+                  </div>
+                  {!notifInApp && (
+                    <div className="text-danger small mt-1 fw-semibold">
+                      ⚠ You will not receive any new notifications while this is off.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Email — not available */}
+              <div className="d-flex align-items-start gap-3 p-3 rounded border bg-white opacity-50" title="Not available in this version">
+                <input type="checkbox" className="form-check-input mt-1" disabled />
+                <div>
+                  <div className="fw-semibold small text-muted">Email Notifications <span className="badge bg-secondary ms-1" style={{fontSize:"0.65rem"}}>Coming Soon</span></div>
+                  <div className="text-muted small">Daily summaries, order dispatch manifests, and shipment discrepancy alerts.</div>
+                </div>
+              </div>
+
+              {/* SMS — not available */}
+              <div className="d-flex align-items-start gap-3 p-3 rounded border bg-white opacity-50" title="Not available in this version">
+                <input type="checkbox" className="form-check-input mt-1" disabled />
+                <div>
+                  <div className="fw-semibold small text-muted">SMS Alerts (Mobile) <span className="badge bg-secondary ms-1" style={{fontSize:"0.65rem"}}>Coming Soon</span></div>
+                  <div className="text-muted small">Immediate text alerts when the delivery driver is approaching your drop-off stop.</div>
+                </div>
+              </div>
+
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary d-inline-flex align-items-center gap-2"
+              disabled={actionLoading}
+            >
+              <IconBell size={16} />
+              {actionLoading ? "Saving..." : "Save Preferences"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* ── Tab 4: Account Security & Status ─────────────────── */}
+      {activeTab === "activity" && (
+        <div className="kp-card">
+          <h3 className="h6 mb-3 fw-bold text-uppercase text-secondary" style={{ letterSpacing: "0.5px" }}>
+            Security & Session Telemetry
+          </h3>
+
+          <div className="p-3 mb-3 bg-light rounded border">
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">User ID Reference:</span>
+              <span className="font-monospace fw-bold small">#{userData?.user_id}</span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">Account Creation Date:</span>
+              <span className="small text-dark">
+                {userData?.created_at
+                  ? new Date(userData.created_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : "Active Member"}
+              </span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">Account State:</span>
+              <span className="badge bg-success-subtle text-success">
+                {userData?.is_active ? "Verified & Active" : "Suspended"}
+              </span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+              <span className="text-muted small">Authentication Policy:</span>
+              <span className="small text-dark">OWASP Compliant (Bcrypt Hashed)</span>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="text-muted small">Current Active Session:</span>
+              <span className="small text-success fw-medium">JWT Authenticated (Local)</span>
+            </div>
+          </div>
+
+          <div className="d-flex align-items-center gap-2 text-muted small p-2">
+            <IconShield size={16} className="text-primary flex-shrink-0" />
+            <span>
+              All account authentication events and profile modifications are audited in accordance with Kandypack enterprise security policies.
+            </span>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

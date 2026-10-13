@@ -10,7 +10,7 @@ const router = express.Router();
  * REQ-DEL-01: Driver & Assistant Daily Run View
  * Retrieves the truck schedule and the ordered delivery stops for a given run.
  */
-router.get('/schedule/:truckScheduleId/today', requireAuth, async (req, res) => {
+router.get('/schedule/:truckScheduleId/today', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const scheduleId = Number(req.params.truckScheduleId);
 
@@ -45,11 +45,13 @@ router.get('/schedule/:truckScheduleId/today', requireAuth, async (req, res) => 
       return res.status(404).json({ error: `Truck schedule #${scheduleId} not found.` });
     }
 
-    // Role Guard: Drivers and assistants can ONLY view their assigned runs
-    if ((req.user.roleId === 4 || req.user.roleId === 5) &&
-        req.user.userId !== scheduleRows[0].driver_id &&
-        req.user.userId !== scheduleRows[0].assistant_id) {
-      return res.status(403).json({ error: 'You are not authorized to view this delivery run.' });
+    const schedule = scheduleRows[0];
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+
+    // Strict access control: Drivers (4) and Assistants (5) can ONLY view schedules they are assigned to
+    if ((roleId === 4 || roleId === 5) && schedule.driver_id !== currentUserId && schedule.assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
     }
 
     // 2. Fetch all allocations/stops for this run ordered by stop_order ASC
@@ -92,13 +94,13 @@ router.get('/schedule/:truckScheduleId/today', requireAuth, async (req, res) => 
  * REQ-DEL-02: Store Dispatch & Pickup Confirmation
  * The driver/assistant confirms pickup of loaded goods from the store before departure.
  */
-router.put('/schedule/:truckScheduleId/pickup', requireAuth, async (req, res) => {
+router.put('/schedule/:truckScheduleId/pickup', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const scheduleId = Number(req.params.truckScheduleId);
 
     // Verify schedule exists and fetch driver/assistant IDs
     const [scheduleRows] = await db.query(
-      'SELECT truck_schedule_id, driver_id, assistant_id, status, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
+      'SELECT truck_schedule_id, status, driver_id, assistant_id, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
       [scheduleId]
     );
 
@@ -106,11 +108,10 @@ router.put('/schedule/:truckScheduleId/pickup', requireAuth, async (req, res) =>
       return res.status(404).json({ error: `Truck schedule #${scheduleId} not found.` });
     }
 
-    // Role Guard: Only assigned driver/assistant or Admin can confirm pickup
-    if (req.user.roleId !== 1 &&
-        req.user.userId !== scheduleRows[0].driver_id &&
-        req.user.userId !== scheduleRows[0].assistant_id) {
-      return res.status(403).json({ error: 'You are not authorized to confirm pickup for this run.' });
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+    if ((roleId === 4 || roleId === 5) && scheduleRows[0].driver_id !== currentUserId && scheduleRows[0].assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
     }
 
     if (scheduleRows[0].pickup_confirmed_at) {
@@ -121,6 +122,17 @@ router.put('/schedule/:truckScheduleId/pickup', requireAuth, async (req, res) =>
     await db.query(
       'UPDATE truck_schedule SET pickup_confirmed_at = NOW(), status = "In Progress" WHERE truck_schedule_id = ?',
       [scheduleId]
+    );
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || null;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Confirmed store pickup', 'truck_schedule', ?, ?)`,
+      [
+        operatorUserId,
+        scheduleId,
+        `run #${scheduleId} pickup confirmed from store. Status changed to In Progress.`
+      ]
     );
 
     res.json({
@@ -142,7 +154,7 @@ router.put('/schedule/:truckScheduleId/pickup', requireAuth, async (req, res) =>
  * - On 'Delivered': Advances `order` and `order_item` status to 'Delivered' (REQ-DEL-05).
  * - On 'Failed': Automatically re-queues order to next scheduled run on same route (REQ-DEL-04).
  */
-router.put('/allocations/:allocationId', requireAuth, async (req, res) => {
+router.put('/allocations/:allocationId', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const allocationId = Number(req.params.allocationId);
     const { deliveryStatus, note } = req.body;
@@ -153,8 +165,7 @@ router.put('/allocations/:allocationId', requireAuth, async (req, res) => {
 
     // 1. Fetch allocation and verify store pickup confirmation + staff authorization
     const [allocRows] = await db.query(
-      `SELECT ta.*, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status,
-              ts.driver_id, ts.assistant_id, o.customer_id
+      `SELECT ta.*, ts.driver_id, ts.assistant_id, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status, o.customer_id
        FROM truck_allocation ta
        JOIN truck_schedule ts ON ta.truck_schedule_id = ts.truck_schedule_id
        JOIN \`order\` o ON ta.order_id = o.order_id
@@ -167,6 +178,12 @@ router.put('/allocations/:allocationId', requireAuth, async (req, res) => {
     }
 
     const alloc = allocRows[0];
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+
+    if ((roleId === 4 || roleId === 5) && alloc.driver_id !== currentUserId && alloc.assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
+    }
 
     // Role Guard: Only assigned driver/assistant or Admin can record delivery outcomes
     if (req.user.roleId !== 1 &&
@@ -206,6 +223,13 @@ router.put('/allocations/:allocationId', requireAuth, async (req, res) => {
     await db.query(
       'UPDATE truck_allocation SET delivery_status = ?, delivery_note = ?, delivered_at = NOW() WHERE truck_allocation_id = ?',
       [deliveryStatus, note || null, allocationId]
+    );
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || 1;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Recorded delivery outcome', 'truck_allocation', ?, ?)`,
+      [operatorUserId, allocationId, `Status: ${deliveryStatus}, Order #${alloc.order_id}, Note: ${note || 'None'}`]
     );
 
     let reallocatedScheduleId = null;
@@ -281,13 +305,13 @@ router.put('/allocations/:allocationId', requireAuth, async (req, res) => {
  * REQ-DEL-01 & REQ-SCHED-04: Complete Run & Log Actual Working Hours
  * Marks the truck run as Completed and inserts into roster_log for actual hour tracking.
  */
-router.put('/schedule/:truckScheduleId/complete', requireAuth, async (req, res) => {
+router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2, 4, 5]), async (req, res) => {
   try {
     const scheduleId = Number(req.params.truckScheduleId);
     let { actualStartTime, actualEndTime } = req.body;
 
     const [scheduleRows] = await db.query(
-      'SELECT truck_schedule_id, driver_id, assistant_id, scheduled_date, start_time, end_time, status, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
+      'SELECT truck_schedule_id, scheduled_date, start_time, end_time, status, driver_id, assistant_id, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
       [scheduleId]
     );
 
@@ -296,6 +320,11 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, async (req, res) 
     }
 
     const schedule = scheduleRows[0];
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+    if ((roleId === 4 || roleId === 5) && schedule.driver_id !== currentUserId && schedule.assistant_id !== currentUserId) {
+      return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
+    }
 
     // Role Guard: Only assigned driver/assistant or Admin can complete the run
     if (req.user.roleId !== 1 &&
@@ -322,10 +351,28 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, async (req, res) 
 
     // Fallbacks if timestamps not provided in payload
     if (!actualStartTime) {
-      actualStartTime = schedule.pickup_confirmed_at || `${schedule.scheduled_date} ${schedule.start_time}`;
+      if (schedule.pickup_confirmed_at) {
+        actualStartTime = schedule.pickup_confirmed_at instanceof Date
+          ? schedule.pickup_confirmed_at.toISOString().slice(0, 19).replace('T', ' ')
+          : String(schedule.pickup_confirmed_at).replace('T', ' ').slice(0, 19);
+      } else {
+        const dateStr = schedule.scheduled_date instanceof Date
+          ? schedule.scheduled_date.toISOString().slice(0, 10)
+          : String(schedule.scheduled_date).slice(0, 10);
+        actualStartTime = `${dateStr} ${schedule.start_time || '08:00:00'}`;
+      }
+    } else if (actualStartTime instanceof Date) {
+      actualStartTime = actualStartTime.toISOString().slice(0, 19).replace('T', ' ');
+    } else if (typeof actualStartTime === 'string') {
+      actualStartTime = actualStartTime.replace('T', ' ').slice(0, 19);
     }
+
     if (!actualEndTime) {
       actualEndTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    } else if (actualEndTime instanceof Date) {
+      actualEndTime = actualEndTime.toISOString().slice(0, 19).replace('T', ' ');
+    } else if (typeof actualEndTime === 'string') {
+      actualEndTime = actualEndTime.replace('T', ' ').slice(0, 19);
     }
 
     // 1. Mark schedule Completed
@@ -340,6 +387,13 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, async (req, res) 
        VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE actual_start_time = VALUES(actual_start_time), actual_end_time = VALUES(actual_end_time)`,
       [scheduleId, actualStartTime, actualEndTime]
+    );
+
+    const operatorUserId = req.user?.user_id || req.user?.userId || 1;
+    await db.query(
+      `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+       VALUES (?, 'Completed truck delivery run', 'truck_schedule', ?, ?)`,
+      [operatorUserId, scheduleId, `Status: Completed, Actual Hours: ${actualStartTime} to ${actualEndTime}`]
     );
 
     // 3. Notify dispatchers (role_id = 2) that this run has successfully concluded
@@ -373,10 +427,10 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, async (req, res) 
 
 /**
  * Active / Today's Run Finder for Drivers & Assistants
- * Queries Database VIEW `v_driver_assigned_runs` (CS3043 Intermediate SQL: Views)
+ * Queries Database VIEW \`v_driver_assigned_runs\` (CS3043 Intermediate SQL: Views)
  * Returns role-restricted runs assigned to a user or all runs for a date.
  */
-router.get('/driver-runs', requireAuth, async (req, res) => {
+router.get(['/driver-runs', '/assigned-runs'], requireAuth, async (req, res) => {
   try {
     // Customers (Role 6) cannot view delivery runs
     if (req.user.roleId === 6) {
@@ -387,11 +441,16 @@ router.get('/driver-runs', requireAuth, async (req, res) => {
     let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
     const params = [];
 
-    // Drivers (4) and Assistants (5) can ONLY view runs assigned to themselves
-    if (req.user.roleId === 4 || req.user.roleId === 5) {
+    const roleId = req.user?.role_id || req.user?.roleId;
+    const currentUserId = req.user?.user_id || req.user?.userId;
+
+    // Strict role-based isolation:
+    // Drivers (role 4) and Assistants (role 5) can ONLY see runs they are assigned to.
+    if (roleId === 4 || roleId === 5) {
       sql += ' AND (driver_id = ? OR assistant_id = ?)';
-      params.push(req.user.userId, req.user.userId);
+      params.push(currentUserId, currentUserId);
     } else if (driverId) {
+      // Admins (1) and Dispatchers (2) can optionally filter by driverId
       sql += ' AND (driver_id = ? OR assistant_id = ?)';
       params.push(driverId, driverId);
     }
