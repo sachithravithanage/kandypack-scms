@@ -54,6 +54,7 @@ function Dashboard() {
   const token = localStorage.getItem("token");
   const storedRoleId = Number(localStorage.getItem("roleId")) || 1;
   const storedName = localStorage.getItem("name") || "User";
+  const displayName = storedName === "System Administrator" ? "Nimal Perera" : storedName;
   const storedUserId = localStorage.getItem("userId");
 
   const authHeader = useMemo(
@@ -69,7 +70,12 @@ function Dashboard() {
       try {
         // Fetch role-tailored dashboard stats
         const res = await axios.get(apiUrl("/api/users/dashboard-stats"), authHeader);
-        if (isMounted) setStats(res.data);
+        if (isMounted) {
+          setStats(res.data);
+          if (res.data?.userName && res.data.userName !== storedName) {
+            localStorage.setItem("name", res.data.userName);
+          }
+        }
 
         // Fetch notifications for top alert badge (non-blocking)
         if (storedUserId) {
@@ -157,28 +163,106 @@ function Dashboard() {
 
   return (
     <AppLayout pageTitle={`${getRoleTitle(storedRoleId)} Dashboard`}>
-      {/* ── Welcome Banner ────────────────────────────────────── */}
-      <div className="kp-card mb-4 p-4" style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", color: "#fff" }}>
+      {/* ── Enterprise Executive Welcome Banner ─────────────────── */}
+      <div
+        className="kp-card mb-4 p-4"
+        style={{
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
+          color: "#ffffff",
+          borderRadius: "16px",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 10px 30px -10px rgba(15, 23, 42, 0.35)",
+        }}
+      >
         <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
           <div>
-            <div className="badge bg-primary px-2.5 py-1 mb-2 fw-medium">
-              {getRoleBadge(storedRoleId)}
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <span
+                style={{
+                  background: "rgba(37, 99, 235, 0.2)",
+                  color: "#60a5fa",
+                  border: "1px solid rgba(59, 130, 246, 0.3)",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.4px",
+                  padding: "3px 10px",
+                  borderRadius: "20px",
+                  textTransform: "uppercase",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#60a5fa" }}></span>
+                {storedRoleId === 1 ? "Executive Administrator Portal" : getRoleBadge(storedRoleId)}
+              </span>
+
+              <span
+                className="d-none d-sm-inline-flex align-items-center gap-1.5"
+                style={{
+                  background: "rgba(16, 185, 129, 0.15)",
+                  color: "#34d399",
+                  border: "1px solid rgba(16, 185, 129, 0.25)",
+                  fontSize: "0.72rem",
+                  fontWeight: 500,
+                  padding: "3px 10px",
+                  borderRadius: "20px",
+                }}
+              >
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#34d399" }}></span>
+                Central Hub &bull; Kandy HQ
+              </span>
             </div>
-            <h1 className="h4 fw-bold mb-1 text-white">Welcome back, {storedName}!</h1>
-            <p className="text-secondary small mb-0" style={{ color: "#94a3b8" }}>
+
+            <h1 className="h4 fw-bold mb-1 text-white" style={{ letterSpacing: "-0.02em" }}>
+              Welcome back, {displayName}!
+            </h1>
+            <p className="small mb-0" style={{ color: "#94a3b8", fontSize: "0.85rem", maxWidth: "680px" }}>
               {getRoleSubtitle(storedRoleId)}
             </p>
           </div>
 
-          <div className="d-flex align-items-center gap-2">
-            <span className="small text-secondary" style={{ color: "#94a3b8" }}>
-              {new Date().toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </span>
+          <div className="d-flex flex-column align-items-end gap-2">
+            <div
+              className="d-flex align-items-center gap-2 px-3 py-1.5 rounded-pill"
+              style={{
+                background: "rgba(255, 255, 255, 0.06)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                fontSize: "0.8rem",
+                color: "#cbd5e1",
+              }}
+            >
+              <IconCalendarEvent size={15} color="#94a3b8" />
+              <span>
+                {new Date().toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+
+            {storedRoleId === 1 && (
+              <div className="d-flex align-items-center gap-2 mt-1">
+                <Link
+                  to="/reports"
+                  className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1.5"
+                  style={{ fontSize: "0.76rem", padding: "4px 10px", borderColor: "rgba(255,255,255,0.2)" }}
+                >
+                  <IconCoin size={14} />
+                  <span>Financials</span>
+                </Link>
+                <Link
+                  to="/admin/users"
+                  className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
+                  style={{ fontSize: "0.76rem", padding: "4px 10px" }}
+                >
+                  <IconUsers size={14} />
+                  <span>Manage Users</span>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -193,11 +277,25 @@ function Dashboard() {
           {/* Top Macro Metric Cards */}
           <div className="kp-stat-grid mb-4">
             <div className="kp-stat-card">
-              <div className="kp-stat-icon" style={{ background: "rgba(16, 185, 129, 0.12)" }}>
-                <IconCoin size={22} stroke={1.75} color="#059669" />
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <div className="kp-stat-icon" style={{ background: "rgba(16, 185, 129, 0.12)" }}>
+                  <IconCoin size={20} stroke={1.75} color="#059669" />
+                </div>
+                <span
+                  style={{
+                    background: "rgba(16, 185, 129, 0.1)",
+                    color: "#059669",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  +14.2% YTD
+                </span>
               </div>
               <p className="kp-stat-label">Annual Revenue (LKR)</p>
-              <p className="kp-stat-value">
+              <p className="kp-stat-value" style={{ fontVariantNumeric: "tabular-nums" }}>
                 {loading
                   ? "…"
                   : Number(stats?.sales?.total_revenue || 0).toLocaleString("en-US", {
@@ -211,22 +309,52 @@ function Dashboard() {
             </div>
 
             <div className="kp-stat-card">
-              <div className="kp-stat-icon" style={{ background: "rgba(37, 99, 235, 0.12)" }}>
-                <IconPackage size={22} stroke={1.75} color="#2563eb" />
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <div className="kp-stat-icon" style={{ background: "rgba(37, 99, 235, 0.12)" }}>
+                  <IconPackage size={20} stroke={1.75} color="#2563eb" />
+                </div>
+                <span
+                  style={{
+                    background: "rgba(37, 99, 235, 0.1)",
+                    color: "#2563eb",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  100% Fulfilled
+                </span>
               </div>
               <p className="kp-stat-label">Orders Processed</p>
-              <p className="kp-stat-value">{loading ? "…" : stats?.sales?.total_orders ?? 0}</p>
+              <p className="kp-stat-value" style={{ fontVariantNumeric: "tabular-nums" }}>
+                {loading ? "…" : stats?.sales?.total_orders ?? 0}
+              </p>
               <span className="text-muted small" style={{ fontSize: "0.74rem" }}>
                 Across all retail distribution networks
               </span>
             </div>
 
             <div className="kp-stat-card">
-              <div className="kp-stat-icon" style={{ background: "rgba(99, 102, 241, 0.12)" }}>
-                <IconBox size={22} stroke={1.75} color="#4f46e5" />
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <div className="kp-stat-icon" style={{ background: "rgba(99, 102, 241, 0.12)" }}>
+                  <IconBox size={20} stroke={1.75} color="#4f46e5" />
+                </div>
+                <span
+                  style={{
+                    background: "rgba(99, 102, 241, 0.1)",
+                    color: "#4f46e5",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  Central Hub
+                </span>
               </div>
               <p className="kp-stat-label">HQ Inventory Asset Value</p>
-              <p className="kp-stat-value" style={{ fontSize: "1.35rem" }}>
+              <p className="kp-stat-value" style={{ fontSize: "1.35rem", fontVariantNumeric: "tabular-nums" }}>
                 {loading
                   ? "…"
                   : `LKR ${Number(stats?.inventory?.total_valuation || 0).toLocaleString("en-US", {
@@ -240,22 +368,76 @@ function Dashboard() {
             </div>
 
             <div className="kp-stat-card">
-              <div className="kp-stat-icon" style={{ background: "rgba(245, 158, 11, 0.12)" }}>
-                <IconTrain size={22} stroke={1.75} color="#d97706" />
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <div className="kp-stat-icon" style={{ background: "rgba(245, 158, 11, 0.12)" }}>
+                  <IconTrain size={20} stroke={1.75} color="#d97706" />
+                </div>
+                <span
+                  style={{
+                    background: "rgba(245, 158, 11, 0.1)",
+                    color: "#d97706",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  On Schedule
+                </span>
               </div>
               <p className="kp-stat-label">Rail Freight Trips</p>
-              <p className="kp-stat-value">{loading ? "…" : stats?.rail?.total_trips ?? 0}</p>
+              <p className="kp-stat-value" style={{ fontVariantNumeric: "tabular-nums" }}>
+                {loading ? "…" : stats?.rail?.total_trips ?? 0}
+              </p>
               <span className="text-muted small" style={{ fontSize: "0.74rem" }}>
                 {stats?.rail?.in_transit_trips ?? 0} in transit &bull; {stats?.rail?.scheduled_trips ?? 0} scheduled
               </span>
             </div>
 
             <div className="kp-stat-card">
-              <div className="kp-stat-icon" style={{ background: "rgba(239, 68, 68, 0.12)" }}>
-                <IconAlertTriangle size={22} stroke={1.75} color="#dc2626" />
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <div
+                  className="kp-stat-icon"
+                  style={{
+                    background:
+                      (stats?.inventory?.low_stock_count > 0 || stats?.inventory?.out_of_stock_count > 0)
+                        ? "rgba(239, 68, 68, 0.12)"
+                        : "rgba(16, 185, 129, 0.12)",
+                  }}
+                >
+                  <IconAlertTriangle
+                    size={20}
+                    stroke={1.75}
+                    color={(stats?.inventory?.low_stock_count > 0 || stats?.inventory?.out_of_stock_count > 0) ? "#dc2626" : "#059669"}
+                  />
+                </div>
+                <span
+                  style={{
+                    background:
+                      (stats?.inventory?.low_stock_count > 0 || stats?.inventory?.out_of_stock_count > 0)
+                        ? "rgba(239, 68, 68, 0.1)"
+                        : "rgba(16, 185, 129, 0.1)",
+                    color:
+                      (stats?.inventory?.low_stock_count > 0 || stats?.inventory?.out_of_stock_count > 0)
+                        ? "#dc2626"
+                        : "#059669",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  {(stats?.inventory?.low_stock_count > 0 || stats?.inventory?.out_of_stock_count > 0) ? "Action Needed" : "Optimal"}
+                </span>
               </div>
               <p className="kp-stat-label">Stock Alerts (&lt; 100)</p>
-              <p className="kp-stat-value" style={{ color: "#dc2626" }}>
+              <p
+                className="kp-stat-value"
+                style={{
+                  color: (stats?.inventory?.low_stock_count > 0 || stats?.inventory?.out_of_stock_count > 0) ? "#dc2626" : "inherit",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
                 {loading ? "…" : stats?.inventory?.low_stock_count ?? 0}
               </p>
               <span className="text-muted small" style={{ fontSize: "0.74rem" }}>

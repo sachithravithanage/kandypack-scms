@@ -122,6 +122,8 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
   try {
     const roleId = Number(req.user.roleId || req.user.role_id);
     const userId = Number(req.user.userId || req.user.user_id);
+    const [[userRecord]] = await db.query('SELECT name FROM `user` WHERE user_id = ?', [userId]);
+    const userName = userRecord?.name || req.user.name || "Nimal Perera";
 
     if (roleId === 1) {
       // 👑 Admin Dashboard Stats
@@ -172,6 +174,7 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
       `);
 
       return res.json({
+        userName,
         roleId,
         sales: salesTotals,
         inventory: invStats,
