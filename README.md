@@ -4,6 +4,8 @@
 ![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2F%20Express-339933?logo=node.js&logoColor=white)
 ![MySQL](https://img.shields.io/badge/Database-MySQL%208-4479A1?logo=mysql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Deployment-Docker%20Compose-2496ED?logo=docker&logoColor=white)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
+![Cloud](https://img.shields.io/badge/Cloud-Microsoft%20Azure-0078D4?logo=microsoftazure&logoColor=white)
 
 Kandypack is a web-based supply chain management system for Kandypack, a
 mid-sized FMCG manufacturer in Kandy, Sri Lanka. It replaces disconnected
@@ -30,7 +32,7 @@ Customer order
 - [Repository structure](#repository-structure)
 - [Local development](#local-development)
 - [Database design](#database-design)
-- [Docker deployment](#docker-deployment)
+- [Docker and CI/CD Cloud deployment](#docker-and-cicd-cloud-deployment)
 - [Team contributions](#team-contributions)
 - [Engineering conventions](#engineering-conventions)
 - [Project status and known design decisions](#project-status-and-known-design-decisions)
@@ -92,6 +94,7 @@ Customer order
 | Reporting/export | Chart.js, jsPDF, jsPDF AutoTable, SheetJS                |
 | Web serving      | Nginx for the production frontend image                  |
 | Local deployment | Docker and Docker Compose                                |
+| CI/CD & Cloud    | GitHub Actions, Microsoft Azure VM, DuckDNS, Let's Encrypt SSL/TLS |
 
 ## Repository structure
 
@@ -226,28 +229,31 @@ Additional SQL files provide stored procedures, indexes, validation triggers,
 seed data, views, constraints, and window-function reporting. Run
 `db/init.sql` for the complete ordered setup used by Docker Compose.
 
-## Docker deployment
+## Docker and CI/CD Cloud deployment
 
-The production Compose stack contains:
+The production stack is containerized using Docker Compose:
 
 - **`db`** — MySQL 8 with a health check and persistent `db_data` volume.
 - **`server`** — Express API on internal port `5000`.
 - **`client`** — Vite production build served by Nginx on port `80`.
 
-For an Azure Linux VM or another Docker-capable host:
+### Automated CI/CD Pipeline (GitHub Actions)
 
-```bash
-git clone https://github.com/sachithravithanage/kandypack-scms.git
-cd kandypack-scms
-cp .env.example .env
-# Edit .env with deployment-only secrets.
-docker compose up -d --build
-docker compose ps
-```
+Continuous Integration and Continuous Deployment are managed automatically via GitHub Actions workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
-Expose HTTP/HTTPS at the host or reverse proxy level, but do not expose MySQL
-to the public internet. Production secrets must be supplied through the host
-environment and must not be stored in Git.
+1. **Verification Job (`verify`)**: Triggers on code push or pull request to validate Docker Compose configurations and compile client/server image builds on `ubuntu-latest`.
+2. **Automated Production Deployment (`deploy`)**: Triggers on push to `main` (or manual dispatch):
+   - Establishes a secure SSH session to the production **Microsoft Azure Cloud VM** using encrypted GitHub Secrets (`VM_HOST`, `VM_USER`, `VM_SSH_KEY`).
+   - Fetches and checks out the target release branch on the remote server.
+   - Executes zero-downtime container recreation (`docker compose up -d --build`).
+   - Performs automated pruning of dangling Docker images (`docker image prune -f`) to optimize server storage.
+
+### Production Environment & SSL/TLS
+
+The live application is hosted on an **Azure Cloud VM** with a custom DuckDNS domain and encrypted HTTPS:
+- **Production URL**: `https://kandypack.duckdns.org`
+- **SSL/TLS Certificates**: Automated Let's Encrypt certificates managed via Certbot standalone authenticator.
+- **Database Access**: Secured behind SSH tunneling (forwarding local port to Azure port `3306`) preventing direct exposure of MySQL to the public internet.
 
 ## Team contributions
 
@@ -322,7 +328,7 @@ lead. **Branch:** `feature/auth`
 
 ### Member D — Nanayakkara N.S. (240449A)
 
-**Role:** Fleet rostering and last-mile delivery execution. **Branch:**
+**Role:** Fleet rostering, last-mile delivery execution, and Cloud CI/CD DevOps lead. **Branch:**
 `feature/roster-delivery`
 
 - Implemented driver, assistant, and truck master data.
@@ -338,6 +344,13 @@ lead. **Branch:** `feature/auth`
   and delivery-status interfaces.
 - Added delivery and roster data required for utilization and staff-hours
   reporting.
+- **Architected and implemented the automated CI/CD pipeline** via GitHub Actions
+  ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)), providing continuous integration
+  testing, Docker compose validation, and automated remote SSH deployment to production.
+- **Configured the Microsoft Azure Cloud VM hosting environment**, multi-container production Docker
+  orchestration, and secure deployment secrets (`VM_HOST`, `VM_USER`, `VM_SSH_KEY`).
+- **Configured production domain networking (`kandypack.duckdns.org`)**, Let's Encrypt / Certbot
+  SSL/TLS automated certificate renewal for end-to-end HTTPS encryption, and SSH tunneling for remote database connectivity.
 
 **Owned tables:** `driver`, `assistant`, `truck`, `truck_schedule`,
 `truck_allocation`, `roster_log`, `system_parameter`.
