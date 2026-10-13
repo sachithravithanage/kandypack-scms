@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
@@ -144,6 +144,49 @@ function AppLayout({ pageTitle, children }) {
   const [currentUserName, setCurrentUserName] = useState(
     localStorage.getItem("name") || "User"
   );
+  const [networkLive, setNetworkLive] = useState(true);
+  const [latency, setLatency] = useState(null);
+  const [checkingNetwork, setCheckingNetwork] = useState(false);
+
+  const checkNetworkHealth = useCallback(async () => {
+    setCheckingNetwork(true);
+    const start = performance.now();
+    try {
+      const res = await axios.get(apiUrl("/api/health"), {
+        timeout: 4000,
+        headers: { "Cache-Control": "no-cache" },
+      });
+      const ms = Math.round(performance.now() - start);
+      if (res.status === 200 && res.data?.status === "ok") {
+        setNetworkLive(true);
+        setLatency(ms);
+      } else {
+        setNetworkLive(false);
+        setLatency(null);
+      }
+    } catch {
+      setNetworkLive(false);
+      setLatency(null);
+    } finally {
+      setCheckingNetwork(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkNetworkHealth();
+    const interval = setInterval(checkNetworkHealth, 30000);
+    const handleOnline = () => checkNetworkHealth();
+    const handleOffline = () => setNetworkLive(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [checkNetworkHealth]);
 
   // Synchronize user profile in real-time from backend & custom events
   useEffect(() => {
@@ -341,27 +384,51 @@ function AppLayout({ pageTitle, children }) {
           </div>
 
           <div className="kp-topbar-actions">
-            {/* Live Operational Status Pill */}
+            {/* Live Operational Status Pill - Dynamically functional */}
             <div
-              className="d-none d-xl-flex align-items-center gap-2 px-3 py-1 rounded-pill"
+              className="d-none d-xl-flex align-items-center rounded-pill"
               style={{
-                background: "rgba(16, 185, 129, 0.08)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
+                gap: "8px",
+                padding: "4px 12px",
+                background: networkLive ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)",
+                border: `1px solid ${networkLive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.25)"}`,
                 fontSize: "0.75rem",
-                color: "#047857",
+                color: networkLive ? "#047857" : "#b91c1c",
                 fontWeight: 600,
+                cursor: "pointer",
+                userSelect: "none",
+                transition: "all 0.2s ease",
               }}
+              onClick={checkNetworkHealth}
+              title={
+                checkingNetwork
+                  ? "Checking central network status..."
+                  : networkLive
+                  ? `Rail & Fleet Network is online and operational${latency ? ` (${latency}ms latency)` : ""}. Click to re-ping.`
+                  : "Central logistics server unreachable. Click to retry connection."
+              }
             >
               <span
+                className={networkLive && !checkingNetwork ? "kp-pulse-live" : ""}
                 style={{
                   width: "7px",
                   height: "7px",
                   borderRadius: "50%",
-                  background: "#10b981",
-                  boxShadow: "0 0 0 2px rgba(16, 185, 129, 0.25)",
+                  background: networkLive ? "#10b981" : "#ef4444",
+                  boxShadow: networkLive
+                    ? "0 0 0 2px rgba(16, 185, 129, 0.25)"
+                    : "0 0 0 2px rgba(239, 68, 68, 0.25)",
+                  flexShrink: 0,
+                  transition: "background 0.2s ease",
                 }}
-              ></span>
-              <span>Rail & Fleet Network Live</span>
+              />
+              <span>
+                {checkingNetwork
+                  ? "Pinging Network..."
+                  : networkLive
+                  ? "Rail & Fleet Network Live"
+                  : "Network Offline (Click to Retry)"}
+              </span>
             </div>
 
             <div className="kp-search" style={{ position: "relative" }}>
@@ -450,8 +517,10 @@ function AppLayout({ pageTitle, children }) {
             </button>
 
             <div
-              className="d-flex align-items-center gap-2.5 px-2 py-1 rounded-pill"
+              className="d-flex align-items-center rounded-pill"
               style={{
+                gap: "10px",
+                padding: "4px 14px 4px 6px",
                 background: "rgba(0,0,0,0.02)",
                 border: "1px solid rgba(0,0,0,0.06)",
                 cursor: "pointer",
@@ -465,16 +534,17 @@ function AppLayout({ pageTitle, children }) {
                 style={{
                   background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
                   boxShadow: "0 2px 6px rgba(37, 99, 235, 0.25)",
+                  flexShrink: 0,
                 }}
               >
                 {initials}
               </div>
-              <div className="text-start d-none d-md-block pe-1">
+              <div className="text-start d-none d-md-block">
                 <div
                   style={{
                     fontWeight: 600,
                     fontSize: "0.82rem",
-                    lineHeight: 1.2,
+                    lineHeight: 1.25,
                     color: "#0f172a",
                   }}
                 >
