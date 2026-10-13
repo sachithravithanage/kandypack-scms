@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -22,6 +23,8 @@ import {
   IconFileText,
   IconRefresh,
   IconX,
+  IconDownload,
+  IconFileSpreadsheet,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -170,14 +173,14 @@ function MyOrders() {
             item.product_name || `Product #${item.product_id}`,
             `LKR ${parseFloat(item.unit_price || 0).toFixed(2)}`,
             item.quantity,
-            `${parseFloat(item.line_volume || 0).toFixed(2)} m³`,
+            `${parseFloat(item.line_volume || 0).toFixed(2)} m3`,
             `LKR ${parseFloat(item.line_total || (item.quantity * item.unit_price) || 0).toFixed(2)}`,
           ])
         : [
-            [1, "Order Consignment Package", "—", "1", `${parseFloat(order.total_volume || 0).toFixed(2)} m³`, `LKR ${parseFloat(order.total_value || 0).toFixed(2)}`],
+            [1, "Order Consignment Package", "—", "1", `${parseFloat(order.total_volume || 0).toFixed(2)} m3`, `LKR ${parseFloat(order.total_value || 0).toFixed(2)}`],
           ];
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 77,
         head: [["#", "Product Description", "Unit Price", "Qty", "Volume", "Line Total (LKR)"]],
         body: tableData,
@@ -213,7 +216,7 @@ function MyOrders() {
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139);
       doc.text("Total Volume:", 125, finalY + 8);
-      doc.text(`${parseFloat(order.total_volume || 0).toFixed(2)} m³`, 190, finalY + 8, { align: "right" });
+      doc.text(`${parseFloat(order.total_volume || 0).toFixed(2)} m3`, 190, finalY + 8, { align: "right" });
 
       doc.text("Handling & Rail Freight:", 125, finalY + 16);
       doc.text("INCLUDED", 190, finalY + 16, { align: "right" });
@@ -235,6 +238,71 @@ function MyOrders() {
       console.error("PDF generation failed:", err);
       setError("Failed to generate PDF invoice.");
     }
+  };
+
+  // ---- All-orders report (uses the currently filtered list) ----
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : "—");
+  const buildReportRows = (list) =>
+    list.map((o) => ({
+      "Order ID": o.order_id,
+      "Order Date": fmtDate(o.order_date),
+      "Requested Delivery": fmtDate(o.requested_delivery_date),
+      Status: o.status,
+      "Delivery Address": o.delivery_address || "—",
+      Items: o.items?.length || 0,
+      "Volume (m3)": Number(parseFloat(o.total_volume || 0).toFixed(2)),
+      "Total (LKR)": Number(parseFloat(o.total_value || 0).toFixed(2)),
+    }));
+
+  const downloadOrdersReportPdf = (list) => {
+    try {
+      if (!list.length) return;
+      const rows = buildReportRows(list);
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 297, 28, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("KANDYPACK SCMS - My Orders Report", 14, 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Customer #${customerId}  |  Generated ${new Date().toLocaleString()}  |  ${rows.length} orders`, 14, 22);
+
+      const cols = Object.keys(rows[0]);
+      autoTable(doc, {
+        startY: 34,
+        head: [cols],
+        body: rows.map((r) => cols.map((c) => String(r[c]))),
+        theme: "striped",
+        headStyles: { fillColor: [30, 41, 59], fontSize: 9 },
+        styles: { fontSize: 8.5, cellPadding: 2.5 },
+      });
+
+      const active = list.filter((o) => o.status !== "Cancelled");
+      const sum = active.reduce((s, o) => s + parseFloat(o.total_value || 0), 0);
+      const y = doc.lastAutoTable.finalY + 8;
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(
+        `Total value (excluding cancelled): LKR ${sum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        14,
+        y
+      );
+      doc.save(`Kandypack_My_Orders_Report_${toLocalDateString(new Date())}.pdf`);
+    } catch (err) {
+      console.error("Orders report failed:", err);
+      setError("Failed to generate orders report.");
+    }
+  };
+
+  const downloadOrdersReportExcel = (list) => {
+    if (!list.length) return;
+    const ws = XLSX.utils.json_to_sheet(buildReportRows(list));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "My Orders");
+    XLSX.writeFile(wb, `Kandypack_My_Orders_Report_${toLocalDateString(new Date())}.xlsx`);
   };
 
   const customerId = (() => {
@@ -427,10 +495,32 @@ function MyOrders() {
         <div>
           <p className="text-muted small mb-0">Track and manage your order deliveries and fulfillment status in real-time.</p>
         </div>
-        <Link to="/orders/new" className="btn btn-primary d-inline-flex align-items-center gap-2">
-          <IconPlus size={18} stroke={2} />
-          <span>Place New Order</span>
-        </Link>
+        <div className="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-danger d-inline-flex align-items-center gap-2"
+            onClick={() => downloadOrdersReportPdf(filteredOrders)}
+            disabled={loading || filteredOrders.length === 0}
+            title="Download a PDF report of the orders currently shown"
+          >
+            <IconDownload size={18} />
+            <span>Orders Report (PDF)</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-success d-inline-flex align-items-center gap-2"
+            onClick={() => downloadOrdersReportExcel(filteredOrders)}
+            disabled={loading || filteredOrders.length === 0}
+            title="Download an Excel report of the orders currently shown"
+          >
+            <IconFileSpreadsheet size={18} />
+            <span>Excel</span>
+          </button>
+          <Link to="/orders/new" className="btn btn-primary d-inline-flex align-items-center gap-2">
+            <IconPlus size={18} stroke={2} />
+            <span>Place New Order</span>
+          </Link>
+        </div>
       </div>
 
       {/* Stat Cards */}

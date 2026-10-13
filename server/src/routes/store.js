@@ -171,7 +171,8 @@ router.post('/:storeId/receive', requireAuth, requireRole([1, 3]), async (req, r
       // Append-only store inventory ledger (REQ-STORE-03, Project Guide C1/4.4)
       await conn.query(
         `INSERT INTO store_inventory (store_id, product_id, cargo_allocation_id, quantity_on_hand)
-         VALUES (?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE quantity_on_hand = VALUES(quantity_on_hand)`,
         [storeId, pId, cAllocId, recQty]
       );
 

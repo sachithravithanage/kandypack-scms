@@ -98,7 +98,7 @@ router.put('/schedule/:truckScheduleId/pickup', requireAuth, requireRole([1, 2, 
   try {
     const scheduleId = Number(req.params.truckScheduleId);
 
-    // Verify schedule exists
+    // Verify schedule exists and fetch driver/assistant IDs
     const [scheduleRows] = await db.query(
       'SELECT truck_schedule_id, status, driver_id, assistant_id, pickup_confirmed_at FROM truck_schedule WHERE truck_schedule_id = ?',
       [scheduleId]
@@ -163,7 +163,7 @@ router.put('/allocations/:allocationId', requireAuth, requireRole([1, 2, 4, 5]),
       return res.status(400).json({ error: 'deliveryStatus must be "Delivered", "Failed", or "Attempted".' });
     }
 
-    // 1. Fetch allocation and verify store pickup confirmation
+    // 1. Fetch allocation and verify store pickup confirmation + staff authorization
     const [allocRows] = await db.query(
       `SELECT ta.*, ts.driver_id, ts.assistant_id, ts.pickup_confirmed_at, ts.route_id, ts.scheduled_date, ts.status AS schedule_status, o.customer_id
        FROM truck_allocation ta
@@ -183,6 +183,13 @@ router.put('/allocations/:allocationId', requireAuth, requireRole([1, 2, 4, 5]),
 
     if ((roleId === 4 || roleId === 5) && alloc.driver_id !== currentUserId && alloc.assistant_id !== currentUserId) {
       return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
+    }
+
+    // Role Guard: Only assigned driver/assistant or Admin can record delivery outcomes
+    if (req.user.roleId !== 1 &&
+        req.user.userId !== alloc.driver_id &&
+        req.user.userId !== alloc.assistant_id) {
+      return res.status(403).json({ error: 'You are not authorized to update stops for this run.' });
     }
 
     // REQ-DEL-02 Enforcement: Cannot record deliveries before store pickup
@@ -319,6 +326,13 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
       return res.status(403).json({ error: 'Access denied: You are not assigned to this delivery run.' });
     }
 
+    // Role Guard: Only assigned driver/assistant or Admin can complete the run
+    if (req.user.roleId !== 1 &&
+        req.user.userId !== schedule.driver_id &&
+        req.user.userId !== schedule.assistant_id) {
+      return res.status(403).json({ error: 'You are not authorized to complete this run.' });
+    }
+
     // Cannot complete a run that never confirmed pickup
     if (!schedule.pickup_confirmed_at) {
       return res.status(400).json({ error: 'Cannot complete a run that never confirmed pickup from the store.' });
@@ -418,6 +432,11 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
  */
 router.get(['/driver-runs', '/assigned-runs'], requireAuth, async (req, res) => {
   try {
+    // Customers (Role 6) cannot view delivery runs
+    if (req.user.roleId === 6) {
+      return res.status(403).json({ error: 'Customers are not authorized to view delivery runs.' });
+    }
+
     const { driverId, date } = req.query;
     let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
     const params = [];

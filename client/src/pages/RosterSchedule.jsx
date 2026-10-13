@@ -17,17 +17,25 @@ import {
   IconTruck,
   IconUser,
   IconRefresh,
+  IconBulb,
+  IconBolt,
+  IconChevronDown,
+  IconChevronUp,
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
 
 function RosterSchedule() {
+  const roleId = Number(localStorage.getItem("roleId")) || 0;
+  const canEditRoster = roleId === 1 || roleId === 2;
   const [schedules, setSchedules] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [trucks, setTrucks] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [assistants, setAssistants] = useState([]);
   const [driverHours, setDriverHours] = useState([]);
+  const [demandList, setDemandList] = useState([]);
+  const [showDemandWidget, setShowDemandWidget] = useState(true);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
@@ -76,16 +84,17 @@ function RosterSchedule() {
     };
   }, []);
 
-  // 1. Fetch metadata, schedules, and driver weekly hours
+  // 1. Fetch metadata, schedules, driver weekly hours, and demand heads-up
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token") || "";
       const headers = { Authorization: `Bearer ${token}` };
-      const [schedRes, metaRes, hoursRes] = await Promise.all([
+      const [schedRes, metaRes, hoursRes, demandRes] = await Promise.all([
         axios.get(`${API_BASE}/roster`, { headers }),
         axios.get(`${API_BASE}/roster/metadata`, { headers }),
         axios.get(`${API_BASE}/roster/driver-hours`, { headers }).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/roster/demand-heads-up`, { headers }).catch(() => ({ data: [] })),
       ]);
       setSchedules(schedRes.data || []);
       setRoutes(metaRes.data?.routes || []);
@@ -93,6 +102,7 @@ function RosterSchedule() {
       setDrivers(metaRes.data?.drivers || []);
       setAssistants(metaRes.data?.assistants || []);
       setDriverHours(hoursRes.data || []);
+      setDemandList(demandRes.data || []);
 
       if (metaRes.data?.routes?.length > 0) {
         setFormData((prev) => {
@@ -113,6 +123,32 @@ function RosterSchedule() {
       setLoading(false);
     }
   }, []);
+
+  // Quick auto-fill schedule form from upcoming demand alert & remove from heads-up
+  const handleApplyDemand = (item) => {
+    setFormData((prev) => ({
+      ...prev,
+      routeId: item.route_id,
+      scheduledDate: item.requested_delivery_date,
+      startTime: "08:00",
+    }));
+
+    // Immediately remove this item from the Heads-Up widget
+    setDemandList((prev) =>
+      prev.filter(
+        (d) =>
+          !(
+            d.route_id === item.route_id &&
+            d.requested_delivery_date === item.requested_delivery_date
+          )
+      )
+    );
+
+    setShowAddForm(true);
+    setSuccessMsg(
+      `Auto-filled ${item.route_name} for ${item.requested_delivery_date}. Removed from Heads-Up and loaded into the schedule form below.`
+    );
+  };
 
   useEffect(() => {
     loadData();
@@ -301,6 +337,134 @@ function RosterSchedule() {
             {showAddForm ? "Close Form" : "Schedule New Run"}
           </button>
         </div>
+      </div>
+
+      {/* ── Upcoming Demand Heads-Up Widget ─────────────────────────── */}
+      <div
+        className="kp-card mb-4 border-0 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)",
+          borderLeft: "4px solid #206bc4",
+        }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <span className="p-2 rounded-circle bg-primary-subtle text-primary d-inline-flex">
+              <IconBulb size={20} />
+            </span>
+            <div>
+              <h3 className="h6 mb-0 text-primary fw-bold">
+                Upcoming Demand Heads-Up (Lead-Time Intelligence)
+              </h3>
+              <p className="text-muted small mb-0">
+                Aggregated from customer orders placed with required lead-time. Identifies routes needing truck rosters.
+              </p>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <span className="badge bg-primary text-white rounded-pill px-2 py-1 small">
+              {demandList.length} Route Demands
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary py-0 px-2"
+              onClick={() => setShowDemandWidget(!showDemandWidget)}
+              title="Toggle Demand View"
+            >
+              {showDemandWidget ? <IconChevronUp size={16} /> : <IconChevronDown size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {showDemandWidget && (
+          <div className="mt-3">
+            {demandList.length === 0 ? (
+              <div className="alert alert-light border text-muted small py-2 mb-0 d-flex align-items-center">
+                <IconCheck size={16} className="text-success me-2" />
+                All current pending orders are assigned or no unallocated customer orders waiting for future dates.
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm table-hover align-middle mb-0 bg-white rounded shadow-sm border">
+                  <thead className="table-light small">
+                    <tr>
+                      <th>Target Delivery Date</th>
+                      <th>Route / Depot</th>
+                      <th>Service Days</th>
+                      <th className="text-center">Orders</th>
+                      <th className="text-center">Volume</th>
+                      <th className="text-center">Roster Coverage</th>
+                      <th className="text-end">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="small">
+                    {demandList.map((item, idx) => {
+                      const isCovered = item.scheduled_trucks >= item.suggested_trucks;
+                      const is7DaysPlus = item.days_ahead >= 7;
+                      return (
+                        <tr key={`${item.route_id}-${item.requested_delivery_date}-${idx}`}>
+                          <td>
+                            <div className="fw-bold text-dark">{item.requested_delivery_date}</div>
+                            <span
+                              className={`badge ${
+                                is7DaysPlus
+                                  ? "bg-success-subtle text-success"
+                                  : "bg-warning-subtle text-warning"
+                              } border small`}
+                              style={{ fontSize: "0.72rem" }}
+                            >
+                              {item.days_ahead >= 0 ? `+${item.days_ahead}d lead` : `${item.days_ahead}d`} {is7DaysPlus ? "✓ Normal" : "⚠️ <7d Override"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fw-bold">{item.route_name}</div>
+                            <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                              {item.store_name}
+                            </div>
+                          </td>
+                          <td className="text-muted" style={{ fontSize: "0.8rem" }}>
+                            {item.service_days || "Daily"}
+                          </td>
+                          <td className="text-center">
+                            <span className="badge bg-secondary-subtle text-secondary fw-bold">
+                              {item.total_orders} {item.total_orders === 1 ? "order" : "orders"}
+                            </span>
+                          </td>
+                          <td className="text-center fw-semibold text-secondary">
+                            {item.total_volume_m3} m³
+                          </td>
+                          <td className="text-center">
+                            {isCovered ? (
+                              <span className="badge bg-success-subtle text-success border border-success-subtle">
+                                ✓ Covered ({item.scheduled_trucks}/{item.suggested_trucks} trucks)
+                              </span>
+                            ) : (
+                              <span className="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                ⚠️ Needs Truck ({item.scheduled_trucks}/{item.suggested_trucks} rostered)
+                              </span>
+                            )}
+                          </td>
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-primary d-inline-flex align-items-center gap-1 py-1 px-2"
+                              style={{ fontSize: "0.78rem" }}
+                              onClick={() => handleApplyDemand(item)}
+                              title="Auto-fill schedule form with this route and date"
+                            >
+                              <IconBolt size={14} />
+                              Auto-Fill Run
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Schedule Form */}

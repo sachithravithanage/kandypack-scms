@@ -259,7 +259,7 @@ router.get('/train-trips/:id/allotable-orders', requireAuth, requireRole([1, 2, 
   }
 });
 
-// Allocate ONE order item's quantity to a trip — uses transaction + FOR UPDATE lock (REQ-RAIL-03, REQ-RAIL-04)
+// Allocate ONE order item's quantity to a trip — uses Member C stored procedure sp_allocate_cargo (REQ-RAIL-03, REQ-RAIL-04) with app-level fallback
 router.post('/train-trips/:id/allocate', requireAuth, requireRole([1, 2]), async (req, res, next) => {
   const connection = await db.getConnection();
   try {
@@ -273,57 +273,110 @@ router.post('/train-trips/:id/allocate', requireAuth, requireRole([1, 2]), async
       return res.status(400).json({ error: 'orderItemId and positive quantity are required' });
     }
 
-    // Lock the trip row so no other request can allocate concurrently
-    const [tripRows] = await connection.query(
-      'SELECT * FROM train_trip WHERE trip_id = ? FOR UPDATE',
-      [tripId]
-    );
-    const trip = tripRows[0];
-    if (!trip) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Trip not found' });
+    let procedureHandled = false;
+    let allocInsertId = null;
+    let remainingCapacity = 0;
+
+    // 1. Attempt to execute Member C's stored procedure: sp_allocate_cargo
+    try {
+      await connection.query('CALL sp_allocate_cargo(?, ?, ?, @p_status)', [orderItemId, tripId, quantity]);
+      const [[spOut]] = await connection.query('SELECT @p_status AS status, LAST_INSERT_ID() AS insertId');
+      const spStatus = spOut?.status;
+
+      if (spStatus) {
+        procedureHandled = true;
+        if (spStatus === 'TRIP_NOT_FOUND') {
+          await connection.rollback();
+          return res.status(404).json({ error: 'Trip not found' });
+        }
+        if (spStatus === 'TRIP_NOT_SCHEDULABLE') {
+          await connection.rollback();
+          return res.status(400).json({ error: "Cannot allocate to a trip with status not 'Scheduled'" });
+        }
+        if (spStatus === 'INSUFFICIENT_CAPACITY') {
+          const [[tripRow]] = await connection.query('SELECT total_capacity FROM train_trip WHERE trip_id = ?', [tripId]);
+          const [[usedRow]] = await connection.query('SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?', [tripId]);
+          const rem = Math.max(0, Number(tripRow?.total_capacity || 0) - Number(usedRow?.used || 0));
+          await connection.rollback();
+          return res.status(400).json({
+            error: `Not enough capacity. Only ${rem} remaining on this trip.`,
+            remaining: rem,
+            insufficientCapacity: true
+          });
+        }
+        if (spStatus === 'OK') {
+          allocInsertId = spOut.insertId;
+          if (isOverflow || parentAllocationId) {
+            await connection.query(
+              'UPDATE cargo_allocation SET is_overflow = ?, parent_allocation_id = ? WHERE cargo_allocation_id = ?',
+              [isOverflow ? 1 : 0, parentAllocationId || null, allocInsertId]
+            );
+          }
+          const [[tripRow]] = await connection.query('SELECT total_capacity FROM train_trip WHERE trip_id = ?', [tripId]);
+          const [[usedRow]] = await connection.query('SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?', [tripId]);
+          remainingCapacity = Math.max(0, Number(tripRow?.total_capacity || 0) - Number(usedRow?.used || 0));
+        }
+      }
+    } catch (spErr) {
+      // Procedure not installed or not supported (e.g. distributed DB without SP support)
+      procedureHandled = false;
     }
 
-    if (trip.status !== 'Scheduled') {
-      await connection.rollback();
-      return res.status(400).json({ error: `Cannot allocate to a trip with status '${trip.status}'` });
+    // 2. Application-layer fallback if procedure is not present
+    if (!procedureHandled) {
+      const [tripRows] = await connection.query(
+        'SELECT * FROM train_trip WHERE trip_id = ? FOR UPDATE',
+        [tripId]
+      );
+      const trip = tripRows[0];
+      if (!trip) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+
+      if (trip.status !== 'Scheduled') {
+        await connection.rollback();
+        return res.status(400).json({ error: `Cannot allocate to a trip with status '${trip.status}'` });
+      }
+
+      const [allocatedRows] = await connection.query(
+        'SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?',
+        [tripId]
+      );
+      const usedCapacity = Number(allocatedRows[0].used);
+      const remaining = Number(trip.total_capacity) - usedCapacity;
+
+      if (quantity > remaining) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: `Not enough capacity. Only ${remaining} remaining on this trip.`,
+          remaining,
+          insufficientCapacity: true
+        });
+      }
+
+      const [allocResult] = await connection.query(
+        'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status, is_overflow, parent_allocation_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [orderItemId, tripId, quantity, 'Not Loaded', isOverflow ? 1 : 0, parentAllocationId || null]
+      );
+
+      await connection.query(
+        `UPDATE \`order\` SET status = 'Scheduled'
+         WHERE order_id = (SELECT order_id FROM order_item WHERE order_item_id = ?)
+           AND status = 'Placed'`,
+        [orderItemId]
+      );
+
+      allocInsertId = allocResult.insertId;
+      remainingCapacity = remaining - quantity;
     }
-
-    const [allocatedRows] = await connection.query(
-      'SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?',
-      [tripId]
-    );
-    const usedCapacity = Number(allocatedRows[0].used);
-    const remaining = Number(trip.total_capacity) - usedCapacity;
-
-    if (quantity > remaining) {
-      await connection.rollback();
-      return res.status(400).json({
-        error: `Not enough capacity. Only ${remaining} remaining on this trip.`,
-        remaining,
-        insufficientCapacity: true
-      });
-    }
-
-    const [allocResult] = await connection.query(
-      'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status, is_overflow, parent_allocation_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [orderItemId, tripId, quantity, 'Not Loaded', isOverflow ? 1 : 0, parentAllocationId || null]
-    );
-
-    // Advance parent order from Placed to Scheduled (REQ-ORD-05)
-    await connection.query(
-      `UPDATE \`order\` SET status = 'Scheduled'
-       WHERE order_id = (SELECT order_id FROM order_item WHERE order_item_id = ?)
-         AND status = 'Placed'`,
-      [orderItemId]
-    );
 
     await connection.commit();
     res.status(201).json({
       message: 'Allocated successfully',
-      cargoAllocationId: allocResult.insertId,
+      cargoAllocationId: allocInsertId,
       allocatedQuantity: quantity,
-      remainingCapacity: remaining - quantity,
+      remainingCapacity,
       isOverflow: Boolean(isOverflow)
     });
   } catch (err) {
@@ -334,7 +387,7 @@ router.post('/train-trips/:id/allocate', requireAuth, requireRole([1, 2]), async
   }
 });
 
-// Automatic overflow allocation across multiple trips — REQ-RAIL-05
+// Automatic overflow allocation across multiple trips — uses Member C stored procedure sp_overflow_allocate (REQ-RAIL-05) with app-level fallback
 router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2]), async (req, res, next) => {
   const connection = await db.getConnection();
   try {
@@ -349,97 +402,153 @@ router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2
     }
 
     const [[startTrip]] = await connection.query(
-      'SELECT destination_city_id, departure_datetime FROM train_trip WHERE trip_id = ?',
+      'SELECT destination_city_id, departure_datetime, status FROM train_trip WHERE trip_id = ?',
       [startTripId]
     );
     if (!startTrip) {
       await connection.rollback();
       return res.status(404).json({ error: 'Initial trip not found' });
     }
-
-    let remainingQty = quantity;
-    let curTripId = startTripId;
-    let curDeparture = startTrip.departure_datetime;
-    const destCityId = startTrip.destination_city_id;
-    const allocationsMade = [];
-    let firstAllocationId = null;
-
-    while (remainingQty > 0) {
-      const [[trip]] = await connection.query(
-        'SELECT trip_id, total_capacity, status FROM train_trip WHERE trip_id = ? FOR UPDATE',
-        [curTripId]
-      );
-
-      if (trip && trip.status === 'Scheduled') {
-        const [[usedRow]] = await connection.query(
-          'SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?',
-          [curTripId]
-        );
-        const available = Math.max(0, Math.floor(Number(trip.total_capacity) - Number(usedRow.used)));
-        const toAllocate = Math.min(remainingQty, available);
-
-        if (toAllocate > 0) {
-          const isOverflow = (curTripId !== startTripId) || (allocationsMade.length > 0);
-          const [ins] = await connection.query(
-            'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status, is_overflow, parent_allocation_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [orderItemId, curTripId, toAllocate, 'Not Loaded', isOverflow ? 1 : 0, firstAllocationId]
-          );
-
-          if (!firstAllocationId) {
-            firstAllocationId = ins.insertId;
-          }
-
-          remainingQty -= toAllocate;
-          allocationsMade.push({
-            cargoAllocationId: ins.insertId,
-            tripId: curTripId,
-            allocatedQuantity: toAllocate,
-            isOverflow
-          });
-
-          // Log overflow hop to audit_log (REQ-RAIL-05)
-          if (isOverflow) {
-            const operatorUserId = req.user?.user_id || req.user?.userId || null;
-            await connection.query(
-              `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
-               VALUES (?, 'Cargo overflow allocation', 'cargo_allocation', ?, ?)`,
-              [
-                operatorUserId,
-                ins.insertId,
-                `order_item_id=${orderItemId} overflowed to trip ${curTripId}, qty=${toAllocate} (parent_allocation_id=${firstAllocationId})`
-              ]
-            );
-          }
-        }
-      }
-
-      if (remainingQty > 0) {
-        const [nextTrips] = await connection.query(
-          `SELECT trip_id, departure_datetime
-           FROM train_trip
-           WHERE destination_city_id = ?
-             AND status = 'Scheduled'
-             AND departure_datetime > ?
-           ORDER BY departure_datetime ASC
-           LIMIT 1`,
-          [destCityId, curDeparture]
-        );
-
-        if (nextTrips.length === 0) {
-          break; // No further scheduled trips
-        }
-        curTripId = nextTrips[0].trip_id;
-        curDeparture = nextTrips[0].departure_datetime;
-      }
+    if (startTrip.status !== 'Scheduled') {
+      await connection.rollback();
+      return res.status(400).json({ error: `Cannot allocate to a trip with status '${startTrip.status}'` });
     }
 
-    if (allocationsMade.length > 0) {
-      await connection.query(
-        `UPDATE \`order\` SET status = 'Scheduled'
-         WHERE order_id = (SELECT order_id FROM order_item WHERE order_item_id = ?)
-           AND status = 'Placed'`,
+    let procedureHandled = false;
+    let allocationsMade = [];
+    let remainingQty = quantity;
+
+    // 1. Attempt to invoke Member C's stored procedure: sp_overflow_allocate
+    try {
+      const [beforeRows] = await connection.query(
+        'SELECT cargo_allocation_id FROM cargo_allocation WHERE order_item_id = ?',
         [orderItemId]
       );
+      const existingIds = new Set(beforeRows.map(r => r.cargo_allocation_id));
+
+      await connection.query('CALL sp_overflow_allocate(?, ?, ?)', [orderItemId, startTripId, quantity]);
+
+      const [afterRows] = await connection.query(
+        `SELECT cargo_allocation_id, trip_id, allocated_quantity
+         FROM cargo_allocation
+         WHERE order_item_id = ?
+         ORDER BY cargo_allocation_id ASC`,
+        [orderItemId]
+      );
+
+      const newRows = afterRows.filter(r => !existingIds.has(r.cargo_allocation_id));
+      if (newRows.length > 0) {
+        procedureHandled = true;
+        const firstAllocId = newRows[0].cargo_allocation_id;
+        for (let i = 0; i < newRows.length; i++) {
+          const alloc = newRows[i];
+          const isOverflow = (alloc.trip_id !== startTripId) || (i > 0);
+          if (isOverflow) {
+            await connection.query(
+              'UPDATE cargo_allocation SET is_overflow = 1, parent_allocation_id = ? WHERE cargo_allocation_id = ?',
+              [firstAllocId, alloc.cargo_allocation_id]
+            );
+          }
+          allocationsMade.push({
+            cargoAllocationId: alloc.cargo_allocation_id,
+            tripId: alloc.trip_id,
+            allocatedQuantity: alloc.allocated_quantity,
+            isOverflow
+          });
+        }
+        const totalAllocated = allocationsMade.reduce((sum, a) => sum + Number(a.allocatedQuantity), 0);
+        remainingQty = Math.max(0, quantity - totalAllocated);
+      }
+    } catch (spErr) {
+      procedureHandled = false;
+      allocationsMade = [];
+      remainingQty = quantity;
+    }
+
+    // 2. Application-layer fallback if procedure is not present
+    if (!procedureHandled) {
+      let curTripId = startTripId;
+      let curDeparture = startTrip.departure_datetime;
+      const destCityId = startTrip.destination_city_id;
+      let firstAllocationId = null;
+
+      while (remainingQty > 0) {
+        const [[trip]] = await connection.query(
+          'SELECT trip_id, total_capacity, status FROM train_trip WHERE trip_id = ? FOR UPDATE',
+          [curTripId]
+        );
+
+        if (trip && trip.status === 'Scheduled') {
+          const [[usedRow]] = await connection.query(
+            'SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?',
+            [curTripId]
+          );
+          const available = Math.max(0, Math.floor(Number(trip.total_capacity) - Number(usedRow.used)));
+          const toAllocate = Math.min(remainingQty, available);
+
+          if (toAllocate > 0) {
+            const isOverflow = (curTripId !== startTripId) || (allocationsMade.length > 0);
+            const [ins] = await connection.query(
+              'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status, is_overflow, parent_allocation_id) VALUES (?, ?, ?, ?, ?, ?)',
+              [orderItemId, curTripId, toAllocate, 'Not Loaded', isOverflow ? 1 : 0, firstAllocationId]
+            );
+
+            if (!firstAllocationId) {
+              firstAllocationId = ins.insertId;
+            }
+
+            remainingQty -= toAllocate;
+            allocationsMade.push({
+              cargoAllocationId: ins.insertId,
+              tripId: curTripId,
+              allocatedQuantity: toAllocate,
+              isOverflow
+            });
+
+            // Log overflow hop to audit_log (REQ-RAIL-05)
+            if (isOverflow) {
+              const operatorUserId = req.user?.user_id || req.user?.userId || null;
+              await connection.query(
+                `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
+                 VALUES (?, 'Cargo overflow allocation', 'cargo_allocation', ?, ?)`,
+                [
+                  operatorUserId,
+                  ins.insertId,
+                  `order_item_id=${orderItemId} overflowed to trip ${curTripId}, qty=${toAllocate} (parent_allocation_id=${firstAllocationId})`
+                ]
+              );
+            }
+          }
+        }
+
+        if (remainingQty > 0) {
+          const [nextTrips] = await connection.query(
+            `SELECT trip_id, departure_datetime
+             FROM train_trip
+             WHERE destination_city_id = ?
+               AND status = 'Scheduled'
+               AND departure_datetime > ?
+             ORDER BY departure_datetime ASC
+             LIMIT 1`,
+            [destCityId, curDeparture]
+          );
+
+          if (nextTrips.length === 0) {
+            break; // No further scheduled trips
+          }
+          curTripId = nextTrips[0].trip_id;
+          curDeparture = nextTrips[0].departure_datetime;
+        }
+      }
+
+      if (allocationsMade.length > 0) {
+        await connection.query(
+          `UPDATE \`order\` SET status = 'Scheduled'
+           WHERE order_id = (SELECT order_id FROM order_item WHERE order_item_id = ?)
+             AND status = 'Placed'`,
+          [orderItemId]
+        );
+      }
     }
 
     await connection.commit();

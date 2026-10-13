@@ -57,11 +57,23 @@ const ALL_REPORT_TYPES = [
   { value: "system-summary",   label: "Complete System Summary",    roles: [1] },
 ];
 
+// Saved per user + role so cached data never leaks between accounts
+const getStorageKey = () =>
+  `kp_reports_state_${localStorage.getItem("userId") || "anon"}_${localStorage.getItem("roleId") || "0"}`;
+const loadSavedState = () => {
+  try {
+    return JSON.parse(localStorage.getItem(getStorageKey()) || "{}");
+  } catch {
+    return {};
+  }
+};
+
 function Reports() {
-  const [reportType, setReportType] = useState("sales");
-  const [startDate, setStartDate]   = useState("2026-01-01");
-  const [endDate, setEndDate]       = useState("2026-12-31");
-  const [limit, setLimit]           = useState(10);
+  const saved = useMemo(loadSavedState, []);
+  const [reportType, setReportType] = useState(saved.reportType || "sales");
+  const [startDate, setStartDate]   = useState(saved.startDate || "2026-01-01");
+  const [endDate, setEndDate]       = useState(saved.endDate || "2026-12-31");
+  const [limit, setLimit]           = useState(saved.limit || 10);
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSearch = searchParams.get("search") || "";
   const [tableSearch, setTableSearch] = useState(urlSearch);
@@ -81,11 +93,11 @@ function Reports() {
     setSearchParams(nextParams, { replace: true });
   };
   const [viewMode, setViewMode]     = useState("both"); // "table", "chart", "both"
-  const [rows, setRows]             = useState([]);
-  const [columns, setColumns]       = useState([]);
+  const [rows, setRows]             = useState(saved.rows || []);
+  const [columns, setColumns]       = useState(saved.columns || []);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState("");
-  const [fetched, setFetched]       = useState(false);
+  const [fetched, setFetched]       = useState(Boolean(saved.rows));
 
   const token = localStorage.getItem("token");
   const userRole = parseInt(localStorage.getItem("roleId") || "0", 10);
@@ -104,8 +116,6 @@ function Reports() {
   const runReport = async () => {
     setLoading(true);
     setError("");
-    setRows([]);
-    setFetched(false);
     try {
       const params = { startDate, endDate, limit };
       const res = await axios.get(apiUrl(`/api/reports/${reportType}`), {
@@ -113,9 +123,19 @@ function Reports() {
         params,
       });
       const data = res.data || [];
-      if (data.length > 0) setColumns(Object.keys(data[0]));
+      const cols = data.length > 0 ? Object.keys(data[0]) : [];
+      setColumns(cols);
       setRows(data);
       setFetched(true);
+      // Persist selections + last result so a page refresh restores them
+      try {
+        localStorage.setItem(
+          getStorageKey(),
+          JSON.stringify({ reportType, startDate, endDate, limit, rows: data, columns: cols })
+        );
+      } catch {
+        /* storage full - ignore */
+      }
     } catch (err) {
       setError(err.response?.data?.error || "Could not load report data.");
     } finally {
@@ -123,11 +143,12 @@ function Reports() {
     }
   };
 
-  // Run automatically on first mount
+  // Auto-generate whenever the report type or filters change (debounced)
   useEffect(() => {
-    runReport();
+    const t = setTimeout(runReport, 400);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reportType]);
+  }, [reportType, startDate, endDate, limit]);
 
   // Filtered rows for table search
   const filteredRows = useMemo(() => {
@@ -408,12 +429,20 @@ function Reports() {
 
           <div className="col-lg-2 col-md-3">
             <button
-              className="btn btn-primary btn-sm w-100 fw-bold d-flex align-items-center justify-content-center"
+              className={`btn btn-sm w-100 fw-bold d-flex align-items-center justify-content-center ${
+                !loading && fetched ? "btn-success" : "btn-primary"
+              }`}
               onClick={runReport}
               disabled={loading}
+              title="Reports generate automatically. Click to refresh data."
             >
-              <IconRefresh size={16} className={`me-1 ${loading ? "fa-spin" : ""}`} />
-              {loading ? "Generating..." : "Generate"}
+              {loading ? (
+                <><IconRefresh size={16} className="me-1 fa-spin" /> Generating...</>
+              ) : fetched ? (
+                <><IconCheck size={16} className="me-1" /> Generated</>
+              ) : (
+                <><IconRefresh size={16} className="me-1" /> Auto</>
+              )}
             </button>
           </div>
 

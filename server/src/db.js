@@ -269,7 +269,10 @@ function executeMockQuery(sql, params = []) {
   if (s.includes('WHERE U.EMAIL') || s.includes('WHERE EMAIL') || s.includes('FROM USER WHERE EMAIL = ?')) {
     const rawEmails = Array.isArray(params[0]) ? params[0] : [params[0]];
     const emails = rawEmails.map(e => String(e).toLowerCase());
-    const matches = mockDb.users.filter(u => emails.includes(u.email.toLowerCase()));
+    const matches = mockDb.users.filter(u => emails.includes(u.email.toLowerCase())).map(u => ({
+      ...u,
+      role: u.role || (u.role_id === 1 ? 'Administrator' : u.role_id === 2 ? 'Dispatcher' : u.role_id === 3 ? 'Regional Store Manager' : u.role_id === 4 ? 'Driver' : u.role_id === 5 ? 'Assistant' : 'Customer')
+    }));
     return [matches];
   }
 
@@ -414,6 +417,11 @@ function executeMockQuery(sql, params = []) {
   // Order Placement Mock: Recalculate totals
   if (s.includes('CALL SP_RECALC_ORDER_TOTALS')) {
     return [[]]; // SPs usually return arrays of result sets
+  }
+
+  // Rail Allocation Mocks: Member C Stored Procedures
+  if (s.includes('CALL SP_ALLOCATE_CARGO') || s.includes('CALL SP_OVERFLOW_ALLOCATE')) {
+    return [[]];
   }
 
   // Dashboard: Total orders (reports/sales)

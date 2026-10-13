@@ -85,6 +85,47 @@ router.get('/driver-hours', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/roster/demand-heads-up - Heads-up on upcoming customer orders per route & target delivery date
+router.get('/demand-heads-up', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        r.route_id,
+        r.name AS route_name,
+        r.service_days,
+        r.max_delivery_time_minutes,
+        s.name AS store_name,
+        DATE_FORMAT(o.requested_delivery_date, '%Y-%m-%d') AS requested_delivery_date,
+        COUNT(DISTINCT o.order_id) AS total_orders,
+        ROUND(COALESCE(SUM(o.total_volume), 0), 2) AS total_volume_m3,
+        GREATEST(1, CEIL(COALESCE(SUM(o.total_volume), 0) / 20.0)) AS suggested_trucks,
+        (
+          SELECT COUNT(*)
+          FROM truck_schedule ts
+          WHERE ts.route_id = r.route_id
+            AND DATE(ts.scheduled_date) = DATE(o.requested_delivery_date)
+            AND ts.status != 'Cancelled'
+        ) AS scheduled_trucks,
+        DATEDIFF(o.requested_delivery_date, CURDATE()) AS days_ahead
+      FROM \`order\` o
+      JOIN route_stop rs ON o.route_stop_id = rs.route_stop_id
+      JOIN route r ON rs.route_id = r.route_id
+      JOIN store s ON r.store_id = s.store_id
+      WHERE o.status IN ('Placed', 'Processing')
+        AND o.requested_delivery_date >= CURDATE()
+        AND o.order_id NOT IN (
+          SELECT order_id FROM truck_allocation WHERE order_id IS NOT NULL
+        )
+      GROUP BY r.route_id, r.name, r.service_days, r.max_delivery_time_minutes, s.name, o.requested_delivery_date
+      ORDER BY o.requested_delivery_date ASC, total_orders DESC
+    `);
+    res.json(rows || []);
+  } catch (err) {
+    console.error('Error in GET /api/roster/demand-heads-up:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/roster - List schedules with route, crew, truck, order count and capacity load
 router.get('/', requireAuth, async (req, res) => {
   try {

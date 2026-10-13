@@ -3,6 +3,9 @@
 ![React](https://img.shields.io/badge/Frontend-React%2019-61DAFB?logo=react&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2F%20Express-339933?logo=node.js&logoColor=white)
 ![MySQL](https://img.shields.io/badge/Database-MySQL%208-4479A1?logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Deployment-Docker%20Compose-2496ED?logo=docker&logoColor=white)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
+![Cloud](https://img.shields.io/badge/Cloud-Microsoft%20Azure-0078D4?logo=microsoftazure&logoColor=white)
 ![Docker](https://img.shields.io/badge/Containerization-Docker-2496ED?logo=docker&logoColor=white)
 ![Azure](https://img.shields.io/badge/Cloud-Microsoft%20Azure%20VM-0078D4?logo=microsoftazure&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
@@ -32,6 +35,7 @@ Customer order
 - [Repository structure](#repository-structure)
 - [Local development](#local-development)
 - [Database design](#database-design)
+- [Docker and CI/CD Cloud deployment](#docker-and-cicd-cloud-deployment)
 - [Docker containerization](#docker-containerization)
 - [CI/CD pipeline & Azure VM deployment](#cicd-pipeline--azure-vm-deployment)
 - [Team contributions](#team-contributions)
@@ -83,6 +87,18 @@ Customer order
 
 ## Technology stack
 
+| Layer            | Technology                                               |
+| ---------------- | -------------------------------------------------------- |
+| Frontend         | React 19, Vite, React Router, Axios, Bootstrap, Chart.js |
+| Backend          | Node.js, Express 5                                       |
+| Authentication   | bcrypt password hashing, JSON Web Tokens                 |
+| Database         | MySQL 8                                                  |
+| Notifications    | Database-backed notifications, Nodemailer integration    |
+| Scheduling       | node-cron                                                |
+| Reporting/export | Chart.js, jsPDF, jsPDF AutoTable, SheetJS                |
+| Web serving      | Nginx for the production frontend image                  |
+| Local deployment | Docker and Docker Compose                                |
+| CI/CD & Cloud    | GitHub Actions, Microsoft Azure VM, DuckDNS, Let's Encrypt SSL/TLS |
 | Layer                | Technology                                               |
 | -------------------- | -------------------------------------------------------- |
 | Frontend             | React 19, Vite, React Router, Axios, Bootstrap, Chart.js |
@@ -230,6 +246,9 @@ Additional SQL files provide stored procedures, indexes, validation triggers,
 seed data, views, constraints, and window-function reporting. Run
 `db/init.sql` for the complete ordered setup used by Docker Compose.
 
+## Docker and CI/CD Cloud deployment
+
+The production stack is containerized using Docker Compose:
 ## Docker containerization
 
 The system is fully containerized using Docker and orchestrated with Docker Compose to provide complete environment parity across development and production:
@@ -238,6 +257,23 @@ The system is fully containerized using Docker and orchestrated with Docker Comp
 - **`server`** — Node.js / Express 5 API running in an isolated container on internal port `5000` with centralized logging and health checks.
 - **`db`** — MySQL 8 service with persistent data volume (`db_data`), connection health monitoring, and automated schema migration from `db/init.sql`.
 
+### Automated CI/CD Pipeline (GitHub Actions)
+
+Continuous Integration and Continuous Deployment are managed automatically via GitHub Actions workflow [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+
+1. **Verification Job (`verify`)**: Triggers on code push or pull request to validate Docker Compose configurations and compile client/server image builds on `ubuntu-latest`.
+2. **Automated Production Deployment (`deploy`)**: Triggers on push to `main` (or manual dispatch):
+   - Establishes a secure SSH session to the production **Microsoft Azure Cloud VM** using encrypted GitHub Secrets (`VM_HOST`, `VM_USER`, `VM_SSH_KEY`).
+   - Fetches and checks out the target release branch on the remote server.
+   - Executes zero-downtime container recreation (`docker compose up -d --build`).
+   - Performs automated pruning of dangling Docker images (`docker image prune -f`) to optimize server storage.
+
+### Production Environment & SSL/TLS
+
+The live application is hosted on an **Azure Cloud VM** with a custom DuckDNS domain and encrypted HTTPS:
+- **Production URL**: `https://kandypack.duckdns.org`
+- **SSL/TLS Certificates**: Automated Let's Encrypt certificates managed via Certbot standalone authenticator.
+- **Database Access**: Secured behind SSH tunneling (forwarding local port to Azure port `3306`) preventing direct exposure of MySQL to the public internet.
 To run the containerized stack locally or on any Docker-capable host:
 
 ```bash
@@ -339,6 +375,7 @@ in the same A-to-E order used by the team’s contributor list.
 
 ### Member D — Nanayakkara N.S. (240449A)
 
+**Role:** Fleet rostering, last-mile delivery execution, and Cloud CI/CD DevOps lead. **Branch:**
 **Role:** CI/CD pipelining, Azure VM deployment, fleet rostering, and last-mile delivery execution. **Branch:**
 `feature/roster-delivery`
 
@@ -358,6 +395,13 @@ in the same A-to-E order used by the team’s contributor list.
   and delivery-status interfaces.
 - Added delivery and roster data required for utilization and staff-hours
   reporting.
+- **Architected and implemented the automated CI/CD pipeline** via GitHub Actions
+  ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)), providing continuous integration
+  testing, Docker compose validation, and automated remote SSH deployment to production.
+- **Configured the Microsoft Azure Cloud VM hosting environment**, multi-container production Docker
+  orchestration, and secure deployment secrets (`VM_HOST`, `VM_USER`, `VM_SSH_KEY`).
+- **Configured production domain networking (`kandypack.duckdns.org`)**, Let's Encrypt / Certbot
+  SSL/TLS automated certificate renewal for end-to-end HTTPS encryption, and SSH tunneling for remote database connectivity.
 
 **Owned tables:** `driver`, `assistant`, `truck`, `truck_schedule`,
 `truck_allocation`, `roster_log`, `system_parameter`.

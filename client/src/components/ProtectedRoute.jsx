@@ -47,7 +47,7 @@ export default function ProtectedRoute({ allowedRoles, children }) {
               }}
             >
               <IconArrowLeft size={16} className="me-1" />
-              Go to Your Permitted Dashboard
+              Go to Your Authorized Portal
             </button>
           </div>
         </div>
