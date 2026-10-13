@@ -86,7 +86,7 @@ router.get('/train-trips', requireAuth, requireRole([1, 2, 3]), async (req, res,
   }
 });
 
-// Get a specific trip and its cargo allocations
+// Get a specific trip and its cargo allocations (including overflown and sibling part states)
 router.get('/train-trips/:id', requireAuth, requireRole([1, 2, 3]), async (req, res, next) => {
   try {
     const tripId = Number(req.params.id);
@@ -101,22 +101,159 @@ router.get('/train-trips/:id', requireAuth, requireRole([1, 2, 3]), async (req, 
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
 
     const [allocations] = await db.query(
-      `SELECT ca.*, oi.order_id, oi.product_id, p.name AS product_name, p.space_consumption_rate
+      `SELECT ca.*, oi.order_id, oi.product_id, p.name AS product_name, p.space_consumption_rate,
+              u.name AS customer_name, o.delivery_address, r.name AS route_name
        FROM cargo_allocation ca
        JOIN order_item oi ON ca.order_item_id = oi.order_item_id
+       JOIN \`order\` o ON oi.order_id = o.order_id
+       JOIN \`user\` u ON o.customer_id = u.user_id
+       LEFT JOIN route r ON o.route_id = r.route_id
        JOIN product p ON oi.product_id = p.product_id
-       WHERE ca.trip_id = ?`,
+       WHERE ca.trip_id = ?
+       ORDER BY ca.is_overflow ASC, ca.cargo_allocation_id ASC`,
       [tripId]
     );
+
+    // Fetch sibling allocations for order items split across multiple trips
+    const orderItemIds = [...new Set(allocations.map(a => a.order_item_id))];
+    let allSiblings = [];
+    if (orderItemIds.length > 0) {
+      const [siblingRows] = await db.query(
+        `SELECT ca.cargo_allocation_id, ca.order_item_id, ca.trip_id, ca.allocated_quantity,
+                ca.status, ca.is_overflow, ca.parent_allocation_id,
+                tt.departure_datetime, tt.arrival_datetime, tt.status AS trip_status,
+                t.name AS train_name, c.name AS destination_city
+         FROM cargo_allocation ca
+         JOIN train_trip tt ON ca.trip_id = tt.trip_id
+         JOIN train t ON tt.train_id = t.train_id
+         JOIN city c ON tt.destination_city_id = c.city_id
+         WHERE ca.order_item_id IN (?)
+         ORDER BY tt.departure_datetime ASC, ca.cargo_allocation_id ASC`,
+        [orderItemIds]
+      );
+      allSiblings = siblingRows;
+    }
+
+    const allocationsWithSiblings = allocations.map(a => {
+      const siblings = allSiblings.filter(
+        s => s.order_item_id === a.order_item_id && s.cargo_allocation_id !== a.cargo_allocation_id
+      );
+      return {
+        ...a,
+        is_overflow: Boolean(a.is_overflow),
+        has_linked_parts: siblings.length > 0,
+        linked_parts: siblings.map(s => ({
+          ...s,
+          is_overflow: Boolean(s.is_overflow)
+        }))
+      };
+    });
 
     const [capRows] = await db.query(
       'SELECT COALESCE(SUM(allocated_quantity), 0) AS used FROM cargo_allocation WHERE trip_id = ?',
       [tripId]
     );
     const usedCapacity = Number(capRows[0].used);
-    const remainingCapacity = Number(trip.total_capacity) - usedCapacity;
+    const remainingCapacity = Math.max(0, Number(trip.total_capacity) - usedCapacity);
 
-    res.json({ trip, allocations, usedCapacity, remainingCapacity });
+    res.json({ trip, allocations: allocationsWithSiblings, usedCapacity, remainingCapacity });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/rail/train-trips/:id/allotable-orders
+// Shows all allotable orders matching the selected train trip's delivery path (store city = destination city)
+router.get('/train-trips/:id/allotable-orders', requireAuth, requireRole([1, 2, 3]), async (req, res, next) => {
+  try {
+    const tripId = Number(req.params.id);
+    const [[trip]] = await db.query(
+      `SELECT tt.*, c.name AS destination_city
+       FROM train_trip tt
+       JOIN city c ON tt.destination_city_id = c.city_id
+       WHERE tt.trip_id = ?`,
+      [tripId]
+    );
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+    // Fetch unallocated / partially allocated order items whose delivery path corresponds to this city
+    const [rows] = await db.query(
+      `SELECT 
+         oi.order_item_id,
+         oi.order_id,
+         oi.product_id,
+         oi.quantity AS ordered_quantity,
+         oi.status AS item_status,
+         p.name AS product_name,
+         p.unit_price,
+         p.space_consumption_rate,
+         (oi.quantity * p.space_consumption_rate) AS total_item_volume,
+         COALESCE(ca_sum.total_allocated, 0) AS allocated_quantity,
+         (oi.quantity - COALESCE(ca_sum.total_allocated, 0)) AS unallocated_quantity,
+         o.status AS order_status,
+         o.order_date,
+         o.requested_delivery_date,
+         o.delivery_address,
+         u.name AS customer_name,
+         r.name AS route_name,
+         s.name AS store_name,
+         c.name AS destination_city_name
+       FROM order_item oi
+       JOIN \`order\` o ON oi.order_id = o.order_id
+       JOIN product p ON oi.product_id = p.product_id
+       JOIN \`user\` u ON o.customer_id = u.user_id
+       LEFT JOIN route r ON o.route_id = r.route_id
+       LEFT JOIN store s ON r.store_id = s.store_id
+       LEFT JOIN city c ON s.city_id = c.city_id
+       LEFT JOIN (
+         SELECT order_item_id, SUM(allocated_quantity) AS total_allocated
+         FROM cargo_allocation
+         GROUP BY order_item_id
+       ) ca_sum ON oi.order_item_id = ca_sum.order_item_id
+       WHERE s.city_id = ?
+         AND o.status NOT IN ('Delivered', 'Cancelled')
+         AND (oi.quantity - COALESCE(ca_sum.total_allocated, 0)) > 0
+       ORDER BY o.requested_delivery_date ASC, o.order_id ASC`,
+      [trip.destination_city_id]
+    );
+
+    // Also fetch any existing partial/overflown allocations for these items
+    const itemIds = rows.map(r => r.order_item_id);
+    let itemAllocations = [];
+    if (itemIds.length > 0) {
+      const [allocRows] = await db.query(
+        `SELECT ca.cargo_allocation_id, ca.order_item_id, ca.trip_id, ca.allocated_quantity,
+                ca.status, ca.is_overflow, ca.parent_allocation_id,
+                tt.departure_datetime, t.name AS train_name, c.name AS destination_city
+         FROM cargo_allocation ca
+         JOIN train_trip tt ON ca.trip_id = tt.trip_id
+         JOIN train t ON tt.train_id = t.train_id
+         JOIN city c ON tt.destination_city_id = c.city_id
+         WHERE ca.order_item_id IN (?)
+         ORDER BY tt.departure_datetime ASC`,
+        [itemIds]
+      );
+      itemAllocations = allocRows;
+    }
+
+    const allotableOrders = rows.map(r => ({
+      ...r,
+      unallocated_volume: Number((r.unallocated_quantity * r.space_consumption_rate).toFixed(2)),
+      existing_allocations: itemAllocations
+        .filter(a => a.order_item_id === r.order_item_id)
+        .map(a => ({
+          ...a,
+          is_overflow: Boolean(a.is_overflow)
+        }))
+    }));
+
+    res.json({
+      tripId,
+      destinationCityId: trip.destination_city_id,
+      destinationCity: trip.destination_city,
+      count: allotableOrders.length,
+      orders: allotableOrders
+    });
   } catch (err) {
     next(err);
   }
@@ -128,7 +265,7 @@ router.post('/train-trips/:id/allocate', requireAuth, requireRole([1, 2]), async
   try {
     await connection.beginTransaction();
 
-    const { orderItemId, quantity } = req.body;
+    const { orderItemId, quantity, isOverflow = false, parentAllocationId = null } = req.body;
     const tripId = Number(req.params.id);
 
     if (!orderItemId || !quantity || quantity <= 0) {
@@ -162,15 +299,15 @@ router.post('/train-trips/:id/allocate', requireAuth, requireRole([1, 2]), async
     if (quantity > remaining) {
       await connection.rollback();
       return res.status(400).json({
-        error: `Not enough capacity. Only ${remaining} remaining.`,
+        error: `Not enough capacity. Only ${remaining} remaining on this trip.`,
         remaining,
         insufficientCapacity: true
       });
     }
 
     const [allocResult] = await connection.query(
-      'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status) VALUES (?, ?, ?, ?)',
-      [orderItemId, tripId, quantity, 'Not Loaded']
+      'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status, is_overflow, parent_allocation_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [orderItemId, tripId, quantity, 'Not Loaded', isOverflow ? 1 : 0, parentAllocationId || null]
     );
 
     // Advance parent order from Placed to Scheduled (REQ-ORD-05)
@@ -186,7 +323,8 @@ router.post('/train-trips/:id/allocate', requireAuth, requireRole([1, 2]), async
       message: 'Allocated successfully',
       cargoAllocationId: allocResult.insertId,
       allocatedQuantity: quantity,
-      remainingCapacity: remaining - quantity
+      remainingCapacity: remaining - quantity,
+      isOverflow: Boolean(isOverflow)
     });
   } catch (err) {
     await connection.rollback();
@@ -224,6 +362,7 @@ router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2
     let curDeparture = startTrip.departure_datetime;
     const destCityId = startTrip.destination_city_id;
     const allocationsMade = [];
+    let firstAllocationId = null;
 
     while (remainingQty > 0) {
       const [[trip]] = await connection.query(
@@ -240,20 +379,26 @@ router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2
         const toAllocate = Math.min(remainingQty, available);
 
         if (toAllocate > 0) {
+          const isOverflow = (curTripId !== startTripId) || (allocationsMade.length > 0);
           const [ins] = await connection.query(
-            'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status) VALUES (?, ?, ?, ?)',
-            [orderItemId, curTripId, toAllocate, 'Not Loaded']
+            'INSERT INTO cargo_allocation (order_item_id, trip_id, allocated_quantity, status, is_overflow, parent_allocation_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [orderItemId, curTripId, toAllocate, 'Not Loaded', isOverflow ? 1 : 0, firstAllocationId]
           );
+
+          if (!firstAllocationId) {
+            firstAllocationId = ins.insertId;
+          }
+
           remainingQty -= toAllocate;
           allocationsMade.push({
             cargoAllocationId: ins.insertId,
             tripId: curTripId,
             allocatedQuantity: toAllocate,
-            isOverflow: curTripId !== startTripId
+            isOverflow
           });
 
           // Log overflow hop to audit_log (REQ-RAIL-05)
-          if (curTripId !== startTripId) {
+          if (isOverflow) {
             const operatorUserId = req.user?.user_id || req.user?.userId || null;
             await connection.query(
               `INSERT INTO audit_log (user_id, action, table_affected, record_id, details)
@@ -261,7 +406,7 @@ router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2
               [
                 operatorUserId,
                 ins.insertId,
-                `order_item_id=${orderItemId} overflowed from trip ${startTripId} -> trip ${curTripId}, qty=${toAllocate}`
+                `order_item_id=${orderItemId} overflowed to trip ${curTripId}, qty=${toAllocate} (parent_allocation_id=${firstAllocationId})`
               ]
             );
           }
@@ -299,10 +444,56 @@ router.post('/train-trips/:id/allocate-overflow', requireAuth, requireRole([1, 2
 
     await connection.commit();
     res.status(201).json({
-      message: remainingQty === 0 ? 'Allocated in full across trip(s)' : `Partially allocated. ${remainingQty} units could not be accommodated.`,
+      message: remainingQty === 0 
+        ? (allocationsMade.length > 1 ? `Allocated across ${allocationsMade.length} trips with overflow!` : 'Allocated in full to trip!') 
+        : `Partially allocated across trips. ${remainingQty} units could not be accommodated (no further trips).`,
       allocations: allocationsMade,
-      unallocatedQuantity: remainingQty
+      unallocatedQuantity: remainingQty,
+      hasOverflow: allocationsMade.some(a => a.isOverflow)
     });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+});
+
+// Remove an un-loaded cargo allocation (undo action)
+router.delete('/allocations/:id', requireAuth, requireRole([1, 2]), async (req, res, next) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const allocId = Number(req.params.id);
+    const [[alloc]] = await connection.query('SELECT * FROM cargo_allocation WHERE cargo_allocation_id = ?', [allocId]);
+    if (!alloc) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Allocation not found' });
+    }
+    if (alloc.status === 'Loaded') {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Cannot remove an allocation that is already Loaded.' });
+    }
+
+    await connection.query('DELETE FROM cargo_allocation WHERE cargo_allocation_id = ?', [allocId]);
+
+    // Check if parent order still has other allocations
+    const [[otherAllocs]] = await connection.query(
+      `SELECT COUNT(*) AS cnt FROM cargo_allocation ca
+       JOIN order_item oi ON ca.order_item_id = oi.order_item_id
+       WHERE oi.order_id = (SELECT order_id FROM order_item WHERE order_item_id = ?)`,
+      [alloc.order_item_id]
+    );
+    if (otherAllocs.cnt === 0) {
+      await connection.query(
+        `UPDATE \`order\` SET status = 'Placed'
+         WHERE order_id = (SELECT order_id FROM order_item WHERE order_item_id = ?)`,
+        [alloc.order_item_id]
+      );
+    }
+
+    await connection.commit();
+    res.json({ message: 'Allocation removed and returned to allotable inventory' });
   } catch (err) {
     await connection.rollback();
     next(err);

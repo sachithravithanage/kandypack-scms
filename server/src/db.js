@@ -5,10 +5,27 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const { ensureAzureTunnel } = require('./tunnel');
 
-if (process.env.DB_SSH_TUNNEL === 'true') {
-  ensureAzureTunnel().catch((err) => {
-    console.warn('[DB] Azure tunnel warning:', err.message);
-  });
+let tunnelPromise = null;
+function getTunnelPromise() {
+  if (process.env.DB_SSH_TUNNEL === 'true') {
+    if (!tunnelPromise) {
+      tunnelPromise = ensureAzureTunnel().catch((err) => {
+        console.warn('[DB] Azure tunnel warning:', err.message);
+        return false;
+      });
+    }
+    return tunnelPromise;
+  }
+  return Promise.resolve(true);
+}
+
+// Start tunnel immediately in background on module load
+getTunnelPromise();
+
+async function ensureReady() {
+  if (process.env.DB_SSH_TUNNEL === 'true') {
+    await getTunnelPromise();
+  }
 }
 
 let pool = null;
@@ -908,14 +925,34 @@ function executeMockQuery(sql, params = []) {
   return [[]];
 }
 
-module.exports = {
-        query: async (sql, params = []) => {
-                return pool.query(sql, params);
-        },
-        execute: async (sql, params) => {
-                return module.exports.query(sql, params);
-        },
-        getConnection: async () => {
-                return pool.getConnection();
-        }
+const dbExport = {
+  query: async (sql, params = []) => {
+    await ensureReady();
+    return pool.query(sql, params);
+  },
+  execute: async (sql, params) => {
+    await ensureReady();
+    return pool.query(sql, params);
+  },
+  getConnection: async () => {
+    await ensureReady();
+    return pool.getConnection();
+  },
+  pool,
+  ensureReady
 };
+
+module.exports = new Proxy(dbExport, {
+  get(target, prop) {
+    if (prop in target) {
+      return target[prop];
+    }
+    if (pool && typeof pool[prop] === 'function') {
+      return async (...args) => {
+        await ensureReady();
+        return pool[prop](...args);
+      };
+    }
+    return pool ? pool[prop] : undefined;
+  }
+});
