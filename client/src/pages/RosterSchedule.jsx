@@ -124,7 +124,7 @@ function RosterSchedule() {
     }
   }, []);
 
-  // Quick auto-fill schedule form from upcoming demand alert
+  // Quick auto-fill schedule form from upcoming demand alert & remove from heads-up
   const handleApplyDemand = (item) => {
     setFormData((prev) => ({
       ...prev,
@@ -132,8 +132,22 @@ function RosterSchedule() {
       scheduledDate: item.requested_delivery_date,
       startTime: "08:00",
     }));
+
+    // Immediately remove this item from the Heads-Up widget
+    setDemandList((prev) =>
+      prev.filter(
+        (d) =>
+          !(
+            d.route_id === item.route_id &&
+            d.requested_delivery_date === item.requested_delivery_date
+          )
+      )
+    );
+
     setShowAddForm(true);
-    setSuccessMsg(`Applied demand suggestion for ${item.route_name} on ${item.requested_delivery_date}. Select a driver and truck to schedule.`);
+    setSuccessMsg(
+      `Auto-filled ${item.route_name} for ${item.requested_delivery_date}. Removed from Heads-Up and loaded into the schedule form below.`
+    );
   };
 
   useEffect(() => {
