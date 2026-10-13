@@ -106,7 +106,10 @@ app.listen(PORT, async () => {
     await db.query(
       "UPDATE `user` SET name = 'Kamal Silva' WHERE (user_id = 5 OR email = 'assistant@kandypack.local') AND name IN ('Assistant', 'Delivery Assistant')"
     );
-    console.log("[DB] Administrator, Dispatcher, Store Manager, Driver & Assistant names synchronized");
+    await db.query(
+      "UPDATE `user` SET name = 'Waruni Rathnayake' WHERE email = 'customer1@kandypack.local' AND (name LIKE 'Sample Customer%' OR name = 'Customer')"
+    );
+    console.log("[DB] Administrator, Dispatcher, Store Manager, Driver, Assistant & Customer names synchronized");
   } catch (err) {
     console.warn("[DB] Startup user sync note:", err.message);
   }

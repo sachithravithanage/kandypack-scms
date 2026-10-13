@@ -350,6 +350,7 @@ router.get("/dashboard-stats", requireAuth, async (req, res) => {
       `, [userId]);
 
       return res.json({
+        userName,
         roleId,
         totals: custTotals,
         activeOrders,

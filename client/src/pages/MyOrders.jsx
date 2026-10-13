@@ -256,9 +256,9 @@ function MyOrders() {
     return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
   }, [token]);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError("");
       const currentToken = localStorage.getItem("token");
       const headers = currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
@@ -270,14 +270,21 @@ function MyOrders() {
       setOrders(sorted);
     } catch (err) {
       console.error("Error loading customer orders:", err);
-      setError(err.response?.data?.error || "Could not load order history.");
+      if (!silent) setError(err.response?.data?.error || "Could not load order history.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [customerId]);
 
   useEffect(() => {
     loadOrders();
+    const interval = setInterval(() => loadOrders(true), 15000);
+    const onFocus = () => loadOrders(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadOrders]);
 
   // REQ-ORD-07: Customer confirms receipt (Delivered -> Closed)
