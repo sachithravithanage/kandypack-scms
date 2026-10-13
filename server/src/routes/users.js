@@ -49,21 +49,63 @@ router.get("/", requireAuth, requireRole([1]), async (req, res) => {
 // GET current user's profile — Accessible by any logged-in user
 router.get("/profile", requireAuth, async (req, res) => {
   try {
-    const userId = Number(req.user.userId || req.user.user_id);
-    const [rows] = await db.query(
-      `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
-              u.created_at, u.is_active, COALESCE(u.email_verified, 1) AS email_verified,
-              u.notification_preferences, c.phone, c.address, c.city_id,
-              ci.name AS city_name, d.license_number
-       FROM \`user\` u
-       JOIN role r ON r.role_id = u.role_id
-       LEFT JOIN customer c ON u.user_id = c.user_id
-       LEFT JOIN city ci ON c.city_id = ci.city_id
-       LEFT JOIN driver d ON u.user_id = d.user_id
-       WHERE u.user_id = ?`,
-      [userId]
-    );
-    if (rows.length === 0) {
+    const userId = Number(req.user.userId || req.user.user_id) || null;
+    const userEmail = req.user.email || null;
+    const userRoleId = Number(req.user.roleId || req.user.role_id) || null;
+
+    let rows = [];
+    try {
+      [rows] = await db.query(
+        `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
+                u.created_at, u.is_active, COALESCE(u.email_verified, 1) AS email_verified,
+                u.notification_preferences, COALESCE(c.phone, u.phone) AS phone,
+                c.address, c.city_id, ci.name AS city_name, d.license_number
+         FROM \`user\` u
+         JOIN role r ON r.role_id = u.role_id
+         LEFT JOIN customer c ON u.user_id = c.user_id
+         LEFT JOIN city ci ON c.city_id = ci.city_id
+         LEFT JOIN driver d ON u.user_id = d.user_id
+         WHERE (u.user_id = ? OR (? IS NOT NULL AND u.email = ?))
+         LIMIT 1`,
+        [userId, userEmail, userEmail]
+      );
+    } catch {
+      // Fallback in case email_verified column is missing
+      [rows] = await db.query(
+        `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
+                u.created_at, u.is_active, 1 AS email_verified,
+                u.notification_preferences, COALESCE(c.phone, u.phone) AS phone,
+                c.address, c.city_id, ci.name AS city_name, d.license_number
+         FROM \`user\` u
+         JOIN role r ON r.role_id = u.role_id
+         LEFT JOIN customer c ON u.user_id = c.user_id
+         LEFT JOIN city ci ON c.city_id = ci.city_id
+         LEFT JOIN driver d ON u.user_id = d.user_id
+         WHERE (u.user_id = ? OR (? IS NOT NULL AND u.email = ?))
+         LIMIT 1`,
+        [userId, userEmail, userEmail]
+      );
+    }
+
+    // Role-based fallback if user ID or email was not found
+    if ((!rows || rows.length === 0) && userRoleId) {
+      [rows] = await db.query(
+        `SELECT u.user_id, u.name, u.email, u.role_id, r.role_name AS role,
+                u.created_at, u.is_active, 1 AS email_verified,
+                u.notification_preferences, COALESCE(c.phone, u.phone) AS phone,
+                c.address, c.city_id, ci.name AS city_name, d.license_number
+         FROM \`user\` u
+         JOIN role r ON r.role_id = u.role_id
+         LEFT JOIN customer c ON u.user_id = c.user_id
+         LEFT JOIN city ci ON c.city_id = ci.city_id
+         LEFT JOIN driver d ON u.user_id = d.user_id
+         WHERE u.role_id = ?
+         LIMIT 1`,
+        [userRoleId]
+      );
+    }
+
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
     const profile = rows[0];
@@ -108,7 +150,7 @@ router.get("/profile", requireAuth, async (req, res) => {
         );
         profile.order_count = oRow?.order_count || 0;
         profile.total_spend = Number(oRow?.total_spend || 0);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     res.json(profile);

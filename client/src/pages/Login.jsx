@@ -189,11 +189,10 @@ function Login() {
                   <button
                     key={acc.email}
                     type="button"
-                    className={`btn btn-sm ${
-                      isSelected
+                    className={`btn btn-sm ${isSelected
                         ? "btn-primary shadow-sm"
                         : "btn-outline-secondary"
-                    }`}
+                      }`}
                     style={{
                       fontSize: "0.75rem",
                       padding: "4px 10px",

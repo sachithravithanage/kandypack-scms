@@ -98,6 +98,9 @@ app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   try {
     const db = require("./db");
+    try {
+      await db.query("ALTER TABLE `user` ADD COLUMN email_verified BOOLEAN DEFAULT TRUE");
+    } catch (_) {}
     await db.query(
       "UPDATE `user` SET name = 'Nimal Perera' WHERE (user_id = 1 OR email = 'admin@kandypack.local') AND name IN ('System Administrator', 'Administrator')"
     );

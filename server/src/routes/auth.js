@@ -195,7 +195,7 @@ router.post("/login", authLimiter, async (req, res) => {
       db.query(
         "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
         [null, "Failed login attempt", "user", null, `Attempted unknown email: ${email}`]
-      ).catch(() => {});
+      ).catch(() => { });
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -210,7 +210,7 @@ router.post("/login", authLimiter, async (req, res) => {
       db.query(
         "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
         [user.user_id, "Failed login attempt", "user", user.user_id, `Failed password verification for email: ${email}`]
-      ).catch(() => {});
+      ).catch(() => { });
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
@@ -218,7 +218,7 @@ router.post("/login", authLimiter, async (req, res) => {
       db.query(
         "INSERT INTO audit_log (user_id, action, table_affected, record_id, details) VALUES (?, ?, ?, ?, ?)",
         [user.user_id, "Deactivated login attempt", "user", user.user_id, `Deactivated account attempted login: ${email}`]
-      ).catch(() => {});
+      ).catch(() => { });
       return res.status(403).json({
         error: "This account has been deactivated. Contact an administrator.",
       });
@@ -299,7 +299,7 @@ router.post("/forgot-password", passwordResetLimiter, async (req, res) => {
     if (!clientOrigin && req.headers.referer) {
       try {
         clientOrigin = new URL(req.headers.referer).origin;
-      } catch {}
+      } catch { }
     }
     if (!clientOrigin) {
       clientOrigin = "http://localhost";

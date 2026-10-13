@@ -308,7 +308,7 @@ function executeMockQuery(sql, params = []) {
     const userId = params[0];
     const user = mockDb.users.find(u => String(u.user_id) === String(userId));
     if (!user) return [[]];
-    
+
     let result = {
       user_id: user.user_id,
       name: user.name,
@@ -381,7 +381,7 @@ function executeMockQuery(sql, params = []) {
   if (s.includes('FN_DAYS_UNTIL_DELIVERY')) {
     const deliveryDate = params[0];
     const today = new Date();
-    today.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
     const chosen = new Date(deliveryDate);
     const diffDays = Math.ceil((chosen.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return [[{ days: diffDays }]];
@@ -518,8 +518,8 @@ function executeMockQuery(sql, params = []) {
       if (ts.scheduled_date !== scheduledDate) return false;
       if (ts.status === 'Cancelled') return false;
       const resMatch = String(ts.truck_id) === String(truckId) ||
-                       String(ts.driver_id) === String(driverId) ||
-                       String(ts.assistant_id) === String(assistantId);
+        String(ts.driver_id) === String(driverId) ||
+        String(ts.assistant_id) === String(assistantId);
       if (!resMatch) return false;
       // Overlap: ts.start_time < endTime && ts.end_time > startTime
       return ts.start_time < endTime && ts.end_time > startTime;
@@ -679,7 +679,7 @@ function executeMockQuery(sql, params = []) {
     const [currentRouteStopId, scheduleId, allocationId] = params;
     const currentStop = mockDb.route_stops.find(x => String(x.route_stop_id) === String(currentRouteStopId));
     if (!currentStop) return [[]];
-    
+
     const prior = mockDb.allocations.filter(a => {
       if (String(a.truck_schedule_id) !== String(scheduleId)) return false;
       if (String(a.truck_allocation_id) === String(allocationId)) return false;
@@ -1031,11 +1031,11 @@ const dbExport = {
     } catch (err) {
       console.warn(`[DB Connection Fallback] ${err.message}`);
       return {
-        beginTransaction: async () => {},
-        commit: async () => {},
-        rollback: async () => {},
+        beginTransaction: async () => { },
+        commit: async () => { },
+        rollback: async () => { },
         query: async (sql, params = []) => executeMockQuery(sql, params),
-        release: () => {}
+        release: () => { }
       };
     }
   },

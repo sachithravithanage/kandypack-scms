@@ -317,9 +317,8 @@ function Profile() {
       {/* ── Tabs Navigation ──────────────────────────────────── */}
       <div className="d-flex flex-wrap gap-2 mb-3 border-bottom pb-2">
         <button
-          className={`btn btn-sm d-flex align-items-center gap-2 ${
-            activeTab === "info" ? "btn-primary" : "btn-light border"
-          }`}
+          className={`btn btn-sm d-flex align-items-center gap-2 ${activeTab === "info" ? "btn-primary" : "btn-light border"
+            }`}
           onClick={() => {
             setActiveTab("info");
             setError("");
@@ -330,9 +329,8 @@ function Profile() {
           <span>Personal Details</span>
         </button>
         <button
-          className={`btn btn-sm d-flex align-items-center gap-2 ${
-            activeTab === "security" ? "btn-primary" : "btn-light border"
-          }`}
+          className={`btn btn-sm d-flex align-items-center gap-2 ${activeTab === "security" ? "btn-primary" : "btn-light border"
+            }`}
           onClick={() => {
             setActiveTab("security");
             setError("");
@@ -343,9 +341,8 @@ function Profile() {
           <span>Security & Password</span>
         </button>
         <button
-          className={`btn btn-sm d-flex align-items-center gap-2 ${
-            activeTab === "notifications" ? "btn-primary" : "btn-light border"
-          }`}
+          className={`btn btn-sm d-flex align-items-center gap-2 ${activeTab === "notifications" ? "btn-primary" : "btn-light border"
+            }`}
           onClick={() => {
             setActiveTab("notifications");
             setError("");
@@ -356,9 +353,8 @@ function Profile() {
           <span>Notification Preferences</span>
         </button>
         <button
-          className={`btn btn-sm d-flex align-items-center gap-2 ${
-            activeTab === "activity" ? "btn-primary" : "btn-light border"
-          }`}
+          className={`btn btn-sm d-flex align-items-center gap-2 ${activeTab === "activity" ? "btn-primary" : "btn-light border"
+            }`}
           onClick={() => {
             setActiveTab("activity");
             setError("");
@@ -412,7 +408,7 @@ function Profile() {
                 <input
                   type="email"
                   className="form-control bg-light text-muted"
-                  value={userData?.email || ""}
+                  value={userData?.email || localStorage.getItem("email") || ""}
                   disabled
                 />
                 <span className="form-text small" style={{ fontSize: "0.76rem" }}>
@@ -431,8 +427,8 @@ function Profile() {
               </div>
             </div>
 
-            {/* Customer specific delivery profile fields */}
-            {userData?.role_id === 6 && (
+            {/* Customer specific delivery profile fields or Staff contact */}
+            {userData?.role_id === 6 ? (
               <div className="p-3 mb-3 bg-light rounded border">
                 <h4 className="h6 mb-3 d-flex align-items-center gap-2">
                   <IconMapPin size={16} className="text-primary" />
@@ -447,7 +443,6 @@ function Profile() {
                       placeholder="07X-XXXXXXX"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      required
                     />
                   </div>
                   <div className="col-12 col-md-4">
@@ -458,16 +453,14 @@ function Profile() {
                       placeholder="e.g. 45 Galle Road, Colombo 03"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      required
                     />
                   </div>
                   <div className="col-12 col-md-4">
-                    <label className="form-label small fw-medium">Registered Delivery City</label>
+                    <label className="form-label small fw-medium">Delivery City</label>
                     <select
                       className="form-select"
                       value={cityId}
                       onChange={(e) => setCityId(e.target.value)}
-                      required
                     >
                       <option value="">Select City</option>
                       {cities.map((c) => (
@@ -478,6 +471,30 @@ function Profile() {
                     </select>
                   </div>
                 </div>
+              </div>
+            ) : (
+              <div className="row g-3 mb-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-medium">Contact Phone Number</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="07X-XXXXXXX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </div>
+                {userData?.license_number && (
+                  <div className="col-12 col-md-6">
+                    <label className="form-label small fw-medium">Driving License Number</label>
+                    <input
+                      type="text"
+                      className="form-control bg-light text-muted"
+                      value={userData.license_number}
+                      disabled
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -709,7 +726,7 @@ function Profile() {
               <div className="d-flex align-items-start gap-3 p-3 rounded border bg-white opacity-50" title="Not available in this version">
                 <input type="checkbox" className="form-check-input mt-1" disabled />
                 <div>
-                  <div className="fw-semibold small text-muted">Email Notifications <span className="badge bg-secondary ms-1" style={{fontSize:"0.65rem"}}>Coming Soon</span></div>
+                  <div className="fw-semibold small text-muted">Email Notifications <span className="badge bg-secondary ms-1" style={{ fontSize: "0.65rem" }}>Coming Soon</span></div>
                   <div className="text-muted small">Daily summaries, order dispatch manifests, and shipment discrepancy alerts.</div>
                 </div>
               </div>
@@ -718,7 +735,7 @@ function Profile() {
               <div className="d-flex align-items-start gap-3 p-3 rounded border bg-white opacity-50" title="Not available in this version">
                 <input type="checkbox" className="form-check-input mt-1" disabled />
                 <div>
-                  <div className="fw-semibold small text-muted">SMS Alerts (Mobile) <span className="badge bg-secondary ms-1" style={{fontSize:"0.65rem"}}>Coming Soon</span></div>
+                  <div className="fw-semibold small text-muted">SMS Alerts (Mobile) <span className="badge bg-secondary ms-1" style={{ fontSize: "0.65rem" }}>Coming Soon</span></div>
                   <div className="text-muted small">Immediate text alerts when the delivery driver is approaching your drop-off stop.</div>
                 </div>
               </div>
@@ -755,10 +772,10 @@ function Profile() {
               <span className="small text-dark">
                 {userData?.created_at
                   ? new Date(userData.created_at).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
                   : "Active Member"}
               </span>
             </div>
