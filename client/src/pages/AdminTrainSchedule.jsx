@@ -83,16 +83,22 @@ function AdminTrainSchedule() {
                 }
         }, []);
 
-        useEffect(() => {
-                loadData();
-                const interval = setInterval(() => loadData(true), 20000);
-                const onFocus = () => loadData(true);
-                window.addEventListener("focus", onFocus);
-                return () => {
-                        clearInterval(interval);
-                        window.removeEventListener("focus", onFocus);
-                };
-        }, [loadData]);
+	useEffect(() => {
+		loadData();
+		const interval = setInterval(() => loadData(true), 20000);
+		const onFocus = () => loadData(true);
+		window.addEventListener("focus", onFocus);
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener("focus", onFocus);
+		};
+	}, [loadData]);
+
+	useEffect(() => {
+		if (!success) return;
+		const timer = setTimeout(() => setSuccess(""), 4500);
+		return () => clearTimeout(timer);
+	}, [success]);
 
         const handleCreateTrip = async (e) => {
                 e.preventDefault();

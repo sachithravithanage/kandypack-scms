@@ -53,7 +53,7 @@ const navItems = [
     to: "/rail/schedules",
     label: "Train Schedules",
     Icon: IconTrain,
-    allowedRoles: [1, 2, 3],
+    allowedRoles: [1, 2],
   },
   {
     to: "/admin/audit-logs",
@@ -65,7 +65,7 @@ const navItems = [
     to: "/reports",
     label: "Reports",
     Icon: IconChartBar,
-    allowedRoles: [1, 2, 3],
+    allowedRoles: [1, 2],
   },
   {
     to: "/rail/loading",

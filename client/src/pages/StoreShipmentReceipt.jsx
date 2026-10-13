@@ -72,6 +72,16 @@ function StoreShipmentReceipt() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Auto-dismiss success notification
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess("");
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   const getAuthHeader = () => {
     const token = localStorage.getItem("token");
     return token ? { headers: { Authorization: `Bearer ${token}` } } : {};

@@ -54,6 +54,12 @@ function Notifications() {
     loadNotifications();
   }, [loadNotifications]);
 
+  useEffect(() => {
+    if (!successMsg) return;
+    const timer = setTimeout(() => setSuccessMsg(""), 4500);
+    return () => clearTimeout(timer);
+  }, [successMsg]);
+
   const acknowledge = async (id) => {
     try {
       setActionLoading(true);

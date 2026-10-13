@@ -287,6 +287,12 @@ function MyOrders() {
     };
   }, [loadOrders]);
 
+  useEffect(() => {
+    if (!successMsg) return;
+    const timer = setTimeout(() => setSuccessMsg(""), 4500);
+    return () => clearTimeout(timer);
+  }, [successMsg]);
+
   // REQ-ORD-07: Customer confirms receipt (Delivered -> Closed)
   const handleConfirmReceipt = async (orderId) => {
     if (!window.confirm("Confirm receipt of order #" + orderId + "? This will close the order.")) return;
@@ -297,11 +303,9 @@ function MyOrders() {
       const msg = res.data.message || `Order #${orderId} marked as received and closed.`;
       setSuccessMsg(msg);
       loadOrders();
-      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
       const errorMsg = err.response?.data?.error || "Could not confirm order receipt.";
       setError(errorMsg);
-      window.alert(`❌ Confirmation Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }

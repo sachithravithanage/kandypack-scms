@@ -68,15 +68,15 @@ function Login() {
   const testAccounts = [
     { label: "👑 Admin", email: "admin@kandypack.local" },
     { label: "📋 Dispatcher", email: "dispatcher@kandypack.local" },
-    { label: "🚚 Driver", email: "driver@kandypack.local" },
-    { label: "🤝 Assistant", email: "assistant@kandypack.local" },
+    { label: "🚚 Driver (Kamal)", email: "kamal.driver@kandypack.lk" },
+    { label: "🤝 Assistant (Bandara)", email: "bandara.asst@kandypack.lk" },
     { label: "🏬 Store Mgr", email: "manager@kandypack.local" },
-    { label: "🛒 Customer", email: "customer1@kandypack.local" },
+    { label: "🛒 Customer", email: "waruni.rathnayake@kandypack.lk" },
   ];
 
   const handleSelectTestAccount = (accEmail) => {
     setEmail(accEmail);
-    setPassword("Password123!");
+    setPassword("password123");
     setError("");
     setSuccessInfo("");
   };

@@ -29,8 +29,26 @@ function App() {
     <BrowserRouter>
       <Suspense
         fallback={
-          <div className="kp-top-loader">
-            <div className="kp-top-loader-bar"></div>
+          <div
+            className="d-flex flex-column align-items-center justify-content-center min-vh-100"
+            style={{ background: "#f8fafc" }}
+          >
+            <div className="kp-top-loader">
+              <div className="kp-top-loader-bar"></div>
+            </div>
+            <div className="text-center p-4">
+              <div
+                className="spinner-border text-primary mb-3"
+                role="status"
+                style={{ width: "2.5rem", height: "2.5rem" }}
+              />
+              <div style={{ fontSize: "1rem", fontWeight: 700, color: "#1e293b", letterSpacing: "0.2px" }}>
+                Kandypack SCMS
+              </div>
+              <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: "4px" }}>
+                Supply Chain & Cargo Logistics Portal
+              </div>
+            </div>
           </div>
         }
       >
@@ -69,7 +87,7 @@ function App() {
           <Route
             path="/rail/schedules"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <ProtectedRoute allowedRoles={[1, 2]}>
                 <AdminTrainSchedule />
               </ProtectedRoute>
             }
@@ -77,7 +95,7 @@ function App() {
           <Route
             path="/admin/trains"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <ProtectedRoute allowedRoles={[1, 2]}>
                 <AdminTrainSchedule />
               </ProtectedRoute>
             }
@@ -133,7 +151,7 @@ function App() {
           <Route
             path="/reports"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 3]}>
+              <ProtectedRoute allowedRoles={[1, 2]}>
                 <Reports />
               </ProtectedRoute>
             }

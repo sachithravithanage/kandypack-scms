@@ -14,7 +14,39 @@
     <title>Kandypack</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;color:#f8fafc;font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;margin:0;padding:24px;box-sizing:border-box;">
+        <style>
+          @keyframes kp-spin { to { transform: rotate(360deg); } }
+          @keyframes kp-pulse { 0%, 100% { opacity: 0.7; transform: scale(0.98); } 50% { opacity: 1; transform: scale(1); } }
+          .kp-initial-spinner {
+            width: 44px;
+            height: 44px;
+            border: 3.5px solid rgba(245, 158, 11, 0.2);
+            border-top-color: #f59e0b;
+            border-radius: 50%;
+            animation: kp-spin 0.8s linear infinite;
+            margin-bottom: 20px;
+          }
+          .kp-initial-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #ffffff;
+            animation: kp-pulse 2s ease-in-out infinite;
+          }
+          .kp-initial-subtitle {
+            font-size: 0.82rem;
+            color: #94a3b8;
+            margin-top: 6px;
+            letter-spacing: 0.2px;
+          }
+        </style>
+        <div class="kp-initial-spinner"></div>
+        <div class="kp-initial-title">Kandypack SCMS</div>
+        <div class="kp-initial-subtitle">Supply Chain & Cargo Logistics Portal</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

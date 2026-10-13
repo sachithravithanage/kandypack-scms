@@ -32,6 +32,16 @@ function DriverDelivery() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Auto-dismiss success notification
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => {
+        setSuccessMsg("");
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
+
   // Stop search and filter state
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSearch = searchParams.get("search") || "";
@@ -90,7 +100,12 @@ function DriverDelivery() {
       const res = await axios.get(`${API_BASE}/delivery/driver-runs`, { headers });
       setRuns(res.data || []);
       if (res.data && res.data.length > 0) {
-        setSelectedScheduleId((prev) => prev || res.data[0].truck_schedule_id);
+        setSelectedScheduleId((prev) => {
+          if (prev && res.data.some((r) => r.truck_schedule_id === prev)) {
+            return prev;
+          }
+          return res.data[0].truck_schedule_id;
+        });
       }
     } catch (err) {
       console.error("Error loading delivery runs:", err);
@@ -162,11 +177,9 @@ function DriverDelivery() {
       setSuccessMsg(msg);
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
-      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
       const errorMsg = err.response?.data?.error || "Failed to confirm pickup.";
       setError(errorMsg);
-      window.alert(`❌ Pickup Confirmation Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
@@ -196,12 +209,9 @@ function DriverDelivery() {
       setRecipientNote("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
-
-      window.alert(`✅ Success: ${successText}`);
     } catch (err) {
       const errorText = err.response?.data?.error || "Failed to record delivery.";
       setError(errorText);
-      window.alert(`❌ Delivery Confirmation Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -240,12 +250,9 @@ function DriverDelivery() {
       setFailureDetail("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
-
-      window.alert(`Delivery Outcome Recorded: ${msg}`);
     } catch (err) {
       const errorText = err.response?.data?.error || "Failed to record delivery failure.";
       setError(errorText);
-      window.alert(`❌ Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -278,12 +285,9 @@ function DriverDelivery() {
       setAttemptedDetail("");
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
-
-      window.alert(`Delivery Attempt Recorded: ${msg}`);
     } catch (err) {
       const errorText = err.response?.data?.error || "Failed to record delivery attempt.";
       setError(errorText);
-      window.alert(`❌ Attempt Failed: ${errorText}`);
     } finally {
       setActionLoading(false);
     }
@@ -343,11 +347,9 @@ function DriverDelivery() {
       setSuccessMsg(msg);
       await loadScheduleDetails(selectedScheduleId);
       await loadRuns();
-      window.alert(`✅ Success: ${msg}`);
     } catch (err) {
       const errorMsg = err.response?.data?.error || "Failed to complete run.";
       setError(errorMsg);
-      window.alert(`❌ Run Completion Failed: ${errorMsg}`);
     } finally {
       setActionLoading(false);
     }
@@ -555,7 +557,14 @@ function DriverDelivery() {
                 </div>
 
                 {/* REQ-DEL-02 Store Pickup Banner */}
-                {!isPickupConfirmed ? (
+                {activeRun.status === "Completed" ? (
+                  <div className="p-2.5 my-2 border border-success rounded bg-success-subtle text-success small d-flex align-items-center">
+                    <IconCheck size={18} className="me-2 text-success flex-shrink-0" />
+                    <div>
+                      <strong>Delivery Run Completed:</strong> Shift concluded and working hours logged into Roster Log.
+                    </div>
+                  </div>
+                ) : !isPickupConfirmed ? (
                   <div className="p-3 my-2 border border-warning rounded bg-warning-subtle d-flex align-items-center justify-content-between">
                     <div>
                       <div className="fw-bold text-dark">

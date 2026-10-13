@@ -135,6 +135,12 @@ function RosterSchedule() {
     }
   }, [formData.routeId, formData.startTime, routes]);
 
+  useEffect(() => {
+    if (!successMsg) return;
+    const timer = setTimeout(() => setSuccessMsg(""), 4500);
+    return () => clearTimeout(timer);
+  }, [successMsg]);
+
   const getDriverWeeklyHours = (driverId) => {
     const found = driverHours.find((h) => String(h.driver_id) === String(driverId));
     return found ? Number(found.hours_worked_this_week || 0).toFixed(1) : null;

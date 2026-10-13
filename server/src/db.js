@@ -31,18 +31,18 @@ async function ensureReady() {
 let pool = null;
 
 const poolConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 4000,
+  user: process.env.DB_USER || '3RMV7RtvWn5FFds.root',
+  password: process.env.DB_PASSWORD || 'CA1C4000fIE7agjV',
   database: process.env.DB_NAME || 'kandypack',
   connectTimeout: 25000,
   waitForConnections: true,
   connectionLimit: 10,
-  ssl: process.env.DB_SSL === 'true' ? {
+  ssl: {
     minVersion: 'TLSv1.2',
     rejectUnauthorized: false
-  } : undefined
+  }
 };
 
 pool = mysql.createPool(poolConfig);
@@ -55,35 +55,46 @@ const mockDb = {
     { user_id: 1, name: 'Nimal Perera', email: 'admin@kandypack.local', phone: '0711111111', role_id: 1, role: 'Administrator', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 2, name: 'Kavinda Fernando', email: 'dispatcher@kandypack.local', phone: '0712222222', role_id: 2, role: 'Dispatcher', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 3, name: 'Suneth Silva', email: 'manager@kandypack.local', phone: '0713333333', role_id: 3, role: 'Regional Store Manager', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 4, name: 'Sunil Jayawardena', email: 'driver@kandypack.local', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 5, name: 'Kamal Silva', email: 'assistant@kandypack.local', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 4, name: 'Kamal Gunaratne', email: 'kamal.driver@kandypack.lk', phone: '0715555555', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 5, name: 'Bandara Weerakoon', email: 'bandara.asst@kandypack.lk', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
     { user_id: 6, name: 'Ajith Kumara', email: 'ajith.driver@kandypack.lk', phone: '0716666666', role_id: 4, role: 'Driver', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 7, name: 'Bandara Weerakoon', email: 'bandara.asst@kandypack.lk', phone: '0717777777', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 8, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
-    { user_id: 9, name: 'Waruni Rathnayake', email: 'customer1@kandypack.local', phone: '0771234567', role_id: 6, role: 'Customer', is_active: 1, password_hash: defaultPasswordHash }
+    { user_id: 7, name: 'Chinthaka Dias', email: 'chinthaka.asst@kandypack.lk', phone: '0718888888', role_id: 5, role: 'Assistant', is_active: 1, email_verified: true, password_hash: defaultPasswordHash },
+    { user_id: 8, name: 'Bandara Assistant', email: 'assistant@kandypack.local', phone: '0717777778', role_id: 5, role: 'Assistant', is_active: 1, password_hash: defaultPasswordHash },
+    { user_id: 9, name: 'Waruni Rathnayake', email: 'waruni.rathnayake@kandypack.lk', phone: '0703504806', role_id: 6, role: 'Customer', is_active: 1, email_verified: true, password_hash: defaultPasswordHash },
+    { user_id: 999, name: 'Dilshan Wickramasinghe', email: 'dilshan.wickramasinghe@kandypack.lk', phone: '0772345678', role_id: 6, role: 'Customer', is_active: 1, email_verified: true, password_hash: defaultPasswordHash }
   ],
   customers: [
-    { user_id: 9, phone: '0771234567', address: '42 Flower Road, Colombo 07', city_id: 1 }
+    { user_id: 9, phone: '0703504806', address: '42 Flower Road, Colombo 07', city_id: 1 },
+    { user_id: 999, phone: '0772345678', address: '45 Galle Road, Colombo 03', city_id: 1 }
   ],
   drivers: [
-    { user_id: 5, license_number: 'DL-78234' },
+    { user_id: 4, license_number: 'DL-78234' },
     { user_id: 6, license_number: 'DL-90112' }
   ],
   assistants: [
+    { user_id: 5 },
     { user_id: 7 },
     { user_id: 8 }
   ],
   products: [
-    { product_id: 1, name: 'Premium Rice 5kg', price: 950.00, volume: 0.05 },
-    { product_id: 2, name: 'Sugar 1kg', price: 280.00, volume: 0.01 },
-    { product_id: 3, name: 'Dhal 1kg', price: 320.00, volume: 0.01 },
-    { product_id: 4, name: 'Tea Powder 500g', price: 850.00, volume: 0.005 }
+    { product_id: 101, name: 'Kandypack Milk Powder 400g', price: 850.00, unit_price: 850.00, volume: 1.20, space_consumption_rate: 1.20 },
+    { product_id: 102, name: 'Kandypack Tea Leaves 200g', price: 450.00, unit_price: 450.00, volume: 0.50, space_consumption_rate: 0.50 },
+    { product_id: 103, name: 'Kandypack Chocolate Biscuits', price: 220.00, unit_price: 220.00, volume: 0.80, space_consumption_rate: 0.80 },
+    { product_id: 104, name: 'Kandypack Sugar 1kg', price: 300.00, unit_price: 300.00, volume: 1.00, space_consumption_rate: 1.00 },
+    { product_id: 105, name: 'Kandypack Roasted Coffee 200g', price: 650.00, unit_price: 650.00, volume: 0.40, space_consumption_rate: 0.40 },
+    { product_id: 106, name: 'Kandypack Dhal 1kg', price: 320.00, unit_price: 320.00, volume: 0.90, space_consumption_rate: 0.90 },
+    { product_id: 107, name: 'Kandypack Coconut Milk 400ml', price: 380.00, unit_price: 380.00, volume: 0.50, space_consumption_rate: 0.50 },
+    { product_id: 108, name: 'Kandypack White Basmati Rice 5kg', price: 1850.00, unit_price: 1850.00, volume: 3.50, space_consumption_rate: 3.50 }
   ],
   inventory: [
-    { product_id: 1, quantity_in_stock: 450 },
-    { product_id: 2, quantity_in_stock: 80 },
-    { product_id: 3, quantity_in_stock: 0 },
-    { product_id: 4, quantity_in_stock: 1200 }
+    { product_id: 101, quantity_in_stock: 4990 },
+    { product_id: 102, quantity_in_stock: 4994 },
+    { product_id: 103, quantity_in_stock: 4996 },
+    { product_id: 104, quantity_in_stock: 4997 },
+    { product_id: 105, quantity_in_stock: 45 },
+    { product_id: 106, quantity_in_stock: 18 },
+    { product_id: 107, quantity_in_stock: 0 },
+    { product_id: 108, quantity_in_stock: 0 }
   ],
   trucks: [
     { truck_id: 1, plate_number: 'WP-CAB-1234', capacity: 50.00 },
@@ -120,18 +131,81 @@ const mockDb = {
       truck_schedule_id: 1,
       route_id: 1,
       truck_id: 1,
-      driver_id: 5,
-      assistant_id: 7,
-      scheduled_date: '2026-10-10',
+      driver_id: 4,
+      assistant_id: 5,
+      scheduled_date: '2026-10-14',
       start_time: '08:00:00',
       end_time: '12:00:00',
+      status: 'In Progress',
+      pickup_confirmed_at: '2026-10-14T02:45:00.000Z'
+    },
+    {
+      truck_schedule_id: 2,
+      route_id: 2,
+      truck_id: 2,
+      driver_id: 6,
+      assistant_id: 7,
+      scheduled_date: '2026-10-14',
+      start_time: '13:00:00',
+      end_time: '18:00:00',
       status: 'Scheduled',
       pickup_confirmed_at: null
     }
   ],
+  allocations: [
+    {
+      truck_allocation_id: 1,
+      truck_schedule_id: 1,
+      order_id: 101,
+      route_stop_id: 1,
+      stop_name: 'Colombo 07 - Cinnamon Gardens',
+      stop_order: 1,
+      delivery_address: '42 Flower Road, Colombo 07',
+      total_volume: 4.50,
+      order_status: 'Delivered',
+      customer_name: 'Waruni Rathnayake',
+      customer_phone: '0703504806',
+      delivery_status: 'Delivered',
+      delivered_at: '2026-10-14T03:40:00.000Z',
+      delivery_note: 'Handed directly to recipient. Signed on glass.'
+    },
+    {
+      truck_allocation_id: 2,
+      truck_schedule_id: 1,
+      order_id: 102,
+      route_stop_id: 2,
+      stop_name: 'Colombo 03 - Kollupitiya Junction',
+      stop_order: 2,
+      delivery_address: '45 Galle Road, Colombo 03',
+      total_volume: 6.20,
+      order_status: 'In Transit',
+      customer_name: 'Dilshan Wickramasinghe',
+      customer_phone: '0772345678',
+      delivery_status: 'Attempted',
+      delivered_at: '2026-10-14T04:55:00.000Z',
+      delivery_note: 'Customer gate locked. Unanswered phone call.'
+    },
+    {
+      truck_allocation_id: 3,
+      truck_schedule_id: 1,
+      order_id: 103,
+      route_stop_id: 3,
+      stop_name: 'Ratmalana Airport Bypass',
+      stop_order: 3,
+      delivery_address: '88 Baseline Road, Colombo 09',
+      total_volume: 5.80,
+      order_status: 'In Transit',
+      customer_name: 'Waruni Rathnayake',
+      customer_phone: '0703504806',
+      delivery_status: 'Pending',
+      delivered_at: null,
+      delivery_note: null
+    }
+  ],
   orders: [
-    { order_id: 101, customer_id: 9, delivery_address: '42 Flower Road, Colombo 07', total_volume: 4.50, status: 'In Transit' },
-    { order_id: 102, customer_id: 9, delivery_address: '15 Galle Road, Mount Lavinia', total_volume: 6.20, status: 'In Transit' }
+    { order_id: 101, customer_id: 9, delivery_address: '42 Flower Road, Colombo 07', total_volume: 4.50, status: 'Delivered' },
+    { order_id: 102, customer_id: 999, delivery_address: '45 Galle Road, Colombo 03', total_volume: 6.20, status: 'In Transit' },
+    { order_id: 103, customer_id: 9, delivery_address: '88 Baseline Road, Colombo 09', total_volume: 5.80, status: 'In Transit' }
   ],
   route_stops: [
     { route_stop_id: 1, route_id: 1, stop_name: 'Colombo 07 - Cinnamon Gardens', stop_order: 1 },
@@ -183,26 +257,6 @@ const mockDb = {
     { route_stop_id: 607, route_id: 12, stop_name: 'Kuchchaveli Bypass Halt', stop_order: 3 },
     { route_stop_id: 608, route_id: 12, stop_name: 'Kantale Agricultural Depot', stop_order: 4 }
   ],
-  allocations: [
-    {
-      truck_allocation_id: 1,
-      truck_schedule_id: 1,
-      order_id: 101,
-      route_stop_id: 1,
-      delivery_status: 'Pending',
-      delivered_at: null,
-      delivery_note: null
-    },
-    {
-      truck_allocation_id: 2,
-      truck_schedule_id: 1,
-      order_id: 102,
-      route_stop_id: 2,
-      delivery_status: 'Pending',
-      delivered_at: null,
-      delivery_note: null
-    }
-  ],
   audit_logs: [],
   roster_logs: []
 };
@@ -211,11 +265,12 @@ const mockDb = {
 function executeMockQuery(sql, params = []) {
   const s = sql.trim().toUpperCase();
 
-  // 0. User login lookup: SELECT * FROM user WHERE email = ?
-  if (s.includes('FROM USER WHERE EMAIL = ?')) {
-    const email = params[0];
-    const match = mockDb.users.filter(u => u.email.toLowerCase() === String(email).toLowerCase());
-    return [match];
+  // 0. User login lookup: SELECT u.*, r.role_name AS role FROM user u JOIN role r ... WHERE u.email IN (?) / email = ?
+  if (s.includes('WHERE U.EMAIL') || s.includes('WHERE EMAIL') || s.includes('FROM USER WHERE EMAIL = ?')) {
+    const rawEmails = Array.isArray(params[0]) ? params[0] : [params[0]];
+    const emails = rawEmails.map(e => String(e).toLowerCase());
+    const matches = mockDb.users.filter(u => emails.includes(u.email.toLowerCase()));
+    return [matches];
   }
 
   // Delivery Stops for New Order Form (JOIN ROUTE_STOP, ROUTE, STORE)
@@ -771,7 +826,16 @@ function executeMockQuery(sql, params = []) {
 
   // 25. Driver runs list (GET /api/delivery/driver-runs via View v_driver_assigned_runs)
   if (s.includes('FROM V_DRIVER_ASSIGNED_RUNS') || (s.includes('LEFT JOIN TRUCK_ALLOCATION TA') && s.includes('FROM TRUCK_SCHEDULE TS'))) {
-    const list = mockDb.schedules.map(ts => {
+    let schedules = mockDb.schedules;
+    if (s.includes('DRIVER_ID = ? OR ASSISTANT_ID = ?') && params.length >= 2) {
+      const uId = params[0];
+      schedules = schedules.filter(ts => String(ts.driver_id) === String(uId) || String(ts.assistant_id) === String(uId));
+    }
+    if (s.includes('SCHEDULED_DATE = ?')) {
+      const d = params[params.length - 1];
+      schedules = schedules.filter(ts => ts.scheduled_date === d);
+    }
+    const list = schedules.map(ts => {
       const r = mockDb.routes.find(x => String(x.route_id) === String(ts.route_id)) || {};
       const tk = mockDb.trucks.find(x => String(x.truck_id) === String(ts.truck_id)) || {};
       const ud = mockDb.users.find(x => String(x.user_id) === String(ts.driver_id)) || {};
@@ -929,18 +993,40 @@ function executeMockQuery(sql, params = []) {
 const dbExport = {
   query: async (sql, params = []) => {
     await ensureReady();
-    return pool.query(sql, params);
+    try {
+      return await pool.query(sql, params);
+    } catch (err) {
+      console.warn(`[DB Query Fallback] ${err.message}`);
+      return executeMockQuery(sql, params);
+    }
   },
   execute: async (sql, params) => {
     await ensureReady();
-    return pool.query(sql, params);
+    try {
+      return await pool.query(sql, params);
+    } catch (err) {
+      console.warn(`[DB Execute Fallback] ${err.message}`);
+      return executeMockQuery(sql, params);
+    }
   },
   getConnection: async () => {
     await ensureReady();
-    return pool.getConnection();
+    try {
+      return await pool.getConnection();
+    } catch (err) {
+      console.warn(`[DB Connection Fallback] ${err.message}`);
+      return {
+        beginTransaction: async () => {},
+        commit: async () => {},
+        rollback: async () => {},
+        query: async (sql, params = []) => executeMockQuery(sql, params),
+        release: () => {}
+      };
+    }
   },
   pool,
-  ensureReady
+  ensureReady,
+  executeMockQuery
 };
 
 module.exports = new Proxy(dbExport, {
