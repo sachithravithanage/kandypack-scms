@@ -129,6 +129,17 @@ function StoreShipmentReceipt() {
   useEffect(() => {
     if (selectedStoreId) {
       loadStoreData(selectedStoreId);
+      const interval = setInterval(() => {
+        loadStoreData(selectedStoreId);
+      }, 15000);
+      const onFocus = () => {
+        loadStoreData(selectedStoreId);
+      };
+      window.addEventListener("focus", onFocus);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", onFocus);
+      };
     }
   }, [selectedStoreId, loadStoreData]);
 

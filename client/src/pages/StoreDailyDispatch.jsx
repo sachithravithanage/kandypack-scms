@@ -115,6 +115,17 @@ function StoreDailyDispatch() {
         useEffect(() => {
                 if (selectedStoreId) {
                         loadDispatchData(selectedStoreId);
+                        const interval = setInterval(() => {
+                                loadDispatchData(selectedStoreId);
+                        }, 15000);
+                        const onFocus = () => {
+                                loadDispatchData(selectedStoreId);
+                        };
+                        window.addEventListener("focus", onFocus);
+                        return () => {
+                                clearInterval(interval);
+                                window.removeEventListener("focus", onFocus);
+                        };
                 }
         }, [selectedStoreId, loadDispatchData]);
 
