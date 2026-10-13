@@ -539,7 +539,7 @@ function Profile() {
 
       {/* ── Tab 3: Notification Preferences ──────────────────── */}
       {activeTab === "notifications" && (
-        <div className="kp-card" style={{ maxWidth: "600px" }}>
+        <div className="kp-card">
 
           {/* Warning modal when user tries to disable in-app notifications */}
           {showDisableWarn && (
