@@ -3,7 +3,9 @@
 ![React](https://img.shields.io/badge/Frontend-React%2019-61DAFB?logo=react&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Backend-Node.js%20%2F%20Express-339933?logo=node.js&logoColor=white)
 ![MySQL](https://img.shields.io/badge/Database-MySQL%208-4479A1?logo=mysql&logoColor=white)
-![Docker](https://img.shields.io/badge/Deployment-Docker%20Compose-2496ED?logo=docker&logoColor=white)
+![Docker](https://img.shields.io/badge/Containerization-Docker-2496ED?logo=docker&logoColor=white)
+![Azure](https://img.shields.io/badge/Cloud-Microsoft%20Azure%20VM-0078D4?logo=microsoftazure&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
 
 Kandypack is a web-based supply chain management system for Kandypack, a
 mid-sized FMCG manufacturer in Kandy, Sri Lanka. It replaces disconnected
@@ -30,9 +32,9 @@ Customer order
 - [Repository structure](#repository-structure)
 - [Local development](#local-development)
 - [Database design](#database-design)
-- [Docker deployment](#docker-deployment)
+- [Docker containerization](#docker-containerization)
+- [CI/CD pipeline & Azure VM deployment](#cicd-pipeline--azure-vm-deployment)
 - [Team contributions](#team-contributions)
-- [Engineering conventions](#engineering-conventions)
 - [Project status and known design decisions](#project-status-and-known-design-decisions)
 
 ## Capabilities
@@ -81,17 +83,19 @@ Customer order
 
 ## Technology stack
 
-| Layer            | Technology                                               |
-| ---------------- | -------------------------------------------------------- |
-| Frontend         | React 19, Vite, React Router, Axios, Bootstrap, Chart.js |
-| Backend          | Node.js, Express 5                                       |
-| Authentication   | bcrypt password hashing, JSON Web Tokens                 |
-| Database         | MySQL 8                                                  |
-| Notifications    | Database-backed notifications, Nodemailer integration    |
-| Scheduling       | node-cron                                                |
-| Reporting/export | Chart.js, jsPDF, jsPDF AutoTable, SheetJS                |
-| Web serving      | Nginx for the production frontend image                  |
-| Local deployment | Docker and Docker Compose                                |
+| Layer                | Technology                                               |
+| -------------------- | -------------------------------------------------------- |
+| Frontend             | React 19, Vite, React Router, Axios, Bootstrap, Chart.js |
+| Backend              | Node.js, Express 5                                       |
+| Authentication       | bcrypt password hashing, JSON Web Tokens                 |
+| Database             | MySQL 8                                                  |
+| Notifications        | Database-backed notifications, Nodemailer integration    |
+| Scheduling           | node-cron                                                |
+| Reporting/export     | Chart.js, jsPDF, jsPDF AutoTable, SheetJS                |
+| Web serving          | Nginx for the production frontend image                  |
+| Containerization     | Docker, Docker Compose (Multi-container architecture)    |
+| CI/CD Pipeline       | GitHub Actions (Automated build, test, and CD workflow)  |
+| Cloud Infrastructure | Microsoft Azure Virtual Machine (Ubuntu Linux VM)        |
 
 ## Repository structure
 
@@ -226,28 +230,41 @@ Additional SQL files provide stored procedures, indexes, validation triggers,
 seed data, views, constraints, and window-function reporting. Run
 `db/init.sql` for the complete ordered setup used by Docker Compose.
 
-## Docker deployment
+## Docker containerization
 
-The production Compose stack contains:
+The system is fully containerized using Docker and orchestrated with Docker Compose to provide complete environment parity across development and production:
 
-- **`db`** — MySQL 8 with a health check and persistent `db_data` volume.
-- **`server`** — Express API on internal port `5000`.
-- **`client`** — Vite production build served by Nginx on port `80`.
+- **`client`** — React 19 / Vite single-page application built using a multi-stage `Dockerfile` and served by production-grade Nginx on port `80`, handling client-side SPA routing and `/api` reverse proxying.
+- **`server`** — Node.js / Express 5 API running in an isolated container on internal port `5000` with centralized logging and health checks.
+- **`db`** — MySQL 8 service with persistent data volume (`db_data`), connection health monitoring, and automated schema migration from `db/init.sql`.
 
-For an Azure Linux VM or another Docker-capable host:
+To run the containerized stack locally or on any Docker-capable host:
 
 ```bash
 git clone https://github.com/sachithravithanage/kandypack-scms.git
 cd kandypack-scms
 cp .env.example .env
-# Edit .env with deployment-only secrets.
+# Edit .env with secure local/production secrets.
 docker compose up -d --build
 docker compose ps
 ```
 
-Expose HTTP/HTTPS at the host or reverse proxy level, but do not expose MySQL
-to the public internet. Production secrets must be supplied through the host
-environment and must not be stored in Git.
+## CI/CD pipeline & Azure VM deployment
+
+The system is deployed on a dedicated **Microsoft Azure Virtual Machine (Ubuntu Linux VM)** with an end-to-end automated **Continuous Integration / Continuous Deployment (CI/CD)** pipeline powered by **GitHub Actions**.
+
+### Automated CI/CD Workflow (`.github/workflows/deploy.yml`)
+
+1. **Continuous Integration & Verification**:
+   - Triggers automatically upon every push to the `main` branch (as well as manual `workflow_dispatch` triggers).
+   - Validates the Docker Compose configuration and compiles all application container images on an `ubuntu-latest` runner to catch syntax, linting, or build errors prior to deployment.
+2. **Automated Continuous Deployment**:
+   - Securely connects to the **Azure Virtual Machine** via SSH credentials stored in GitHub Encrypted Secrets (`VM_HOST`, `VM_USER`, `VM_SSH_KEY`).
+   - Fetches the latest commits from `origin/main` on the Azure VM.
+   - Builds and launches the updated container stack (`docker compose up -d --remove-orphans`) with minimal downtime.
+   - Automatically prunes dangling Docker images (`docker image prune -f`) to maintain disk hygiene on the Azure VM.
+3. **Live Cloud Environment**:
+   - The production deployment is hosted on the Azure Linux VM, accessible with live dynamic DNS and SSL/TLS termination at `https://kandypack.duckdns.org`.
 
 ## Team contributions
 
@@ -257,8 +274,7 @@ in the same A-to-E order used by the team’s contributor list.
 
 ### Member A — Vithanage V.B.S. (240690D)
 
-**Role:** Auth, user management, master data, inventory, DevOps, and integration
-lead. **Branch:** `feature/auth`
+**Role:** Auth, user management, master data, inventory, Docker containerization, and backend integration lead. **Branch:** `feature/auth`
 
 - Designed and implemented the shared identity foundation: `role`, `user`,
   `employee`, and `city`.
@@ -272,9 +288,10 @@ lead. **Branch:** `feature/auth`
   and inventory controls.
 - Established the shared Express backend structure and database connection
   conventions used by the other feature areas.
-- Led repository integration, branch coordination, environment configuration,
-  Dockerfiles, Docker Compose, database initialization, and deployment
-  readiness.
+- Led Docker containerization: authored production multi-stage Dockerfiles for
+  the client and server, configured the Docker Compose stack, internal container
+  networking, volume persistence, and database initialization pipelines.
+- Led repository integration, branch coordination, and environment configuration.
 
 **Owned tables:** `role`, `user`, `employee`, `city`, `audit_log`,
 `main_inventory`.
@@ -322,9 +339,12 @@ lead. **Branch:** `feature/auth`
 
 ### Member D — Nanayakkara N.S. (240449A)
 
-**Role:** Fleet rostering and last-mile delivery execution. **Branch:**
+**Role:** CI/CD pipelining, Azure VM deployment, fleet rostering, and last-mile delivery execution. **Branch:**
 `feature/roster-delivery`
 
+- Designed and implemented the automated **CI/CD pipeline** using GitHub Actions (`.github/workflows/deploy.yml`).
+- Configured continuous deployment to the **Microsoft Azure Virtual Machine (Azure VM)**, including automated SSH connection, remote branch synchronisation, and zero-downtime container updates.
+- Managed Azure VM hosting setup, cloud environment orchestration, Docker container deployment on the VM, and live server configuration.
 - Implemented driver, assistant, and truck master data.
 - Built weekly truck and crew roster scheduling.
 - Added validation for truck/crew conflicts, working-hour limits, and required
@@ -361,19 +381,6 @@ lead. **Branch:** `feature/auth`
   database initialization, health checks, and deployment verification.
 
 **Owned table:** `notification`.
-
-## Engineering conventions
-
-- Use feature branches and pull requests rather than committing directly to
-  `main`.
-- Use the existing commit style, for example:
-  `feat: add order placement form UI`.
-- Keep secrets in local `.env` files; commit only `.env.example` templates.
-- Apply schema files in dependency order. Shared user/master tables must be
-  available before dependent feature tables.
-- Validate API input and return explicit HTTP errors; do not silently accept
-  invalid orders, allocations, or delivery updates.
-- Run the relevant frontend lint/build checks before opening a pull request.
 
 ## Project status and known design decisions
 
