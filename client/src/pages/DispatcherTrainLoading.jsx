@@ -26,7 +26,6 @@ import {
 const API_BASE = apiUrl("/api");
 
 function DispatcherTrainLoading() {
-<<<<<<< HEAD
         const [trips, setTrips] = useState([]);
         const [cities, setCities] = useState([]);
         const [selectedCityId, setSelectedCityId] = useState("");
