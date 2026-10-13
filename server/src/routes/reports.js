@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const router = express.Router();
 
 // Helper to convert DB rows to CSV format
@@ -21,7 +21,7 @@ function sendFormatted(res, rows, format) {
 }
 
 // 1. REQ-RPT-01: Quarterly Sales Report
-router.get('/sales', requireAuth, async (req, res) => {
+router.get('/sales', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
   const { startDate, endDate, format } = req.query;
   const [rows] = await db.query(
     `SELECT 
@@ -39,7 +39,7 @@ router.get('/sales', requireAuth, async (req, res) => {
 });
 
 // 2. REQ-RPT-02: Top Selling Products
-router.get('/top-products', requireAuth, async (req, res) => {
+router.get('/top-products', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
   const { limit = 10, format } = req.query;
   const [rows] = await db.query(
     `SELECT * FROM vw_top_selling_products ORDER BY total_quantity_sold DESC LIMIT ?`,
@@ -49,7 +49,7 @@ router.get('/top-products', requireAuth, async (req, res) => {
 });
 
 // 3. REQ-RPT-03: City/Store Breakdown
-router.get('/city-breakdown', requireAuth, async (req, res) => {
+router.get('/city-breakdown', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
   const { format } = req.query;
   const [rows] = await db.query(
     `SELECT 
@@ -69,7 +69,7 @@ router.get('/city-breakdown', requireAuth, async (req, res) => {
 });
 
 // 4. REQ-RPT-04: Staff Working Hours & Threshold Monitoring
-router.get('/staff-hours', requireAuth, async (req, res) => {
+router.get('/staff-hours', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
   const { weekStart, format } = req.query;
   const [rows] = await db.query(
     `SELECT 
@@ -98,7 +98,7 @@ router.get('/staff-hours', requireAuth, async (req, res) => {
 });
 
 // 5. REQ-RPT-05: Truck Utilization Report
-router.get('/truck-utilization', requireAuth, async (req, res) => {
+router.get('/truck-utilization', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
   const { format } = req.query;
   const [rows] = await db.query(
     `SELECT * FROM vw_truck_utilization ORDER BY total_trips_assigned DESC`
@@ -109,6 +109,12 @@ router.get('/truck-utilization', requireAuth, async (req, res) => {
 
 // 6. REQ-RPT-06: Customer Order Lifecycle Report
 router.get('/customer/:customerId', requireAuth, async (req, res) => {
+  if (req.user.roleId === 6 && Number(req.params.customerId) !== req.user.userId) {
+    return res.status(403).json({ error: 'You are only authorized to view your own order report.' });
+  }
+  if (req.user.roleId === 4 || req.user.roleId === 5) {
+    return res.status(403).json({ error: 'Drivers and assistants are not authorized to view customer reports.' });
+  }
   const { format } = req.query;
   const [rows] = await db.query(
     `SELECT 
@@ -131,7 +137,7 @@ router.get('/customer/:customerId', requireAuth, async (req, res) => {
 });
 
 // 7. NEW: Recent Deliveries Summary (Replacing CRON)
-router.get('/recent-deliveries', requireAuth, async (req, res) => {
+router.get('/recent-deliveries', requireAuth, requireRole([1, 2, 3]), async (req, res) => {
   const { limit = 10, format } = req.query;
   const [rows] = await db.query(
     `SELECT 
@@ -155,7 +161,7 @@ router.get('/recent-deliveries', requireAuth, async (req, res) => {
 });
 
 // 8. NEW: Complete System Summary (Admin Only)
-router.get('/system-summary', requireAuth, async (req, res) => {
+router.get('/system-summary', requireAuth, requireRole([1]), async (req, res) => {
   const { limit = 10, format } = req.query;
   const [rows] = await db.query(
     `SELECT * FROM vw_complete_system_summary ORDER BY truck_allocation_id DESC LIMIT ?`,

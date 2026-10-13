@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { createNotification } = require('./notifications');
+const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -37,12 +38,17 @@ async function leadTimeDays(connection, deliveryDate) {
 }
 
 // Place a new order — REQ-ORD-01 to REQ-ORD-04
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, requireRole([1, 6]), async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
-        const { customerId, routeStopId, deliveryAddress, deliveryDate, items } = req.body;
+        let { customerId, routeStopId, deliveryAddress, deliveryDate, items } = req.body;
+
+        // Security: If logged in as customer, enforce own customerId
+        if (req.user.roleId === 6) {
+            customerId = req.user.userId;
+        }
 
         // Input validation — REQ-ORD-01
         if (!customerId || !routeStopId || !deliveryAddress || !deliveryDate || !Array.isArray(items) || items.length === 0) {
@@ -188,10 +194,16 @@ router.post('/', async (req, res) => {
 });
 
 // Get order history for a customer — REQ-ORD-05
-// Reads from the view v_customer_orders (db/02b_orders_procedures.sql), which already
-// joins route and route_stop; only the customer filter and sort are added here.
-router.get('/customer/:customerId', async (req, res) => {
+router.get('/customer/:customerId', requireAuth, async (req, res) => {
     try {
+        // Security check: Customer can only view their own orders
+        if (req.user.roleId === 6 && Number(req.params.customerId) !== req.user.userId) {
+            return res.status(403).json({ error: 'You are only authorized to view your own order history.' });
+        }
+        if (req.user.roleId === 4 || req.user.roleId === 5) {
+            return res.status(403).json({ error: 'Drivers and assistants are not authorized to view customer orders.' });
+        }
+
         const [rows] = await db.query(
             'SELECT * FROM v_customer_orders WHERE customer_id = ? ORDER BY order_id DESC',
             [req.params.customerId]
@@ -203,10 +215,14 @@ router.get('/customer/:customerId', async (req, res) => {
 });
 
 // Get single order with items
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
     try {
         const [orders] = await db.query('SELECT * FROM `order` WHERE order_id = ?', [req.params.id]);
         if (orders.length === 0) return res.status(404).json({ error: 'Order not found' });
+
+        if (req.user.roleId === 6 && orders[0].customer_id !== req.user.userId) {
+            return res.status(403).json({ error: 'You are only authorized to view your own orders.' });
+        }
         const [items] = await db.query(
             `SELECT oi.*, p.name AS product_name, p.unit_price
              FROM order_item oi
@@ -221,15 +237,18 @@ router.get('/:id', async (req, res) => {
 });
 
 // Cancel an order — only while status is 'Placed' — REQ-ORD-06
-// Must return reserved stock to main_inventory
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
-        const [orderRows] = await connection.query('SELECT status FROM `order` WHERE order_id = ? FOR UPDATE', [req.params.id]);
+        const [orderRows] = await connection.query('SELECT status, customer_id FROM `order` WHERE order_id = ? FOR UPDATE', [req.params.id]);
         if (orderRows.length === 0) {
             await connection.rollback();
             return res.status(404).json({ error: 'Order not found.' });
+        }
+        if (req.user.roleId === 6 && orderRows[0].customer_id !== req.user.userId) {
+            await connection.rollback();
+            return res.status(403).json({ error: 'You are not authorized to cancel this order.' });
         }
         if (orderRows[0].status !== 'Placed') {
             await connection.rollback();
@@ -262,19 +281,24 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Edit an order — allowed only while status is 'Placed' — REQ-ORD-06 & REQ-ORD-02
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, requireRole([1, 6]), async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
         const [orderRows] = await connection.query(
-            'SELECT status FROM `order` WHERE order_id = ? FOR UPDATE',
+            'SELECT status, customer_id FROM `order` WHERE order_id = ? FOR UPDATE',
             [req.params.id]
         );
 
         if (orderRows.length === 0) {
             await connection.rollback();
             return res.status(404).json({ error: 'Order not found.' });
+        }
+
+        if (req.user.roleId === 6 && orderRows[0].customer_id !== req.user.userId) {
+            await connection.rollback();
+            return res.status(403).json({ error: 'You are not authorized to edit this order.' });
         }
 
         if (orderRows[0].status !== 'Placed') {
@@ -318,15 +342,20 @@ router.put('/:id', async (req, res) => {
 });
 
 // Customer confirms receipt: Delivered -> Closed — REQ-ORD-07
-router.put('/:id/confirm-receipt', async (req, res) => {
+router.put('/:id/confirm-receipt', requireAuth, requireRole([1, 6]), async (req, res) => {
     try {
-        const [result] = await db.query(
-            "UPDATE `order` SET status = 'Closed' WHERE order_id = ? AND status = 'Delivered'",
-            [req.params.id]
-        );
+        let query = "UPDATE `order` SET status = 'Closed' WHERE order_id = ? AND status = 'Delivered'";
+        const params = [req.params.id];
+
+        if (req.user.roleId === 6) {
+            query += " AND customer_id = ?";
+            params.push(req.user.userId);
+        }
+
+        const [result] = await db.query(query, params);
 
         if (result.affectedRows === 0) {
-            return res.status(400).json({ error: 'Order not found or not awaiting confirmation (status must be Delivered).' });
+            return res.status(400).json({ error: 'Order not found, not awaiting confirmation (status must be Delivered), or unauthorized.' });
         }
 
         res.json({ message: 'Order receipt confirmed' });

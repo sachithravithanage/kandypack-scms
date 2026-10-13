@@ -25,8 +25,7 @@ export default function ProtectedRoute({ allowedRoles, children }) {
           </div>
           <h2 className="h4 mb-2">Access Restricted</h2>
           <p className="text-muted mb-4 small">
-            Your current account (<strong>{roleName}</strong>) is not permitted to access this module.
-            Member D's delivery execution portals are customized for Drivers and Assistants, while Roster Scheduling is reserved for Dispatchers.
+            Your current account (<strong>{roleName}</strong>) does not have authorization to view or perform actions in this module.
           </p>
           <div className="d-flex justify-content-center gap-2">
             <button
@@ -36,15 +35,17 @@ export default function ProtectedRoute({ allowedRoles, children }) {
                   window.location.href = "/delivery";
                 } else if (roleId === 2) {
                   window.location.href = "/roster";
+                } else if (roleId === 3) {
+                  window.location.href = "/store/dispatch";
                 } else if (roleId === 6) {
-                  window.location.href = "/profile";
+                  window.location.href = "/orders";
                 } else {
                   window.location.href = "/dashboard";
                 }
               }}
             >
               <IconArrowLeft size={16} className="me-1" />
-              Go to Your Permitted Dashboard
+              Go to Your Authorized Portal
             </button>
           </div>
         </div>

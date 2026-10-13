@@ -19,6 +19,8 @@ import {
 const API_BASE = apiUrl("/api");
 
 function DriverDelivery() {
+  const currentUserId = Number(localStorage.getItem("userId")) || 0;
+  const currentRoleId = Number(localStorage.getItem("roleId")) || 0;
   const [runs, setRuns] = useState([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState(null);
   const [activeRun, setActiveRun] = useState(null);
@@ -289,6 +291,12 @@ function DriverDelivery() {
   const failedCount = stops.filter((s) => s.delivery_status === "Failed").length;
   const attemptedCount = stops.filter((s) => s.delivery_status === "Attempted").length;
 
+  const isAssignedStaff = activeRun ? (
+    Number(activeRun.driver_id) === currentUserId ||
+    Number(activeRun.assistant_id) === currentUserId
+  ) : false;
+  const canExecuteActions = isAssignedStaff || currentRoleId === 1;
+
   return (
     <AppLayout pageTitle="Delivery Execution Portal">
       {/* Notifications */}
@@ -436,6 +444,13 @@ function DriverDelivery() {
                   </div>
                 </div>
 
+                {/* View-only banner for unauthorized users / supervisors */}
+                {activeRun && !canExecuteActions && (
+                  <div className="alert alert-info py-2 px-3 small mb-3">
+                    <strong>Read-Only Mode:</strong> Delivery execution actions (store pickup, stop deliveries, delay reports, completion) are authorized only for the assigned Driver ({activeRun.driver_name}) and Assistant ({activeRun.assistant_name}).
+                  </div>
+                )}
+
                 {/* REQ-DEL-02 Store Pickup Banner */}
                 {!isPickupConfirmed ? (
                   <div className="p-3 my-2 border border-warning rounded bg-warning-subtle d-flex align-items-center justify-content-between">
@@ -449,13 +464,15 @@ function DriverDelivery() {
                         truck has been loaded at the regional store.
                       </div>
                     </div>
-                    <button
-                      className="btn btn-warning btn-sm fw-bold px-3 ms-3 text-nowrap"
-                      onClick={handleConfirmPickup}
-                      disabled={actionLoading}
-                    >
-                      {actionLoading ? "Processing..." : "Confirm Pickup & Depart"}
-                    </button>
+                    {canExecuteActions && (
+                      <button
+                        className="btn btn-warning btn-sm fw-bold px-3 ms-3 text-nowrap"
+                        onClick={handleConfirmPickup}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? "Processing..." : "Confirm Pickup & Depart"}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="p-2 my-2 border border-success rounded bg-success-subtle text-success small d-flex align-items-center">
@@ -469,7 +486,7 @@ function DriverDelivery() {
               </div>
 
               {/* Run Actions (REQ-DEL-01 & In-Route Assistance) */}
-              {isPickupConfirmed && activeRun.status !== "Completed" && (
+              {isPickupConfirmed && activeRun.status !== "Completed" && canExecuteActions && (
                 <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-3 flex-wrap gap-2">
                   <button
                     className="btn btn-outline-warning btn-sm d-flex align-items-center text-dark"
@@ -631,6 +648,7 @@ function DriverDelivery() {
                           </span>
                         )}
                         {isPending && (
+                          canExecuteActions ? (
                           <div className="d-flex gap-2">
                             <button
                               className="btn btn-sm btn-outline-success d-flex align-items-center"
@@ -681,6 +699,11 @@ function DriverDelivery() {
                               Failed
                             </button>
                           </div>
+                          ) : (
+                            <span className="badge bg-secondary-subtle text-secondary px-3 py-2">
+                              Pending Delivery
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

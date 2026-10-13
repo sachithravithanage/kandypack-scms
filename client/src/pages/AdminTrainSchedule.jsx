@@ -17,6 +17,7 @@ const API_BASE = apiUrl("/api");
 
 function AdminTrainSchedule() {
   const [trips, setTrips] = useState([]);
+  const roleId = Number(localStorage.getItem("roleId")) || 0;
   const [trains, setTrains] = useState([]);
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -172,17 +173,19 @@ function AdminTrainSchedule() {
             Manage Kandy hub outbound rail schedules, destinations, and capacities (REQ-RAIL-01)
           </p>
         </div>
-        <button
-          className="btn btn-primary d-inline-flex align-items-center gap-2"
-          onClick={() => {
-            setShowAddModal(true);
-            setError("");
-            setSuccess("");
-          }}
-        >
-          <IconPlus size={18} />
-          <span>Add Schedule</span>
-        </button>
+        {(roleId === 1 || roleId === 2) && (
+          <button
+            className="btn btn-primary d-inline-flex align-items-center gap-2"
+            onClick={() => {
+              setShowAddModal(true);
+              setError("");
+              setSuccess("");
+            }}
+          >
+            <IconPlus size={18} />
+            <span>Add Schedule</span>
+          </button>
+        )}
       </div>
 
       {error && (

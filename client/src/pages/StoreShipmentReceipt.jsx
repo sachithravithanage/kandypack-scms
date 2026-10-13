@@ -17,6 +17,8 @@ import {
 const API_BASE = apiUrl("/api");
 
 function StoreShipmentReceipt() {
+  const roleId = Number(localStorage.getItem("roleId")) || 0;
+  const canReceive = roleId === 1 || roleId === 3;
   const [stores, setStores] = useState([]);
   const [selectedStoreId, setSelectedStoreId] = useState("");
 
@@ -406,7 +408,7 @@ function StoreShipmentReceipt() {
                   Verify arriving quantities against the rail cargo manifest. Shortfalls will flag an automatic discrepancy.
                 </p>
               </div>
-              {manifest.length > 0 && (
+              {manifest.length > 0 && canReceive && (
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center"
@@ -486,6 +488,7 @@ function StoreShipmentReceipt() {
                                 onChange={(e) =>
                                   handleReceivedQtyChange(item.cargo_allocation_id, e.target.value)
                                 }
+                                disabled={submitting || !canReceive}
                                 required
                                 style={{
                                   borderColor: isDiscrepant
@@ -521,6 +524,7 @@ function StoreShipmentReceipt() {
                                 onChange={(e) =>
                                   handleNotesChange(item.cargo_allocation_id, e.target.value)
                                 }
+                                disabled={submitting || !canReceive}
                               />
                             </td>
                           </tr>
@@ -535,24 +539,30 @@ function StoreShipmentReceipt() {
                     <IconAlertCircle size={15} className="me-1" />
                     Recording receipt appends to the store ledger and auto-updates customer orders.
                   </div>
-                  <button
-                    type="submit"
-                    className="btn btn-primary d-inline-flex align-items-center"
-                    disabled={submitting || manifest.length === 0}
-                    style={{ padding: "9px 24px" }}
-                  >
-                    {submitting ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                        Recording Ledger...
-                      </>
-                    ) : (
-                      <>
-                        <IconShieldCheck size={18} className="me-2" />
-                        Confirm & Save Receipt
-                      </>
-                    )}
-                  </button>
+                  {canReceive ? (
+                    <button
+                      type="submit"
+                      className="btn btn-primary d-inline-flex align-items-center"
+                      disabled={submitting || manifest.length === 0}
+                      style={{ padding: "9px 24px" }}
+                    >
+                      {submitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                          Recording Ledger...
+                        </>
+                      ) : (
+                        <>
+                          <IconShieldCheck size={18} className="me-2" />
+                          Confirm & Save Receipt
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="badge bg-secondary-subtle text-secondary px-3 py-2">
+                      Read-Only View (Actions reserved for Regional Store Managers)
+                    </span>
+                  )}
                 </div>
               </form>
             )}

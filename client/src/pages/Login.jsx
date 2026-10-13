@@ -41,8 +41,8 @@ function Login() {
         // Dispatcher -> Land directly in Roster Schedule portal
         navigate("/roster");
       } else if (user.roleId === 6) {
-        // Customer -> Land directly in Profile
-        navigate("/profile");
+        // Customer -> Land directly in My Orders portal
+        navigate("/orders");
       } else {
         // Admin or Store Manager -> Dashboard
         navigate("/dashboard");

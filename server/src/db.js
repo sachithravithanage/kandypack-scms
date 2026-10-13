@@ -186,9 +186,12 @@ function executeMockQuery(sql, params = []) {
   const s = sql.trim().toUpperCase();
 
   // 0. User login lookup: SELECT * FROM user WHERE email = ?
-  if (s.includes('FROM USER WHERE EMAIL = ?')) {
+  if (s.includes('WHERE U.EMAIL = ?') || s.includes('WHERE EMAIL = ?') || s.includes('FROM USER WHERE EMAIL = ?')) {
     const email = params[0];
-    const match = mockDb.users.filter(u => u.email.toLowerCase() === String(email).toLowerCase());
+    const match = mockDb.users.filter(u => u.email.toLowerCase() === String(email).toLowerCase()).map(u => ({
+      ...u,
+      role: u.role || (u.role_id === 1 ? 'Administrator' : u.role_id === 2 ? 'Dispatcher' : u.role_id === 3 ? 'Regional Store Manager' : u.role_id === 4 ? 'Driver' : u.role_id === 5 ? 'Assistant' : 'Customer')
+    }));
     return [match];
   }
 
@@ -902,12 +905,33 @@ function executeMockQuery(sql, params = []) {
 
 module.exports = {
         query: async (sql, params = []) => {
-                return pool.query(sql, params);
+                try {
+                        return await pool.query(sql, params);
+                } catch (err) {
+                        if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
+                                return executeMockQuery(sql, params);
+                        }
+                        throw err;
+                }
         },
         execute: async (sql, params) => {
                 return module.exports.query(sql, params);
         },
         getConnection: async () => {
-                return pool.getConnection();
+                try {
+                        return await pool.getConnection();
+                } catch (err) {
+                        if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
+                                return {
+                                        query: async (sql, params = []) => executeMockQuery(sql, params),
+                                        execute: async (sql, params = []) => executeMockQuery(sql, params),
+                                        beginTransaction: async () => {},
+                                        commit: async () => {},
+                                        rollback: async () => {},
+                                        release: () => {}
+                                };
+                        }
+                        throw err;
+                }
         }
 };

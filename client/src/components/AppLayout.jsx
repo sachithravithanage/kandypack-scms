@@ -44,7 +44,7 @@ const navItems = [
     to: "/orders",
     label: "My Orders",
     Icon: IconPackage,
-    allowedRoles: [1, 2, 6],
+    allowedRoles: [1, 6],
   },
   {
     to: "/orders/new",
@@ -86,7 +86,7 @@ const navItems = [
     to: "/delivery",
     label: "Delivery Runs",
     Icon: IconTruck,
-    allowedRoles: [1, 2, 3, 4, 5],
+    allowedRoles: [1, 4, 5],
   },
   { to: "/admin/users", label: "Users", Icon: IconUsers, allowedRoles: [1] },
   {

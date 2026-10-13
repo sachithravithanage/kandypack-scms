@@ -52,7 +52,7 @@ function App() {
           <Route
             path="/delivery"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5]}>
+              <ProtectedRoute allowedRoles={[1, 4, 5]}>
                 <DriverDelivery />
               </ProtectedRoute>
             }
@@ -84,7 +84,7 @@ function App() {
           <Route
             path="/store/receipt"
             element={
-              <ProtectedRoute allowedRoles={[1]}>
+              <ProtectedRoute allowedRoles={[1, 3]}>
                 <StoreShipmentReceipt />
               </ProtectedRoute>
             }
@@ -108,7 +108,7 @@ function App() {
           <Route
             path="/admin/inventory"
             element={
-              <ProtectedRoute allowedRoles={[1, 3]}>
+              <ProtectedRoute allowedRoles={[1]}>
                 <AdminInventory />
               </ProtectedRoute>
             }
@@ -132,7 +132,7 @@ function App() {
           <Route
             path="/orders"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 6]}>
+              <ProtectedRoute allowedRoles={[1, 6]}>
                 <MyOrders />
               </ProtectedRoute>
             }
@@ -140,7 +140,7 @@ function App() {
           <Route
             path="/my-orders"
             element={
-              <ProtectedRoute allowedRoles={[1, 2, 6]}>
+              <ProtectedRoute allowedRoles={[1, 6]}>
                 <MyOrders />
               </ProtectedRoute>
             }

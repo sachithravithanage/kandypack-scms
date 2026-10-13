@@ -13,6 +13,8 @@ import {
 const API_BASE = apiUrl("/api");
 
 function RosterSchedule() {
+  const roleId = Number(localStorage.getItem("roleId")) || 0;
+  const canEditRoster = roleId === 1 || roleId === 2;
   const [schedules, setSchedules] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [trucks, setTrucks] = useState([]);
@@ -181,13 +183,15 @@ function RosterSchedule() {
             Schedule truck runs, enforce 7-day advance booking, prevent double-bookings, and track weekly limits.
           </p>
         </div>
-        <button
-          className="btn btn-primary btn-sm d-flex align-items-center fw-bold"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          <IconPlus size={16} className="me-1" />
-          {showAddForm ? "Close Form" : "Schedule New Run"}
-        </button>
+        {canEditRoster && (
+          <button
+            className="btn btn-primary btn-sm d-flex align-items-center fw-bold"
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            <IconPlus size={16} className="me-1" />
+            {showAddForm ? "Close Form" : "Schedule New Run"}
+          </button>
+        )}
       </div>
 
       {/* Schedule Form */}
@@ -333,7 +337,7 @@ function RosterSchedule() {
                   <th>Driver & Assistant</th>
                   <th>Date & Time</th>
                   <th>Status</th>
-                  <th>Action</th>
+                  {canEditRoster && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -371,16 +375,18 @@ function RosterSchedule() {
                         {s.status}
                       </span>
                     </td>
-                    <td>
-                      <button
-                        className="btn btn-outline-warning btn-sm"
-                        onClick={() => setOverrideScheduleId(s.truck_schedule_id)}
-                        title="Dispatcher Override"
-                      >
-                        <IconAlertTriangle size={14} className="me-1" />
-                        Override
-                      </button>
-                    </td>
+                    {canEditRoster && (
+                      <td>
+                        <button
+                          className="btn btn-outline-warning btn-sm"
+                          onClick={() => setOverrideScheduleId(s.truck_schedule_id)}
+                          title="Dispatcher Override"
+                        >
+                          <IconAlertTriangle size={14} className="me-1" />
+                          Override
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
