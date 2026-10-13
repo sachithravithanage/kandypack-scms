@@ -22,6 +22,8 @@ import {
 const API_BASE = apiUrl("/api");
 
 function RosterSchedule() {
+  const roleId = Number(localStorage.getItem("roleId")) || 0;
+  const canEditRoster = roleId === 1 || roleId === 2;
   const [schedules, setSchedules] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [trucks, setTrucks] = useState([]);

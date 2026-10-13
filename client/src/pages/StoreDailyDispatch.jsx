@@ -23,6 +23,8 @@ import {
 const API_BASE = apiUrl("/api");
 
 function StoreDailyDispatch() {
+        const roleId = Number(localStorage.getItem("roleId")) || 0;
+        const canDispatch = roleId === 1 || roleId === 3;
         const [stores, setStores] = useState([]);
         const [selectedStoreId, setSelectedStoreId] = useState("");
 
@@ -475,15 +477,17 @@ function StoreDailyDispatch() {
                                                                                 </small>
                                                                         </div>
 
-                                                                        <button
-                                                                                type="button"
-                                                                                className="btn btn-sm btn-primary d-inline-flex align-items-center"
-                                                                                onClick={() => handleOpenAssignModal(schedule.truck_schedule_id, schedule.route_name)}
-                                                                                style={{ padding: "7px 16px" }}
-                                                                        >
-                                                                                <IconPlus size={15} className="me-1.5" />
-                                                                                Assign Order to Run
-                                                                        </button>
+                                                                        {canDispatch && (
+                                                                                <button
+                                                                                        type="button"
+                                                                                        className="btn btn-sm btn-primary d-inline-flex align-items-center"
+                                                                                        onClick={() => handleOpenAssignModal(schedule.truck_schedule_id, schedule.route_name)}
+                                                                                        style={{ padding: "7px 16px" }}
+                                                                                >
+                                                                                        <IconPlus size={15} className="me-1.5" />
+                                                                                        Assign Order to Run
+                                                                                </button>
+                                                                        )}
                                                                 </div>
 
                                                                 {/* Assigned Stops for this run */}
