@@ -80,12 +80,15 @@ function Dashboard() {
         // Fetch notifications for top alert badge (non-blocking)
         if (storedUserId) {
           try {
-            const notifRes = await axios.get(apiUrl(`/api/notifications/${storedUserId}`));
+            const notifRes = await axios.get(
+              apiUrl(`/api/notifications/${storedUserId}`),
+              authHeader
+            );
             if (isMounted) {
               setRecentNotifs(notifRes.data?.slice(0, 5) || []);
             }
           } catch {
-            // Non-blocking notification failure
+            // Non-blocking notification badge failure
           }
         }
 
