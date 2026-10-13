@@ -37,19 +37,19 @@ if (isTiDb && (!password || password === 'KandyPackLocalDb2026!')) {
   password = 'CA1C4000fIE7agjV';
 }
 
+const defaultPort = isTiDb ? 4000 : 3306;
+const defaultUser = isTiDb ? '3RMV7RtvWn5FFds.root' : 'root';
+
 const poolConfig = {
   host,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 4000,
-  user: process.env.DB_USER || '3RMV7RtvWn5FFds.root',
-  password: password || 'CA1C4000fIE7agjV',
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : defaultPort,
+  user: process.env.DB_USER || defaultUser,
+  password: password || (isTiDb ? 'CA1C4000fIE7agjV' : ''),
   database: process.env.DB_NAME || 'kandypack',
   connectTimeout: 25000,
   waitForConnections: true,
   connectionLimit: 10,
-  ssl: {
-    minVersion: 'TLSv1.2',
-    rejectUnauthorized: false
-  }
+  ...(isTiDb ? { ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false } } : {})
 };
 
 pool = mysql.createPool(poolConfig);
