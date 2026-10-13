@@ -23,10 +23,28 @@ const productsRouter = require("./routes/products");
 const routesRouter = require("./routes/routes");
 
 const app = express();
+// Strip stale HSTS rules so client browsers do not force HTTPS on plain HTTP deployments
+app.use((req, res, next) => {
+  res.setHeader("Strict-Transport-Security", "max-age=0");
+  next();
+});
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
     frameguard: { action: "deny" },
+    hsts: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'", "*"],
+        upgradeInsecureRequests: null,
+      },
+    },
   })
 );
 app.use(cors());
@@ -37,6 +55,9 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 

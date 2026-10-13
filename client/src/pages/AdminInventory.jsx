@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
@@ -21,9 +22,24 @@ import * as XLSX from "xlsx";
 function AdminInventory() {
   const [stock, setStock] = useState([]);
   const [history, setHistory] = useState([]);
-  const [search, setSearch] = useState(
-    () => new URLSearchParams(window.location.search).get("search") || ""
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [search, setSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [statusFilter, setStatusFilter] = useState("ALL"); // ALL | OPTIMAL | LOW_STOCK | OUT_OF_STOCK
   const [sortBy, setSortBy] = useState("id"); // id | name | price | physical | atp | valuation
   const [sortOrder, setSortOrder] = useState("asc"); // asc | desc
@@ -585,13 +601,13 @@ function AdminInventory() {
                 className="form-control"
                 placeholder="Search SKU name or ID..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
               {search && (
                 <button
                   className="btn btn-outline-secondary"
                   type="button"
-                  onClick={() => setSearch("")}
+                  onClick={() => handleSearchChange("")}
                 >
                   Clear
                 </button>

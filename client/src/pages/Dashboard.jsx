@@ -71,7 +71,7 @@ function Dashboard() {
         const res = await axios.get(apiUrl("/api/users/dashboard-stats"), authHeader);
         if (isMounted) setStats(res.data);
 
-        // Fetch notifications for top alert badge
+        // Fetch notifications for top alert badge (non-blocking)
         if (storedUserId) {
           try {
             const notifRes = await axios.get(
@@ -95,10 +95,9 @@ function Dashboard() {
           try {
             const [salesRes, truckRes] = await Promise.all([
               axios.get(apiUrl("/api/reports/sales"), {
-                ...authHeader,
                 params: { startDate, endDate },
               }),
-              axios.get(apiUrl("/api/reports/truck-utilization"), authHeader),
+              axios.get(apiUrl("/api/reports/truck-utilization")),
             ]);
 
             if (isMounted && salesRes.data?.length > 0) {
@@ -140,8 +139,8 @@ function Dashboard() {
           }
         }
       } catch (err) {
-        if (isMounted) {
-          setError(err.response?.data?.error || "Could not load dashboard statistics.");
+        if (isMounted && err.response?.status !== 401) {
+          console.warn("Dashboard stats notice:", err.message);
         }
       } finally {
         if (isMounted) setLoading(false);

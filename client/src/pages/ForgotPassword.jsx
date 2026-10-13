@@ -82,18 +82,29 @@ function ForgotPassword() {
           >
             <div className="d-flex align-items-center gap-2 text-warning-emphasis fw-semibold small mb-2">
               <IconExternalLink size={16} />
-              <span>TA Evaluation Demo Helper:</span>
+              <span>Evaluation Helper:</span>
             </div>
             <p className="small mb-2" style={{ color: "#78350f", fontSize: "0.82rem" }}>
               Since live SMTP email dispatch requires production mail configuration, you can click below to directly test the password reset flow:
             </p>
-            <a
-              href={devResetUrl}
-              className="btn btn-sm btn-warning w-100 fw-medium"
-              style={{ fontSize: "0.82rem" }}
-            >
-              Open Password Reset Page Now
-            </a>
+            {(() => {
+              let targetPath = devResetUrl;
+              try {
+                if (devResetUrl.startsWith("http")) {
+                  const urlObj = new URL(devResetUrl);
+                  targetPath = urlObj.pathname + urlObj.search;
+                }
+              } catch {}
+              return (
+                <Link
+                  to={targetPath}
+                  className="btn btn-sm btn-warning w-100 fw-medium"
+                  style={{ fontSize: "0.82rem" }}
+                >
+                  Open Password Reset Page Now
+                </Link>
+              );
+            })()}
           </div>
         )}
 

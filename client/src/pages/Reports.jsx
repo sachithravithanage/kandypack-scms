@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
@@ -61,7 +62,24 @@ function Reports() {
   const [startDate, setStartDate]   = useState("2026-01-01");
   const [endDate, setEndDate]       = useState("2026-12-31");
   const [limit, setLimit]           = useState(10);
-  const [tableSearch, setTableSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
+  const [tableSearch, setTableSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    setTableSearch(urlSearch);
+  }, [urlSearch]);
+
+  const handleTableSearchChange = (val) => {
+    setTableSearch(val);
+    const nextParams = new URLSearchParams(searchParams);
+    if (val.trim()) {
+      nextParams.set("search", val);
+    } else {
+      nextParams.delete("search");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
   const [viewMode, setViewMode]     = useState("both"); // "table", "chart", "both"
   const [rows, setRows]             = useState([]);
   const [columns, setColumns]       = useState([]);
@@ -525,13 +543,13 @@ function Reports() {
                   className="form-control border-start-0"
                   placeholder="Filter table rows..."
                   value={tableSearch}
-                  onChange={(e) => setTableSearch(e.target.value)}
+                  onChange={(e) => handleTableSearchChange(e.target.value)}
                 />
                 {tableSearch && (
                   <button
                     className="btn btn-outline-secondary border"
                     type="button"
-                    onClick={() => setTableSearch("")}
+                    onClick={() => handleTableSearchChange("")}
                   >
                     ✕
                   </button>

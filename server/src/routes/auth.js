@@ -270,8 +270,16 @@ router.post("/forgot-password", passwordResetLimiter, async (req, res) => {
       [user.user_id, tokenHash, expiresAt]
     );
 
-    // Construct reset link for client
-    const clientOrigin = req.headers.origin || "http://localhost:5173";
+    // Construct reset link for client (dynamic host detection)
+    let clientOrigin = req.headers.origin;
+    if (!clientOrigin && req.headers.referer) {
+      try {
+        clientOrigin = new URL(req.headers.referer).origin;
+      } catch {}
+    }
+    if (!clientOrigin) {
+      clientOrigin = "http://localhost";
+    }
     const resetUrl = `${clientOrigin}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
     console.log(`[PASSWORD RESET LOG] Initiated for ${email}: ${resetUrl}`);

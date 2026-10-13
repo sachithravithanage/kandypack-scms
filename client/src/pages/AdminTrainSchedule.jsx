@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
@@ -28,7 +29,24 @@ function AdminTrainSchedule() {
         const [success, setSuccess] = useState("");
 
         const [showAddModal, setShowAddModal] = useState(false);
-        const [searchQuery, setSearchQuery] = useState("");
+        const [searchParams, setSearchParams] = useSearchParams();
+        const urlSearch = searchParams.get("search") || "";
+        const [searchQuery, setSearchQuery] = useState(urlSearch);
+
+        useEffect(() => {
+                setSearchQuery(urlSearch);
+        }, [urlSearch]);
+
+        const handleSearchChange = (val) => {
+                setSearchQuery(val);
+                const nextParams = new URLSearchParams(searchParams);
+                if (val.trim()) {
+                        nextParams.set("search", val);
+                } else {
+                        nextParams.delete("search");
+                }
+                setSearchParams(nextParams, { replace: true });
+        };
         const [filterCity, setFilterCity] = useState("");
         const [filterStatus, setFilterStatus] = useState("");
 
@@ -408,8 +426,17 @@ function AdminTrainSchedule() {
                                                                 className="form-control"
                                                                 placeholder="Search trip / train..."
                                                                 value={searchQuery}
-                                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                                onChange={(e) => handleSearchChange(e.target.value)}
                                                         />
+                                                        {searchQuery && (
+                                                                <button
+                                                                        type="button"
+                                                                        className="btn btn-outline-secondary"
+                                                                        onClick={() => handleSearchChange("")}
+                                                                >
+                                                                        ✕
+                                                                </button>
+                                                        )}
                                                 </div>
                                                 <div className="d-flex align-items-center gap-1">
                                                         <IconFilter size={16} className="text-muted" />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
@@ -29,8 +30,25 @@ function StoreDailyDispatch() {
         const [suggestions, setSuggestions] = useState([]);
         const [availableOrders, setAvailableOrders] = useState([]);
 
-        const [dispatchSearch, setDispatchSearch] = useState("");
+        const [searchParams, setSearchParams] = useSearchParams();
+        const urlSearch = searchParams.get("search") || "";
+        const [dispatchSearch, setDispatchSearch] = useState(urlSearch);
         const [orderSearch, setOrderSearch] = useState("");
+
+        useEffect(() => {
+                setDispatchSearch(urlSearch);
+        }, [urlSearch]);
+
+        const handleDispatchSearchChange = (val) => {
+                setDispatchSearch(val);
+                const nextParams = new URLSearchParams(searchParams);
+                if (val.trim()) {
+                        nextParams.set("search", val);
+                } else {
+                        nextParams.delete("search");
+                }
+                setSearchParams(nextParams, { replace: true });
+        };
 
         const [loading, setLoading] = useState(true);
         const [refreshing, setRefreshing] = useState(false);
@@ -379,9 +397,18 @@ function StoreDailyDispatch() {
                                                                 className="form-control"
                                                                 placeholder="Search runs / routes..."
                                                                 value={dispatchSearch}
-                                                                onChange={(e) => setDispatchSearch(e.target.value)}
+                                                                onChange={(e) => handleDispatchSearchChange(e.target.value)}
                                                                 disabled={scheduleList.length === 0}
                                                         />
+                                                        {dispatchSearch && (
+                                                                <button
+                                                                        type="button"
+                                                                        className="btn btn-outline-secondary"
+                                                                        onClick={() => handleDispatchSearchChange("")}
+                                                                >
+                                                                        ✕
+                                                                </button>
+                                                        )}
                                                 </div>
                                                 <button
                                                         type="button"
@@ -412,7 +439,7 @@ function StoreDailyDispatch() {
                                                 <button
                                                         type="button"
                                                         className="btn btn-sm btn-outline-secondary"
-                                                        onClick={() => setDispatchSearch("")}
+                                                        onClick={() => handleDispatchSearchChange("")}
                                                 >
                                                         Clear Search
                                                 </button>
