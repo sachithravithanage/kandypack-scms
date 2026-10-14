@@ -41,7 +41,7 @@ BEGIN
   ) / 60.0;
 
   -- -----------------------------------------------------------------------
-  -- GUARD 1: REQ-SCHED-02 - Driver Minimum Rest Gap Check (< 2 Hours)
+  -- GUARD 1: REQ-SCHED-02 - Driver No Consecutive Routes (Rest Gap >= 2 Hours)
   -- -----------------------------------------------------------------------
   SELECT COUNT(*) INTO v_rest_violation_count
   FROM truck_schedule ts
@@ -61,21 +61,51 @@ BEGIN
 
   IF v_rest_violation_count > 0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Violation REQ-SCHED-02: Driver must have at least 2 hours rest between shifts (Overlap/Rest Gap Guard).';
+      SET MESSAGE_TEXT = 'Violation REQ-SCHED-02: Drivers cannot run 2 consecutive routes without at least 2 hours rest between shifts.';
   END IF;
 
   -- -----------------------------------------------------------------------
-  -- GUARD 2: REQ-SCHED-03 - Assistant Maximum 2 Routes per Day
+  -- GUARD 2: REQ-SCHED-03 - Assistant Max 2 Consecutive Routes
+  -- Assistants cannot run for more than 2 consecutive routes without a rest break (>= v_min_rest_hours).
   -- -----------------------------------------------------------------------
   SELECT COUNT(*) INTO v_asst_route_count
-  FROM truck_schedule ts
-  WHERE ts.assistant_id = NEW.assistant_id
-    AND ts.scheduled_date = NEW.scheduled_date
-    AND ts.status != 'Cancelled';
+  FROM truck_schedule r1
+  JOIN truck_schedule r2 ON r1.assistant_id = r2.assistant_id
+                         AND r1.scheduled_date = r2.scheduled_date
+                         AND r1.truck_schedule_id != r2.truck_schedule_id
+                         AND r1.status != 'Cancelled'
+                         AND r2.status != 'Cancelled'
+  WHERE r1.assistant_id = NEW.assistant_id
+    AND r1.scheduled_date = NEW.scheduled_date
+    AND (
+      -- Case 1: r1 -> r2 -> NEW (all gaps < min_rest)
+      (
+        r1.end_time <= r2.start_time
+        AND TIMESTAMPDIFF(MINUTE, r1.end_time, r2.start_time) < (v_min_rest_hours * 60)
+        AND r2.end_time <= NEW.start_time
+        AND TIMESTAMPDIFF(MINUTE, r2.end_time, NEW.start_time) < (v_min_rest_hours * 60)
+      )
+      OR
+      -- Case 2: r1 -> NEW -> r2 (all gaps < min_rest)
+      (
+        r1.end_time <= NEW.start_time
+        AND TIMESTAMPDIFF(MINUTE, r1.end_time, NEW.start_time) < (v_min_rest_hours * 60)
+        AND NEW.end_time <= r2.start_time
+        AND TIMESTAMPDIFF(MINUTE, NEW.end_time, r2.start_time) < (v_min_rest_hours * 60)
+      )
+      OR
+      -- Case 3: NEW -> r1 -> r2 (all gaps < min_rest)
+      (
+        NEW.end_time <= r1.start_time
+        AND TIMESTAMPDIFF(MINUTE, NEW.end_time, r1.start_time) < (v_min_rest_hours * 60)
+        AND r1.end_time <= r2.start_time
+        AND TIMESTAMPDIFF(MINUTE, r1.end_time, r2.start_time) < (v_min_rest_hours * 60)
+      )
+    );
 
-  IF v_asst_route_count >= 2 THEN
+  IF v_asst_route_count > 0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Violation REQ-SCHED-03: Assistant cannot be scheduled for more than two routes per day.';
+      SET MESSAGE_TEXT = 'Violation REQ-SCHED-03: Assistants cannot run for more than 2 consecutive routes without a mandatory rest break.';
   END IF;
 
   -- -----------------------------------------------------------------------

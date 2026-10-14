@@ -302,7 +302,8 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
     }
 
     // =========================================================================
-    // RULE 3 — REQ-SCHED-02: Driver needs configurable rest gap since last run that day
+    // RULE 3 — REQ-SCHED-02: Driver cannot run 2 consecutive routes without rest
+    // Enforces minimum rest gap (driver_min_rest_hours, default 2h) between shifts
     // =========================================================================
     let minRestHours = 2;
     try {
@@ -318,15 +319,27 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
       [driverId, scheduledDate]
     );
 
+    const newStartDt = new Date(`${scheduledDate}T${startTime}`);
+    const newEndDt = new Date(`${scheduledDate}T${endTime}`);
+
     for (const run of driverRunsToday) {
-      const newStart = new Date(`${scheduledDate}T${startTime}`);
-      const prevEnd = new Date(`${scheduledDate}T${run.end_time}`);
-      const gapHours = Math.abs(newStart - prevEnd) / 3600000;
+      const runStartDt = new Date(`${scheduledDate}T${run.start_time}`);
+      const runEndDt = new Date(`${scheduledDate}T${run.end_time}`);
+
+      let gapHours = Infinity;
+      if (newStartDt >= runEndDt) {
+        gapHours = (newStartDt - runEndDt) / 3600000;
+      } else if (runStartDt >= newEndDt) {
+        gapHours = (runStartDt - newEndDt) / 3600000;
+      } else {
+        gapHours = 0; // Direct overlap
+      }
+
       if (gapHours < minRestHours) {
         violations.push({
           code: 'REQ-SCHED-02',
-          rule: 'Driver Minimum Rest Gap',
-          message: `Driver needs at least ${minRestHours} hours rest between runs on the same day. Gap to run #${run.truck_schedule_id} is only ${gapHours.toFixed(1)}h.`
+          rule: 'Driver No Consecutive Routes',
+          message: `Drivers cannot run 2 consecutive routes without at least ${minRestHours} hours rest between shifts. Gap to run #${run.truck_schedule_id} is only ${gapHours.toFixed(1)}h.`
         });
         break;
       }
@@ -368,18 +381,47 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
     }
 
     // =========================================================================
-    // RULE 5 — REQ-SCHED-03: Assistant max 2 consecutive routes on the same day
+    // RULE 5 — REQ-SCHED-03: Assistant cannot run more than 2 consecutive routes
+    // An assistant can run up to 2 routes back-to-back, but must have a rest break (>= minRestHours) before a 3rd
     // =========================================================================
     const [assistantRunsToday] = await db.query(
-      `SELECT COUNT(*) AS total FROM truck_schedule
-       WHERE assistant_id = ? AND scheduled_date = ? AND status != 'Cancelled'`,
+      `SELECT truck_schedule_id, start_time, end_time FROM truck_schedule
+       WHERE assistant_id = ? AND scheduled_date = ? AND status != 'Cancelled'
+       ORDER BY start_time ASC`,
       [assistantId, scheduledDate]
     );
-    if (assistantRunsToday[0].total >= 2) {
+
+    const allAssistantRuns = [
+      ...assistantRunsToday.map(r => ({
+        start: String(r.start_time).slice(0, 5),
+        end: String(r.end_time).slice(0, 5)
+      })),
+      { start: String(startTime).slice(0, 5), end: String(endTime).slice(0, 5) }
+    ].sort((a, b) => a.start.localeCompare(b.start));
+
+    let currentConsecutive = 1;
+    let maxConsecutive = 1;
+
+    for (let i = 0; i < allAssistantRuns.length - 1; i++) {
+      const curEnd = new Date(`${scheduledDate}T${allAssistantRuns[i].end}`);
+      const nextStart = new Date(`${scheduledDate}T${allAssistantRuns[i + 1].start}`);
+      const gapHours = (nextStart - curEnd) / 3600000;
+
+      if (gapHours < minRestHours) {
+        currentConsecutive += 1;
+        if (currentConsecutive > maxConsecutive) {
+          maxConsecutive = currentConsecutive;
+        }
+      } else {
+        currentConsecutive = 1;
+      }
+    }
+
+    if (maxConsecutive > 2) {
       violations.push({
         code: 'REQ-SCHED-03',
-        rule: 'Assistant Max Routes',
-        message: `Assistant is already assigned to ${assistantRunsToday[0].total} routes on this day (maximum allowed is 2).`
+        rule: 'Assistant Max Consecutive Routes',
+        message: `Assistants cannot run for more than 2 consecutive routes without a mandatory rest break (${minRestHours}h). Current schedule creates a chain of ${maxConsecutive} consecutive routes.`
       });
     }
 
