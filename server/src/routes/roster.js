@@ -207,7 +207,7 @@ router.get('/', requireAuth, async (req, res) => {
         rl.actual_start_time,
         rl.actual_end_time,
         rl.actual_hours_worked
-      ORDER BY ts.scheduled_date DESC, ts.start_time ASC
+      ORDER BY ts.truck_schedule_id DESC
     `;
 
 
