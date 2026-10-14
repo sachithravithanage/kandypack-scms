@@ -95,7 +95,7 @@ const navItems = [
     to: "/delivery",
     label: "Delivery Runs",
     Icon: IconTruck,
-    allowedRoles: [2, 4, 5],
+    allowedRoles: [4, 5],
   },
   {
     to: "/orders/new",
