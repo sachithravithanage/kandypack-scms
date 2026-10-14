@@ -184,24 +184,26 @@ function RosterSchedule() {
     return found ? Number(found.hours_worked_this_week || 0).toFixed(1) : null;
   };
 
-  // Filtered schedules
+  // Filtered schedules (sorted newest first by schedule ID)
   const filteredSchedules = useMemo(() => {
-    return schedules.filter((s) => {
-      const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
-      if (!matchesStatus) return false;
-      if (!searchFilter.trim()) return true;
-      const term = searchFilter.toLowerCase();
-      const schedDate = s.scheduled_date ? new Date(s.scheduled_date).toISOString().slice(0, 10) : "";
-      return (
-        String(s.truck_schedule_id).toLowerCase().includes(term) ||
-        (s.route_name && s.route_name.toLowerCase().includes(term)) ||
-        (s.store_name && s.store_name.toLowerCase().includes(term)) ||
-        (s.plate_number && s.plate_number.toLowerCase().includes(term)) ||
-        (s.driver_name && s.driver_name.toLowerCase().includes(term)) ||
-        (s.assistant_name && s.assistant_name.toLowerCase().includes(term)) ||
-        schedDate.includes(term)
-      );
-    });
+    return schedules
+      .filter((s) => {
+        const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
+        if (!matchesStatus) return false;
+        if (!searchFilter.trim()) return true;
+        const term = searchFilter.toLowerCase();
+        const schedDate = s.scheduled_date ? new Date(s.scheduled_date).toISOString().slice(0, 10) : "";
+        return (
+          String(s.truck_schedule_id).toLowerCase().includes(term) ||
+          (s.route_name && s.route_name.toLowerCase().includes(term)) ||
+          (s.store_name && s.store_name.toLowerCase().includes(term)) ||
+          (s.plate_number && s.plate_number.toLowerCase().includes(term)) ||
+          (s.driver_name && s.driver_name.toLowerCase().includes(term)) ||
+          (s.assistant_name && s.assistant_name.toLowerCase().includes(term)) ||
+          schedDate.includes(term)
+        );
+      })
+      .sort((a, b) => Number(b.truck_schedule_id) - Number(a.truck_schedule_id));
   }, [schedules, statusFilter, searchFilter]);
 
   // Export to Excel
