@@ -14,7 +14,8 @@ import {
   IconRefresh,
   IconShieldCheck,
   IconFileSpreadsheet,
-  IconSearch
+  IconSearch,
+  IconClock
 } from "@tabler/icons-react";
 
 const API_BASE = apiUrl("/api");
@@ -219,12 +220,28 @@ function StoreShipmentReceipt() {
     setReceivedInputs(filled);
   };
 
+  const isTripArrived = useMemo(() => {
+    if (!tripInfo) return false;
+    if (tripInfo.status === "Arrived") return true;
+    if (tripInfo.arrival_datetime && new Date(tripInfo.arrival_datetime) <= new Date()) return true;
+    return false;
+  }, [tripInfo]);
+
   // Submit manifest reconciliation
   const handleConfirmReceipt = async (e) => {
     e.preventDefault();
     if (!selectedStoreId || !selectedTripId) return;
     setError("");
     setSuccess("");
+
+    if (!isTripArrived) {
+      setError(
+        `Cannot confirm receipt: Train trip #${selectedTripId} has not arrived yet (Scheduled arrival: ${
+          tripInfo ? new Date(tripInfo.arrival_datetime).toLocaleString() : "N/A"
+        }). Reconcile is only allowed after arrival.`
+      );
+      return;
+    }
 
     // Validate inputs
     for (const item of manifest) {
@@ -400,11 +417,14 @@ function StoreShipmentReceipt() {
               {incomingTrips.length === 0 ? (
                 <option value="">No incoming loaded trips found for this store</option>
               ) : (
-                incomingTrips.map((t) => (
-                  <option key={t.trip_id} value={t.trip_id}>
-                    Trip #{t.trip_id} — {t.train_name} | Arr: {new Date(t.arrival_datetime).toLocaleString()} ({t.status})
-                  </option>
-                ))
+                incomingTrips.map((t) => {
+                  const arrived = t.status === "Arrived" || Boolean(t.is_arrived) || (t.arrival_datetime && new Date(t.arrival_datetime) <= new Date());
+                  return (
+                    <option key={t.trip_id} value={t.trip_id}>
+                      Trip #{t.trip_id} — {t.train_name} | Arr: {new Date(t.arrival_datetime).toLocaleString()} ({t.status}) {arrived ? "✓ Arrived" : "⏳ In Transit"}
+                    </option>
+                  );
+                })
               )}
             </select>
           </div>
@@ -444,7 +464,9 @@ function StoreShipmentReceipt() {
             </div>
             <div>
               <span className="fw-semibold text-dark">Trip Status:</span>{" "}
-              <span className="kp-badge kp-badge-info">{tripInfo.status}</span>
+              <span className={`kp-badge ${isTripArrived ? "kp-badge-success" : "kp-badge-warning"}`}>
+                {isTripArrived ? "Arrived" : tripInfo.status || "In Transit"}
+              </span>
             </div>
           </div>
         )}
@@ -596,7 +618,18 @@ function StoreShipmentReceipt() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleConfirmReceipt}>
+              <div>
+                {!isTripArrived && tripInfo && (
+                  <div className="alert alert-warning d-flex align-items-center mb-3 py-2 px-3" style={{ fontSize: "0.88rem" }}>
+                    <IconClock size={18} className="me-2 flex-shrink-0 text-warning" />
+                    <div>
+                      <strong>Train has not arrived yet:</strong> Scheduled arrival is{" "}
+                      <strong>{new Date(tripInfo.arrival_datetime).toLocaleString()}</strong>.
+                      Reconciliation and store inventory recording are locked until the train arrives.
+                    </div>
+                  </div>
+                )}
+                <form onSubmit={handleConfirmReceipt}>
                 <div className="table-responsive">
                   <table className="table align-middle" style={{ fontSize: "0.9rem" }}>
                     <thead className="table-light">
@@ -706,14 +739,20 @@ function StoreShipmentReceipt() {
                   {canReceive ? (
                     <button
                       type="submit"
-                      className="btn btn-primary d-inline-flex align-items-center"
-                      disabled={submitting || manifest.length === 0}
+                      className={`btn d-inline-flex align-items-center ${isTripArrived ? "btn-primary" : "btn-secondary"}`}
+                      disabled={submitting || manifest.length === 0 || !isTripArrived}
                       style={{ padding: "9px 24px" }}
+                      title={!isTripArrived ? "Cannot record receipt before train arrival" : undefined}
                     >
                       {submitting ? (
                         <>
                           <span className="spinner-border spinner-border-sm me-2" role="status"></span>
                           Recording Ledger...
+                        </>
+                      ) : !isTripArrived ? (
+                        <>
+                          <IconClock size={18} className="me-2" />
+                          Train Not Arrived Yet
                         </>
                       ) : (
                         <>
@@ -729,7 +768,8 @@ function StoreShipmentReceipt() {
                   )}
                 </div>
               </form>
-            )}
+            </div>
+          )}
           </div>
         </>
       ) : (
