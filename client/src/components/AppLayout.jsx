@@ -77,7 +77,7 @@ const navItems = [
     to: "/roster",
     label: "Roster Schedule",
     Icon: IconCalendarEvent,
-    allowedRoles: [1, 2],
+    allowedRoles: [2],
   },
   {
     to: "/store/receipt",
@@ -95,7 +95,7 @@ const navItems = [
     to: "/delivery",
     label: "Delivery Runs",
     Icon: IconTruck,
-    allowedRoles: [1, 2, 4, 5],
+    allowedRoles: [2, 4, 5],
   },
   {
     to: "/orders/new",
