@@ -71,6 +71,8 @@ function RosterSchedule() {
     assistantId: "",
     scheduledDate: "",
     startTime: "08:00",
+    overrideGuardrails: false,
+    overrideJustification: "",
   });
   const [derivedEndTime, setDerivedEndTime] = useState("");
 
@@ -224,31 +226,51 @@ function RosterSchedule() {
     XLSX.writeFile(wb, `Truck_Roster_Schedules_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // Handle Create Schedule
+  // Handle Create Schedule (with REQ-SCHED-05 Supervisor Override support)
   const handleCreateSchedule = async (e) => {
     e.preventDefault();
     try {
       setActionLoading(true);
       setError("");
-      await axios.post(
-        `${API_BASE}/roster`,
-        {
-          routeId: Number(formData.routeId),
-          truckId: Number(formData.truckId),
-          driverId: Number(formData.driverId),
-          assistantId: Number(formData.assistantId),
-          scheduledDate: formData.scheduledDate,
-          startTime: `${formData.startTime}:00`,
-        },
-        authHeader
+      const payload = {
+        routeId: Number(formData.routeId),
+        truckId: Number(formData.truckId),
+        driverId: Number(formData.driverId),
+        assistantId: Number(formData.assistantId),
+        scheduledDate: formData.scheduledDate,
+        startTime: `${formData.startTime}:00`,
+      };
+
+      if (formData.overrideGuardrails && formData.overrideJustification?.trim()) {
+        payload.overrideJustification = formData.overrideJustification.trim();
+      }
+
+      const res = await axios.post(`${API_BASE}/roster`, payload, authHeader);
+      const isOverridden = res.data?.overridden;
+      setSuccessMsg(
+        isOverridden
+          ? "Truck run created with Supervisor Override! Audit record logged into audit_log."
+          : "Truck run scheduled successfully!"
       );
-      setSuccessMsg("Truck run scheduled successfully!");
       setShowAddForm(false);
+      setFormData((prev) => ({
+        ...prev,
+        overrideGuardrails: false,
+        overrideJustification: "",
+      }));
       await loadData();
     } catch (err) {
       const data = err.response?.data;
       if (data?.violations && Array.isArray(data.violations) && data.violations.length > 0) {
-        setError(data.violations.map((v) => v.message).join(" • "));
+        setError(
+          data.violations.map((v) => v.message).join(" • ") +
+            (data.canOverride
+              ? " — To proceed with an emergency run, check 'Supervisor Override Guardrails' below and enter a justification."
+              : "")
+        );
+        if (data.canOverride) {
+          setFormData((prev) => ({ ...prev, overrideGuardrails: true }));
+        }
       } else {
         setError(data?.error || "Failed to schedule run.");
       }
@@ -587,6 +609,49 @@ function RosterSchedule() {
                   disabled
                 />
               </div>
+            </div>
+
+            {/* REQ-SCHED-05 Supervisor Override Section */}
+            <div className="mt-3 pt-3 border-top">
+              <div className="form-check form-switch mb-2">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="overrideGuardrailsCheck"
+                  checked={Boolean(formData.overrideGuardrails)}
+                  onChange={(e) =>
+                    setFormData({ ...formData, overrideGuardrails: e.target.checked })
+                  }
+                />
+                <label
+                  className="form-check-label small fw-bold text-danger d-flex align-items-center gap-1"
+                  htmlFor="overrideGuardrailsCheck"
+                >
+                  <IconAlertTriangle size={16} />
+                  Supervisor Override Guardrails (REQ-SCHED-05)
+                </label>
+              </div>
+
+              {formData.overrideGuardrails && (
+                <div className="p-3 rounded border border-danger-subtle bg-danger-subtle">
+                  <label className="form-label small fw-bold text-danger">
+                    Mandatory Override Justification (Logged to audit_log):
+                  </label>
+                  <textarea
+                    className="form-control form-control-sm bg-white"
+                    rows={2}
+                    placeholder="Enter official operational justification (e.g., Urgent emergency courier run approved by logistics manager)..."
+                    value={formData.overrideJustification || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, overrideJustification: e.target.value })
+                    }
+                    required={Boolean(formData.overrideGuardrails)}
+                  />
+                  <div className="form-text small text-muted mt-1">
+                    Allows scheduling within 7 days or under urgent exceptions. An immutable record with your User ID and reason will be written to <code>audit_log</code>.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
