@@ -220,4 +220,34 @@ BEGIN
   END IF;
 END //
 
+-- ============================================================
+-- Automatically updates train trip status based on trip timetable:
+--   1. 'Loaded' -> 'In Transit' once departure_datetime has arrived
+--   2. 'In Transit' -> 'Arrived' once arrival_datetime has arrived
+-- ============================================================
+DROP PROCEDURE IF EXISTS sp_advance_train_trip_statuses //
+CREATE PROCEDURE sp_advance_train_trip_statuses ()
+BEGIN
+  -- Advance departed loaded trains to 'In Transit'
+  UPDATE train_trip
+     SET status = 'In Transit'
+   WHERE status = 'Loaded'
+     AND departure_datetime <= NOW();
+
+  -- Advance arrived trains to 'Arrived'
+  UPDATE train_trip
+     SET status = 'Arrived'
+   WHERE status = 'In Transit'
+     AND arrival_datetime <= NOW();
+END //
+
+-- ============================================================
+-- Event: ev_advance_train_trip_statuses
+-- Runs every minute to advance train trip statuses along timetable
+-- ============================================================
+DROP EVENT IF EXISTS ev_advance_train_trip_statuses //
+CREATE EVENT ev_advance_train_trip_statuses
+ON SCHEDULE EVERY 1 MINUTE
+DO CALL sp_advance_train_trip_statuses() //
+
 DELIMITER ;
