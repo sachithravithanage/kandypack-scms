@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import AppLayout from "../components/AppLayout";
 import { apiUrl } from "../api";
 import {
@@ -177,7 +177,7 @@ function MyOrders() {
             [1, "Order Consignment Package", "—", "1", `${parseFloat(order.total_volume || 0).toFixed(2)} m³`, `LKR ${parseFloat(order.total_value || 0).toFixed(2)}`],
           ];
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 77,
         head: [["#", "Product Description", "Unit Price", "Qty", "Volume", "Line Total (LKR)"]],
         body: tableData,
@@ -263,10 +263,8 @@ function MyOrders() {
       const currentToken = localStorage.getItem("token");
       const headers = currentToken ? { Authorization: `Bearer ${currentToken}` } : {};
       const res = await axios.get(`${API_BASE}/orders/customer/${customerId}`, { headers });
-      // Sort orders newest first
-      const sorted = (res.data || []).sort(
-        (a, b) => new Date(b.order_date || 0) - new Date(a.order_date || 0) || b.order_id - a.order_id
-      );
+      // Newest first: order_id is auto-increment, so a higher id is always the latest order
+      const sorted = [...(res.data || [])].sort((a, b) => b.order_id - a.order_id);
       setOrders(sorted);
     } catch (err) {
       console.error("Error loading customer orders:", err);
