@@ -657,7 +657,7 @@ function NewOrder() {
               </div>
             </div>
 
-            {/* Delivery Date & 7-Day Lead Time Policy (REQ-ORD-02) */}
+            {/* Delivery Date & 7-Day Lead Time Policy */}
             <div className="kp-card">
               <h3 className="h6 mb-2 d-flex align-items-center gap-2">
                 <IconCalendar size={18} className="text-primary" />

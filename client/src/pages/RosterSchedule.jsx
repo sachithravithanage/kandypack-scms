@@ -156,7 +156,7 @@ function RosterSchedule() {
     loadData();
   }, [loadData]);
 
-  // Derived End Time Calculation (REQ-SCHED-01)
+  // Derived End Time Calculation
   useEffect(() => {
     if (formData.routeId && formData.startTime) {
       const selectedRoute = routes.find(
@@ -228,7 +228,7 @@ function RosterSchedule() {
     XLSX.writeFile(wb, `Truck_Roster_Schedules_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // Handle Create Schedule (with REQ-SCHED-05 Supervisor Override support)
+  // Handle Create Schedule (with Supervisor Override support)
   const handleCreateSchedule = async (e) => {
     e.preventDefault();
     try {
@@ -299,7 +299,7 @@ function RosterSchedule() {
     }
   };
 
-  // Handle Dispatcher Override (REQ-SCHED-05)
+  // Handle Dispatcher Override
   const handleApplyOverride = async () => {
     if (!overrideScheduleId || !justification) return;
     try {
@@ -613,7 +613,7 @@ function RosterSchedule() {
               </div>
             </div>
 
-            {/* REQ-SCHED-05 Supervisor Override Section */}
+            {/* Supervisor Override Section */}
             <div className="mt-3 pt-3 border-top">
               <div className="form-check form-switch mb-2">
                 <input
@@ -630,7 +630,7 @@ function RosterSchedule() {
                   htmlFor="overrideGuardrailsCheck"
                 >
                   <IconAlertTriangle size={16} />
-                  Supervisor Override Guardrails (REQ-SCHED-05)
+                  Supervisor Override Guardrails
                 </label>
               </div>
 

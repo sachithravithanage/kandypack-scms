@@ -61,7 +61,7 @@ BEGIN
 
   IF v_rest_violation_count > 0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Violation REQ-SCHED-02: Drivers cannot run 2 consecutive routes without at least 2 hours rest between shifts.';
+      SET MESSAGE_TEXT = 'Violation: Drivers cannot run 2 consecutive routes without at least 2 hours rest between shifts.';
   END IF;
 
   -- -----------------------------------------------------------------------
@@ -105,7 +105,7 @@ BEGIN
 
   IF v_asst_route_count > 0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Violation REQ-SCHED-03: Assistants cannot run for more than 2 consecutive routes without a mandatory rest break.';
+      SET MESSAGE_TEXT = 'Violation: Assistants cannot run for more than 2 consecutive routes without a mandatory rest break.';
   END IF;
 
   -- -----------------------------------------------------------------------
@@ -126,7 +126,7 @@ BEGIN
 
   IF (v_driver_weekly_hours + v_new_shift_hours) > 40.0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Violation REQ-SCHED-04: Driver weekly scheduled hours exceed statutory 40-hour cap.';
+      SET MESSAGE_TEXT = 'Violation: Driver weekly scheduled hours exceed statutory 40-hour cap.';
   END IF;
 
   -- Sum Assistant's planned & logged hours in this week
@@ -141,7 +141,7 @@ BEGIN
 
   IF (v_asst_weekly_hours + v_new_shift_hours) > 60.0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Violation REQ-SCHED-04: Assistant weekly scheduled hours exceed statutory 60-hour cap.';
+      SET MESSAGE_TEXT = 'Violation: Assistant weekly scheduled hours exceed statutory 60-hour cap.';
   END IF;
 
 END$$
@@ -178,7 +178,7 @@ BEGIN
 
     IF v_pickup_confirmed IS NULL THEN
       SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Violation REQ-DEL-02: Store pickup must be confirmed before recording delivery stop outcomes.';
+        SET MESSAGE_TEXT = 'Violation: Store pickup must be confirmed before recording delivery stop outcomes.';
     END IF;
 
     -- 2. Check Stop Sequence (REQ-DEL-03)
@@ -195,7 +195,7 @@ BEGIN
 
     IF v_pending_earlier_stops > 0 THEN
       SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Violation REQ-DEL-03: Route stop sequence violation. Preceding stops must be attempted before advancing.';
+        SET MESSAGE_TEXT = 'Violation: Route stop sequence violation. Preceding stops must be attempted before advancing.';
     END IF;
 
   END IF;
