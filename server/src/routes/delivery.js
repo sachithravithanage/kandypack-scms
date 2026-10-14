@@ -432,28 +432,17 @@ router.put('/schedule/:truckScheduleId/complete', requireAuth, requireRole([1, 2
  */
 router.get(['/driver-runs', '/assigned-runs'], requireAuth, async (req, res) => {
   try {
-    // Customers (Role 6) cannot view delivery runs
-    if (req.user.roleId === 6) {
-      return res.status(403).json({ error: 'Customers are not authorized to view delivery runs.' });
-    }
-
-    const { driverId, date } = req.query;
-    let sql = `SELECT * FROM v_driver_assigned_runs WHERE 1=1`;
-    const params = [];
-
     const roleId = req.user?.role_id || req.user?.roleId;
     const currentUserId = req.user?.user_id || req.user?.userId;
 
-    // Strict role-based isolation:
-    // Drivers (role 4) and Assistants (role 5) can ONLY see runs they are assigned to.
-    if (roleId === 4 || roleId === 5) {
-      sql += ' AND (driver_id = ? OR assistant_id = ?)';
-      params.push(currentUserId, currentUserId);
-    } else if (driverId) {
-      // Admins (1) and Dispatchers (2) can optionally filter by driverId
-      sql += ' AND (driver_id = ? OR assistant_id = ?)';
-      params.push(driverId, driverId);
+    // Strict role guard: Delivery runs are only accessible to drivers and assistants
+    if (roleId !== 4 && roleId !== 5) {
+      return res.status(403).json({ error: 'Access denied: Delivery runs are only viewable by drivers and assistants.' });
     }
+
+    const { date } = req.query;
+    let sql = `SELECT * FROM v_driver_assigned_runs WHERE (driver_id = ? OR assistant_id = ?)`;
+    const params = [currentUserId, currentUserId];
 
     if (date) {
       sql += ' AND scheduled_date = ?';

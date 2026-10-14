@@ -71,7 +71,7 @@ function App() {
           <Route
             path="/roster"
             element={
-              <ProtectedRoute allowedRoles={[2]}>
+              <ProtectedRoute allowedRoles={[1, 2]}>
                 <RosterSchedule />
               </ProtectedRoute>
             }
@@ -79,7 +79,7 @@ function App() {
           <Route
             path="/delivery"
             element={
-              <ProtectedRoute allowedRoles={[2, 4, 5]}>
+              <ProtectedRoute allowedRoles={[4, 5]}>
                 <DriverDelivery />
               </ProtectedRoute>
             }
