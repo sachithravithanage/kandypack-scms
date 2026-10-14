@@ -68,8 +68,8 @@ function Login() {
   const testAccounts = [
     { label: "👑 Admin", email: "admin@kandypack.local" },
     { label: "📋 Dispatcher", email: "dispatcher@kandypack.local" },
-    { label: "🚚 Driver (Kamal)", email: "kamal.driver@kandypack.lk" },
-    { label: "🤝 Assistant (Bandara)", email: "bandara.asst@kandypack.lk" },
+    { label: "🚚 Driver", email: "kamal.driver@kandypack.lk" },
+    { label: "🤝 Assistant", email: "bandara.asst@kandypack.lk" },
     { label: "🏬 Store Mgr", email: "manager@kandypack.local" },
     { label: "🛒 Customer", email: "waruni.rathnayake@kandypack.lk" },
   ];
