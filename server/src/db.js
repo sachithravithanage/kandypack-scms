@@ -39,6 +39,7 @@ if (isTiDb && (!password || password === 'KandyPackLocalDb2026!')) {
 
 const defaultPort = isTiDb ? 4000 : 3306;
 const defaultUser = isTiDb ? '3RMV7RtvWn5FFds.root' : 'root';
+const timezone = process.env.DB_TIMEZONE || '+05:30';
 
 const poolConfig = {
   host,
@@ -49,10 +50,20 @@ const poolConfig = {
   connectTimeout: 25000,
   waitForConnections: true,
   connectionLimit: 10,
+  timezone,
   ...(isTiDb ? { ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: false } } : {})
 };
 
 pool = mysql.createPool(poolConfig);
+
+// Keep database session timezone aligned with Sri Lanka Standard Time (+05:30)
+pool.on('connection', (connection) => {
+  connection.query(`SET time_zone = '${timezone}'`, (err) => {
+    if (err) {
+      console.warn('[DB] Warning setting session time_zone:', err.message);
+    }
+  });
+});
 
 // In-Memory Seed Store (Dual-Mode Fallback when Cloud DB is unreachable)
 const defaultPasswordHash = '$2b$10$374Bl.tHpkS2hhlC.2wbNebqy7YMV3f/u6ayVmCI3VVEdHurSIa2O'; // password123
