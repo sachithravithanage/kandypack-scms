@@ -113,16 +113,62 @@ app.listen(PORT, async () => {
     await db.query(
       "UPDATE `user` SET name = 'Sunil Jayawardena' WHERE (user_id = 4 OR email = 'driver@kandypack.local') AND name IN ('Driver', 'Commercial Driver')"
     );
+
+    // Synchronize Assistants (Role 5)
     await db.query(
-      "UPDATE `user` SET name = 'Kamal Silva' WHERE (user_id = 5 OR email = 'assistant@kandypack.local') AND name IN ('Assistant', 'Delivery Assistant')"
+      "UPDATE `user` SET name = 'Kamal Silva', email = 'kamal.silva@kandypack.lk', role_id = 5 WHERE user_id = 5 OR email = 'assistant@kandypack.local'"
     );
     await db.query(
-      "UPDATE `user` SET name = 'Waruni Rathnayake', email = 'waruni.rathnayake@kandypack.lk' WHERE user_id = 9 OR email IN ('customer1@kandypack.local', 'waruni@gmail.com') OR name LIKE 'Sample Customer%'"
+      "UPDATE `user` SET name = 'Bandara Weerakoon', email = 'bandara.asst@kandypack.lk', role_id = 5 WHERE user_id = 7 OR email = 'bandara.asst@kandypack.lk'"
     );
     await db.query(
-      "UPDATE `user` SET name = 'Dilshan Wickramasinghe', email = 'dilshan.wickramasinghe@kandypack.lk' WHERE user_id = 999 OR email = 'shop@test.com' OR name LIKE 'Test Shop%'"
+      "UPDATE `user` SET name = 'Chinthaka Dias', email = 'chinthaka.asst@kandypack.lk', role_id = 5 WHERE user_id = 8 OR email = 'chinthaka.asst@kandypack.lk'"
     );
-    console.log("[DB] Administrator, Dispatcher, Store Manager, Driver, Assistant & Customer real names and emails synchronized");
+
+    // CRITICAL: Purge any non-assistants from the assistant table
+    await db.query(
+      "DELETE FROM assistant WHERE user_id IN (SELECT user_id FROM `user` WHERE role_id != 5)"
+    );
+
+    // Ensure valid assistants exist in employee and assistant tables
+    await db.query("INSERT IGNORE INTO employee (user_id) VALUES (5), (7), (8)");
+    await db.query("INSERT IGNORE INTO assistant (user_id) VALUES (5), (7), (8)");
+
+    // Seed New Verified Customers (Role 6)
+    const defaultPasswordHash = "$2b$10$8YbzSmXtzLPkGNKmzR1TWuyI5QGO/958PvY5lGVBGjKH1BTpMbY/e"; // password123
+    const newCustomers = [
+      { name: 'Waruni Rathnayake', email: 'waruni.rathnayake@kandypack.lk', phone: '+94771234501', address: '15 Temple Road, Colombo 03', city_id: 1 },
+      { name: 'Dilshan Wickramasinghe', email: 'dilshan.wickramasinghe@kandypack.lk', phone: '+94771234502', address: '44 Galle Road, Mount Lavinia', city_id: 1 },
+      { name: 'Saman Kumara', email: 'saman.kumara@kandypack.lk', phone: '+94771234503', address: '78 Kandy Road, Negombo', city_id: 2 },
+      { name: 'Anura Jayasinghe', email: 'anura.jayasinghe@kandypack.lk', phone: '+94771234504', address: '12 Fort Cross Street, Galle', city_id: 3 },
+      { name: 'Nirosha Perera', email: 'nirosha.perera@kandypack.lk', phone: '+94771234505', address: '29 Beach Way, Matara', city_id: 4 },
+      { name: 'Kavindi Dissanayake', email: 'kavindi.dissanayake@kandypack.lk', phone: '+94771234506', address: '101 Hospital Road, Jaffna', city_id: 5 },
+      { name: 'Tharindu Wijesinghe', email: 'tharindu.wijesinghe@kandypack.lk', phone: '+94771234507', address: '56 Harbour View, Trincomalee', city_id: 6 }
+    ];
+
+    for (const c of newCustomers) {
+      const [existing] = await db.query("SELECT user_id FROM `user` WHERE email = ?", [c.email]);
+      let uid;
+      if (existing.length === 0) {
+        const [ins] = await db.query(
+          "INSERT INTO `user` (name, email, password_hash, role_id, phone, is_active) VALUES (?, ?, ?, 6, ?, 1)",
+          [c.name, c.email, defaultPasswordHash, c.phone]
+        );
+        uid = ins.insertId;
+      } else {
+        uid = existing[0].user_id;
+        await db.query(
+          "UPDATE `user` SET name = ?, role_id = 6, phone = ?, is_active = 1 WHERE user_id = ?",
+          [c.name, c.phone, uid]
+        );
+      }
+      await db.query(
+        "INSERT INTO customer (user_id, phone, address, city_id) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE phone = VALUES(phone), address = VALUES(address), city_id = VALUES(city_id)",
+        [uid, c.phone, c.address, c.city_id]
+      );
+    }
+
+    console.log("[DB] Assistants cleaned up, real names restored, and new customers synchronized successfully");
   } catch (err) {
     console.warn("[DB] Startup user sync note:", err.message);
   }

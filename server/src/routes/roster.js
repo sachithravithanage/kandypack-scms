@@ -37,6 +37,7 @@ router.get('/metadata', requireAuth, async (req, res) => {
       SELECT d.user_id, u.name, d.license_number, u.email, NULL AS phone
       FROM driver d
       JOIN \`user\` u ON d.user_id = u.user_id
+      WHERE u.role_id = 4 AND u.is_active = TRUE
       ORDER BY u.name ASC
     `);
 
@@ -44,6 +45,7 @@ router.get('/metadata', requireAuth, async (req, res) => {
       SELECT a.user_id, u.name, u.email, NULL AS phone
       FROM assistant a
       JOIN \`user\` u ON a.user_id = u.user_id
+      WHERE u.role_id = 5 AND u.is_active = TRUE
       ORDER BY u.name ASC
     `);
 
