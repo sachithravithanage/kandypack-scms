@@ -74,7 +74,7 @@ function DriverDelivery() {
   const [failureReason, setFailureReason] = useState("Customer unavailable / uncontactable");
   const [failureDetail, setFailureDetail] = useState("");
 
-  // Attempted modal state (REQ-DEL-03)
+  // Attempted modal state
   const [attemptedModalStop, setAttemptedModalStop] = useState(null);
   const [attemptedReason, setAttemptedReason] = useState("Customer phone unanswered / Gate closed");
   const [attemptedDetail, setAttemptedDetail] = useState("");
@@ -128,7 +128,7 @@ function DriverDelivery() {
     }
   }, []);
 
-  // 2. Load selected run details & stop sequence (REQ-DEL-01)
+  // 2. Load selected run details & stop sequence
   const loadScheduleDetails = useCallback(async (scheduleId) => {
     if (!scheduleId) return;
     try {
@@ -175,7 +175,7 @@ function DriverDelivery() {
     }
   }, [selectedScheduleId, loadScheduleDetails]);
 
-  // REQ-DEL-02: Confirm pickup from store
+  // Confirm pickup from store
   const handleConfirmPickup = async () => {
     if (!selectedScheduleId) return;
     try {
@@ -198,7 +198,7 @@ function DriverDelivery() {
     }
   };
 
-  // REQ-DEL-03 & REQ-DEL-05: Record Delivery Success with recipient note / proof
+  // Record Delivery Success with recipient note / proof
   const handleConfirmDelivery = async () => {
     if (!deliveryModalStop) return;
     const currentStop = deliveryModalStop;
@@ -230,7 +230,7 @@ function DriverDelivery() {
     }
   };
 
-  // REQ-DEL-04: Record Delivery Failure and Auto Re-queue
+  // Record Delivery Failure and Auto Re-queue
   const handleMarkFailed = async () => {
     if (!failureModalStop) return;
     const currentStop = failureModalStop;
@@ -271,7 +271,7 @@ function DriverDelivery() {
     }
   };
 
-  // REQ-DEL-03: Record Delivery Attempted (Customer contacted / Door knocked, order stays on truck)
+  // Record Delivery Attempted (Customer contacted / Door knocked, order stays on truck)
   const handleMarkAttempted = async () => {
     if (!attemptedModalStop) return;
     const currentStop = attemptedModalStop;
@@ -342,7 +342,7 @@ function DriverDelivery() {
     }
   };
 
-  // REQ-DEL-01 & REQ-SCHED-04: Complete Run & Log Working Hours
+  // Complete Run & Log Working Hours
   const handleCompleteRun = async () => {
     if (!selectedScheduleId) return;
     if (!window.confirm("Complete this delivery run and log actual working hours into the Roster Log?")) {
@@ -506,7 +506,7 @@ function DriverDelivery() {
           </div>
         </div>
 
-        {/* Run Status & Pickup Banner (REQ-DEL-02) */}
+        {/* Run Status & Pickup Banner */}
         <div className="col-lg-8">
           {activeRun ? (
             <div className="kp-card h-100 d-flex flex-column justify-content-between">
@@ -576,7 +576,7 @@ function DriverDelivery() {
                   </div>
                 )}
 
-                {/* REQ-DEL-02 Store Pickup Banner */}
+                {/* Store Pickup Banner */}
                 {activeRun.status === "Completed" ? (
                   <div className="p-2.5 my-2 border border-success rounded bg-success-subtle text-success small d-flex align-items-center">
                     <IconCheck size={18} className="me-2 text-success flex-shrink-0" />
@@ -617,7 +617,7 @@ function DriverDelivery() {
                 )}
               </div>
 
-              {/* Run Actions (REQ-DEL-01 & In-Route Assistance) */}
+              {/* Run Actions (In-Route Assistance) */}
               {isPickupConfirmed && activeRun.status !== "Completed" && canExecuteActions && (
                 <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-3 flex-wrap gap-2">
                   <button
@@ -664,7 +664,7 @@ function DriverDelivery() {
         </div>
       </div>
 
-      {/* Stop Execution Sequence (REQ-DEL-01, REQ-DEL-03, REQ-DEL-04, REQ-DEL-05) */}
+      {/* Stop Execution Sequence */}
       {activeRun && (
         <div className="kp-card">
           <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -906,7 +906,7 @@ function DriverDelivery() {
         </div>
       )}
 
-      {/* REQ-DEL-03: Delivery Confirmation & Recipient Modal */}
+      {/* Delivery Confirmation & Recipient Modal */}
       {deliveryModalStop && (
         <div
           className="modal d-block"
@@ -972,7 +972,7 @@ function DriverDelivery() {
         </div>
       )}
 
-      {/* Failure Reason Modal (REQ-DEL-04) */}
+      {/* Failure Reason Modal */}
       {failureModalStop && (
         <div
           className="modal d-block"
@@ -1056,7 +1056,7 @@ function DriverDelivery() {
         </div>
       )}
 
-      {/* Attempted Reason Modal (REQ-DEL-03) */}
+      {/* Attempted Reason Modal */}
       {attemptedModalStop && (
         <div
           className="modal d-block"

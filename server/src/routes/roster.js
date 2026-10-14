@@ -219,7 +219,7 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/roster - Create a truck schedule with all 6 business rule checks (REQ-SCHED-01 to 06)
+// POST /api/roster - Create a truck schedule with all business rule checks
 router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
   try {
     const actorUserId = req.user ? (req.user.userId || req.user.user_id) : 1;
@@ -264,7 +264,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
 
     if (diffDays < 7) {
       violations.push({
-        code: 'REQ-SCHED-06',
+        code: 'ADVANCE_NOTICE',
         rule: '7-Day Advance Notice',
         message: `Roster must be created at least 7 days before the run date. Selected date is ${diffDays} day(s) from today.`
       });
@@ -297,7 +297,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
       }
 
       violations.push({
-        code: 'REQ-SCHED-01',
+        code: 'NO_DOUBLE_BOOKING',
         rule: 'No Double-Booking',
         message: reason
       });
@@ -339,7 +339,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
 
       if (gapHours < minRestHours) {
         violations.push({
-          code: 'REQ-SCHED-02',
+          code: 'DRIVER_REST_GAP',
           rule: 'Driver No Consecutive Routes',
           message: `Drivers cannot run 2 consecutive routes without at least ${minRestHours} hours rest between shifts. Gap to run #${run.truck_schedule_id} is only ${gapHours.toFixed(1)}h.`
         });
@@ -361,7 +361,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
     const runHours = durationMins / 60.0;
     if (driverCurrentHours + runHours > 40) {
       violations.push({
-        code: 'REQ-SCHED-04',
+        code: 'DRIVER_HOURS_CAP',
         rule: 'Driver 40h Weekly Cap',
         message: `Driver has ${driverCurrentHours.toFixed(1)}h scheduled this week. Adding ${runHours.toFixed(1)}h exceeds the 40-hour weekly cap.`
       });
@@ -376,7 +376,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
     const assistantCurrentHours = parseFloat(assistantHoursRows[0].total || 0);
     if (assistantCurrentHours + runHours > 60) {
       violations.push({
-        code: 'REQ-SCHED-04',
+        code: 'ASSISTANT_HOURS_CAP',
         rule: 'Assistant 60h Weekly Cap',
         message: `Assistant has ${assistantCurrentHours.toFixed(1)}h scheduled this week. Adding ${runHours.toFixed(1)}h exceeds the 60-hour weekly cap.`
       });
@@ -421,7 +421,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
 
     if (maxConsecutive > 2) {
       violations.push({
-        code: 'REQ-SCHED-03',
+        code: 'ASSISTANT_CONSECUTIVE_ROUTES',
         rule: 'Assistant Max Consecutive Routes',
         message: `Assistants cannot run for more than 2 consecutive routes without a mandatory rest break (${minRestHours}h). Current schedule creates a chain of ${maxConsecutive} consecutive routes.`
       });
@@ -461,9 +461,9 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
       ]
     );
 
-    // Log Dispatcher Override to audit_log (REQ-SCHED-05)
+    // Log Dispatcher Override to audit_log
     if (violations.length > 0 && overrideJustification) {
-      const violationSummary = violations.map(v => `[${v.code}: ${v.message}]`).join('; ');
+      const violationSummary = violations.map(v => `[${v.rule}: ${v.message}]`).join('; ');
       const auditDetails = `Justification: "${overrideJustification}". Overrode: ${violationSummary}`;
 
       try {
@@ -489,7 +489,7 @@ router.post('/', requireAuth, requireRole([1, 2]), async (req, res) => {
   }
 });
 
-// PUT /api/roster/:id/override - Dispatcher Override standalone endpoint (REQ-SCHED-05)
+// PUT /api/roster/:id/override - Dispatcher Override standalone endpoint
 router.put('/:id/override', requireAuth, requireRole([1, 2]), async (req, res) => {
   try {
     const actorUserId = req.user?.user_id || req.user?.userId || 1;

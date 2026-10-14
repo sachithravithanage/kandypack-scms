@@ -369,7 +369,7 @@ function StoreDailyDispatch() {
                                 </div>
                         </div>
 
-                        {/* Suggested Truck Fleet Requirements (REQ-STORE-04, REQ-STORE-05) */}
+                        {/* Suggested Truck Fleet Requirements */}
                         {suggestions.length > 0 && (
                                 <div className="kp-card mb-4" style={{ borderLeft: "4px solid var(--color-warning-text, #f0a202)" }}>
                                         <div className="d-flex align-items-center mb-2">

@@ -70,7 +70,7 @@ function DispatcherTrainLoading() {
 		allocation: null,
 	});
 
-	// Shortfall modal / state (REQ-RAIL-07)
+	// Shortfall modal / state
 	const [shortfallModal, setShortfallModal] = useState({
 		show: false,
 		allocationId: null,
@@ -321,7 +321,7 @@ function DispatcherTrainLoading() {
 		await executeAllocation(targetItem, false);
 	};
 
-	// Loading status changes (REQ-RAIL-06)
+	// Loading status changes
 	const handleStatusChange = async (allocationId, newStatus) => {
 		setError("");
 		setSuccess("");
@@ -363,7 +363,7 @@ function DispatcherTrainLoading() {
 		}
 	};
 
-	// Shortfall submit (REQ-RAIL-07)
+	// Shortfall submit
 	const handleShortfallSubmit = async (e) => {
 		e.preventDefault();
 		const unloaded = Number(shortfallModal.unloadedQuantity);
@@ -1287,7 +1287,7 @@ function DispatcherTrainLoading() {
 				</div>
 			)}
 
-			{/* MODAL 2: SHORTFALL REQUEUE (REQ-RAIL-07) */}
+			{/* MODAL 2: SHORTFALL REQUEUE */}
 			{shortfallModal.show && (
 				<div
 					className="modal show d-block"

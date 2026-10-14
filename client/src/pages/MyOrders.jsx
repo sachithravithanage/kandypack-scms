@@ -361,7 +361,7 @@ function MyOrders() {
     return () => clearTimeout(timer);
   }, [successMsg]);
 
-  // REQ-ORD-07: Customer confirms receipt (Delivered -> Closed)
+  // Customer confirms receipt (Delivered -> Closed)
   const handleConfirmReceipt = async (orderId) => {
     if (!window.confirm("Confirm receipt of order #" + orderId + "? This will close the order.")) return;
     try {
@@ -379,7 +379,7 @@ function MyOrders() {
     }
   };
 
-  // REQ-ORD-06: Customer cancels order (only while status is 'Placed')
+  // Customer cancels order (only while status is 'Placed')
   const handleCancelOrder = async (orderId) => {
     if (!window.confirm(`Are you sure you want to cancel order #${orderId}? Stock will be restored to inventory.`)) return;
     try {
@@ -410,7 +410,7 @@ function MyOrders() {
     setEditError("");
   };
 
-  // REQ-ORD-06 & REQ-ORD-02: Save Edit (Address / Delivery Date >= 7 days)
+  // Save Edit (Address / Delivery Date >= 7 days)
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!editingOrder) return;
@@ -673,7 +673,7 @@ function MyOrders() {
                   </div>
                 </div>
 
-                {/* Stepper Progress Bar (REQ-ORD-05 lifecycle) */}
+                {/* Stepper Progress Bar */}
                 {!isCancelled ? (
                   <div className="py-3 border-bottom">
                     <div className="d-flex justify-content-between align-items-center position-relative px-2">
@@ -894,7 +894,7 @@ function MyOrders() {
                       <span>Invoice (PDF)</span>
                     </button>
 
-                    {/* REQ-ORD-07 Confirm receipt button */}
+                    {/* Confirm receipt button */}
                     {isDelivered && (
                       <button
                         className="btn btn-sm btn-success d-inline-flex align-items-center gap-1 fw-bold px-3"
@@ -906,7 +906,7 @@ function MyOrders() {
                       </button>
                     )}
 
-                    {/* REQ-ORD-06 Placed-only actions: Edit & Cancel */}
+                    {/* Placed-only actions: Edit & Cancel */}
                     {isPlaced && (
                       <>
                         <button
